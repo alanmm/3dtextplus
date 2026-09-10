@@ -44,7 +44,9 @@ TP_OBJ  := $(patsubst third_party/%.c,build/obj/tp/%.o,$(TP_C))
 OBJ     := $(SRC_OBJ) $(TP_OBJ)
 RES     := build/obj/screensaver.res
 
-EMBED_INPUTS := shaders/model.vert shaders/model.frag
+EMBED_INPUTS := shaders/model.vert shaders/model.frag shaders/fullscreen.vert \
+                shaders/post_bright.frag shaders/post_down.frag shaders/post_up.frag \
+                shaders/post_composite.frag
 EMBEDDED_H   := generated/embedded.h
 
 MAX_BYTES := 3145728

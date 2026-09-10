@@ -41,10 +41,6 @@ vec3 proc_env(vec3 d)
     return col;
 }
 
-/* joelho suave: identidade perto de 0, comprime realces (evita estouro do reflexo).
-   Tonemap "de verdade" vem no pos-processamento (Fase 4). */
-vec3 knee(vec3 c) { return c * (1.0 + c * 0.25) / (1.0 + c); }
-
 vec3 sample_env(vec3 d, float rough)
 {
     vec3 e;
@@ -107,7 +103,7 @@ void main()
         float kd = max(dot(N, -KEY_DIR), 0.0);
         col = mix(col, base * (0.2 + 0.8 * kd), (1.0 - uMetalness) * 0.5);
         if (vSurf > 1.5 && vSurf < 2.5) col *= 0.9;
-        fragColor = vec4(knee(col), 1.0);
+        fragColor = vec4(col, 1.0);
         return;
     }
     if (uMode == 2) {                         // vidro (passe transparente)
@@ -117,7 +113,7 @@ void main()
         vec3 col  = mix(refr, env, m);
         vec3 H = normalize(-KEY_DIR + V);
         col += vec3(1.0) * pow(max(dot(N, H), 0.0), 120.0);
-        fragColor = vec4(knee(col), mix(0.35, 0.95, m));
+        fragColor = vec4(col, mix(0.35, 0.95, m));
         return;
     }
     if (uMode == 3) {                         // fosco
@@ -125,7 +121,7 @@ void main()
         vec3 col = base * (0.15 + 0.85 * w * w);
         col += base * max(dot(N, -FILL_DIR), 0.0) * 0.20;
         if (vSurf > 1.5) col *= 0.82;
-        fragColor = vec4(knee(col), 1.0);
+        fragColor = vec4(col, 1.0);
         return;
     }
 
@@ -137,5 +133,5 @@ void main()
     col += vec3(1.0) * pow(max(dot(N, H), 0.0), 96.0) * 0.85;
     col += vec3(0.55, 0.68, 0.95) * pow(1.0 - max(dot(N, V), 0.0), 3.0) * 0.35;
     if (vSurf > 1.5 && vSurf < 2.5) col *= 0.92;
-    fragColor = vec4(knee(col), 1.0);
+    fragColor = vec4(col, 1.0);
 }
