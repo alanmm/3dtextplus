@@ -1,12 +1,16 @@
 #include "host_win32.h"
 #include "gl_core.h"
+#include "scene.h"
 #include "util/log.h"
 
 #include <windowsx.h>
 #include <glad/gl.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <string.h>
 #include <math.h>
+
+#include "stb_image_write.h"
 
 /* ---------- constantes WGL ARB (nao estao no <glad/gl.h>) ---------- */
 #define WGL_CONTEXT_MAJOR_VERSION_ARB     0x2091
@@ -31,7 +35,7 @@ static PFN_wglCreateContextAttribsARB p_wglCreateContextAttribsARB;
 static PFN_wglChoosePixelFormatARB    p_wglChoosePixelFormatARB;
 static PFN_wglSwapIntervalEXT         p_wglSwapIntervalEXT;
 
-typedef struct { HWND hwnd; HDC dc; HGLRC rc; int w, h; } GlWindow;
+typedef struct { HWND hwnd; HDC dc; HGLRC rc; int w, h; SceneRenderer *scene; } GlWindow;
 
 /* ------------------------------------------------------------------ */
 
@@ -184,32 +188,37 @@ static int gl_window_create(HINSTANCE hInst, GlWindow *g, DWORD style, DWORD exs
 
     RECT cr; GetClientRect(g->hwnd, &cr);
     g->w = cr.right; g->h = cr.bottom;
+
+    g->scene = scene_create();
+    if (!g->scene) log_errorf("scene_create falhou (%ls)", cls);
     return 1;
 }
 
 static void gl_window_destroy(GlWindow *g)
 {
-    if (g->rc) { wglMakeCurrent(NULL, NULL); wglDeleteContext(g->rc); }
+    if (g->rc) {
+        wglMakeCurrent(g->dc, g->rc);
+        if (g->scene) { scene_destroy(g->scene); g->scene = NULL; }
+        wglMakeCurrent(NULL, NULL);
+        wglDeleteContext(g->rc);
+    }
     if (g->dc && g->hwnd) ReleaseDC(g->hwnd, g->dc);
     if (g->hwnd) DestroyWindow(g->hwnd);
     memset(g, 0, sizeof *g);
 }
 
-static void gl_render_clear(GlWindow *g, double t)
+static void gl_window_frame(GlWindow *g, double t)
 {
     wglMakeCurrent(g->dc, g->rc);
-    glViewport(0, 0, g->w, g->h);
-
-    double hue = fmod(t * 0.05, 1.0);
-    double r  = fabs(hue * 6.0 - 3.0) - 1.0;
-    double gg = 2.0 - fabs(hue * 6.0 - 2.0);
-    double b  = 2.0 - fabs(hue * 6.0 - 4.0);
-    #define M3DT_SAT(x) ((x) < 0.0 ? 0.0 : ((x) > 1.0 ? 1.0 : (x)))
-    glClearColor((float)(M3DT_SAT(r) * 0.15), (float)(M3DT_SAT(gg) * 0.15),
-                 (float)(M3DT_SAT(b) * 0.15), 1.0f);
-    #undef M3DT_SAT
-
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    RECT cr; GetClientRect(g->hwnd, &cr);
+    g->w = cr.right; g->h = cr.bottom;
+    if (g->scene) {
+        scene_render(g->scene, t, g->w, g->h);
+    } else {
+        glViewport(0, 0, g->w, g->h);
+        glClearColor(0.10f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+    }
     SwapBuffers(g->dc);
 }
 
@@ -301,6 +310,9 @@ int host_run_saver(HINSTANCE hInst)
     if (!selftest) ShowCursor(FALSE);
     SetForegroundWindow(win[0].hwnd);
 
+    char shot[MAX_PATH]; shot[0] = 0;
+    GetEnvironmentVariableA("M3DT_SHOT", shot, sizeof shot);
+
     timeBeginPeriod(1);
     LARGE_INTEGER freq, start;
     QueryPerformanceFrequency(&freq);
@@ -316,9 +328,31 @@ int host_run_saver(HINSTANCE hInst)
         }
         LARGE_INTEGER now; QueryPerformanceCounter(&now);
         double t = (double)(now.QuadPart - start.QuadPart) / (double)freq.QuadPart;
-        for (int i = 0; i < nwin; ++i) gl_render_clear(&win[i], t);
+        for (int i = 0; i < nwin; ++i) gl_window_frame(&win[i], t);
         Sleep(1);
-        if (selftest && ++frame >= 90) request_quit();
+        ++frame;
+
+        if (shot[0] && frame == 60) {
+            /* renderiza uma pose conhecida (t com angulo ~0) para a captura */
+            double shot_t = 2.25;
+            char stbuf[16];
+            if (GetEnvironmentVariableA("M3DT_SHOT_T", stbuf, sizeof stbuf) > 0)
+                shot_t = atof(stbuf);
+            wglMakeCurrent(win[0].dc, win[0].rc);
+            if (win[0].scene) scene_render(win[0].scene, shot_t, win[0].w, win[0].h);
+            int W = win[0].w, H = win[0].h;
+            unsigned char *px = (unsigned char *)malloc((size_t)W * H * 3);
+            if (px) {
+                glPixelStorei(GL_PACK_ALIGNMENT, 1);
+                glReadPixels(0, 0, W, H, GL_RGB, GL_UNSIGNED_BYTE, px);
+                stbi_flip_vertically_on_write(1);
+                stbi_write_png(shot, W, H, 3, px, W * 3);
+                free(px);
+                log_infof("shot salvo em %s (%dx%d, t=%.2f)", shot, W, H, shot_t);
+            }
+            request_quit();
+        }
+        if (selftest && frame >= 90) request_quit();
     }
 
     timeEndPeriod(1);
@@ -365,7 +399,7 @@ int host_run_preview(HINSTANCE hInst, HWND parent)
 
         LARGE_INTEGER now; QueryPerformanceCounter(&now);
         double t = (double)(now.QuadPart - start.QuadPart) / (double)freq.QuadPart;
-        gl_render_clear(&g, t);
+        gl_window_frame(&g, t);
         Sleep(16);
     }
 
