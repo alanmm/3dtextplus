@@ -93,9 +93,9 @@ config: debug
 
 TEST_SRC   := build/tests/test_main.c build/tests/test_cmdline.c build/tests/test_log.c \
               build/tests/test_mathx.c build/tests/test_font_outline.c \
-              build/tests/test_contour_mesh.c
+              build/tests/test_contour_mesh.c build/tests/test_config.c
 TEST_UNITS := src/cmdline.c src/util/log.c src/util/mathx.c \
-              src/geometry/font_outline.c src/geometry/contour_mesh.c
+              src/geometry/font_outline.c src/geometry/contour_mesh.c src/config.c
 TEST_INC   := -Isrc -Ithird_party -Ithird_party/libtess2/Include -Ibuild/tests
 LIBTESS_C  := $(wildcard third_party/libtess2/Source/*.c)
 
@@ -112,7 +112,7 @@ build/obj/test/stb_impl.o: src/geometry/stb_impl.c
 test: build/obj/test/stb_impl.o $(LIBTESS_TEST_OBJ)
 	$(CC) -std=c11 -Wall -Wextra $(TEST_INC) \
 	  $(TEST_SRC) $(TEST_UNITS) $^ \
-	  -o build/obj/run_tests.exe -lm -lgdi32 -luser32
+	  -o build/obj/run_tests.exe -lm -lgdi32 -luser32 -ladvapi32
 	./build/obj/run_tests.exe
 
 clean:
