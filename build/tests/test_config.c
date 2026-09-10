@@ -53,6 +53,9 @@ void run_config_tests(void)
     a.msaa = 8;
     a.render_scale = 0.75f;
     a.auto_quality = 0;
+    a.streaks_mode = 2;
+    a.streaks_intensity = 1.4f;
+    a.streaks_length = 0.8f;
     config_save_to(&a, TESTKEY);
 
     Config b;
@@ -85,6 +88,9 @@ void run_config_tests(void)
     EXPECT(b.msaa == 8);
     EXPECT(nearf(b.render_scale, 0.75f));
     EXPECT(b.auto_quality == 0);
+    EXPECT(b.streaks_mode == 2);
+    EXPECT(nearf(b.streaks_intensity, 1.4f));
+    EXPECT(nearf(b.streaks_length, 0.8f));
     EXPECT(b.version == 2);
 
     /* valor ausente -> default; fora de faixa -> clamp; lixo -> default */
@@ -125,8 +131,10 @@ void run_config_tests(void)
         struct { const wchar_t *n, *v; } kv[] = {
             { L"fps_cap", L"999" }, { L"msaa", L"7" }, { L"render_scale", L"3.0" },
             { L"vsync", L"5" }, { L"auto_quality", L"0" },
+            { L"streaks_mode", L"9" }, { L"streaks_intensity", L"-1" },
+            { L"streaks_length", L"5" },
         };
-        for (int i = 0; i < 5; ++i)
+        for (int i = 0; i < 8; ++i)
             RegSetValueExW(kp, kv[i].n, 0, REG_SZ, (const BYTE *)kv[i].v,
                            (DWORD)((wcslen(kv[i].v) + 1) * sizeof(wchar_t)));
         RegCloseKey(kp);
@@ -138,6 +146,9 @@ void run_config_tests(void)
     EXPECT(nearf(e.render_scale, 1.0f));       /* 3.0 -> clamp 1.0 */
     EXPECT(e.vsync == 1);                      /* 5 -> 1 */
     EXPECT(e.auto_quality == 0);
+    EXPECT(e.streaks_mode == 0);                /* 9 -> fora de 0..2 -> 0 */
+    EXPECT(e.streaks_intensity >= 0.0f);        /* -1 -> clamp */
+    EXPECT(e.streaks_length <= 1.0f);           /* 5 -> clamp */
 
     RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
 }

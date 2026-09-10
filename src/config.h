@@ -36,6 +36,9 @@ typedef struct {
     int          msaa;                 /* 0 | 2 | 4 | 8 */
     float        render_scale;         /* 0.5 .. 1.0 */
     int          auto_quality;         /* 0/1 */
+    int          streaks_mode;         /* 0 desligado | 1 starburst | 2 anamorfico */
+    float        streaks_intensity;    /* 0 .. 2.0 */
+    float        streaks_length;       /* 0 .. 1 (escala o passo do blur) */
 } Config;
 
 void config_defaults(Config *c);

@@ -44,6 +44,9 @@ void config_defaults(Config *c)
     c->msaa = 4;
     c->render_scale = 1.0f;
     c->auto_quality = 1;
+    c->streaks_mode = 0;
+    c->streaks_intensity = 0.5f;
+    c->streaks_length = 0.5f;
 }
 
 static float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
@@ -150,6 +153,9 @@ void config_load_from(Config *c, const wchar_t *subkey)
     reg_get_i(k, L"msaa", &c->msaa);
     reg_get_i(k, L"auto_quality", &c->auto_quality);
     if (reg_get_f(k, L"render_scale", &f)) c->render_scale = f;
+    reg_get_i(k, L"streaks_mode", &c->streaks_mode);
+    if (reg_get_f(k, L"streaks_intensity", &f)) c->streaks_intensity = f;
+    if (reg_get_f(k, L"streaks_length", &f))    c->streaks_length = f;
 
     wchar_t col[16];
     if (reg_get_w(k, L"base_color", col, 16) && col[0] == L'#' && wcslen(col) >= 7) {
@@ -194,6 +200,9 @@ void config_load_from(Config *c, const wchar_t *subkey)
     c->vsync = c->vsync ? 1 : 0;
     c->auto_quality = c->auto_quality ? 1 : 0;
     c->render_scale = clampf(c->render_scale, 0.5f, 1.0f);
+    if (c->streaks_mode < 0 || c->streaks_mode > 2) c->streaks_mode = 0;
+    c->streaks_intensity = clampf(c->streaks_intensity, 0.0f, 2.0f);
+    c->streaks_length = clampf(c->streaks_length, 0.0f, 1.0f);
     if (c->text[0] == 0) strcpy(c->text, "Modern 3D Text");
     if (c->font_family[0] == 0) wcscpy(c->font_family, L"Segoe UI");
 }
@@ -240,6 +249,9 @@ void config_save_to(const Config *c, const wchar_t *subkey)
     set_f(k, L"msaa", (float)c->msaa);
     set_f(k, L"render_scale", c->render_scale);
     set_f(k, L"auto_quality", (float)c->auto_quality);
+    set_f(k, L"streaks_mode", (float)c->streaks_mode);
+    set_f(k, L"streaks_intensity", c->streaks_intensity);
+    set_f(k, L"streaks_length", c->streaks_length);
 
     wchar_t col[16];
     unsigned r = (unsigned)(c->base_r * 255.0f + 0.5f);
