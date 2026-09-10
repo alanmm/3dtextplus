@@ -17,6 +17,7 @@ GlWindow *gl_window_create(HINSTANCE hInst, DWORD style, DWORD exstyle, HWND par
 
 void  gl_window_frame(GlWindow *g, double t);          /* render 1 frame + SwapBuffers */
 void  gl_window_set_config(GlWindow *g, const Config *cfg);
+int   gl_window_vsync(const GlWindow *g);              /* 0/1 efetivo */
 void  gl_window_size(const GlWindow *g, int *w, int *h);
 HWND  gl_window_hwnd(const GlWindow *g);
 HDC   gl_window_dc(const GlWindow *g);

@@ -297,6 +297,7 @@ HWND  gl_window_hwnd(const GlWindow *g) { return g->hwnd; }
 HDC   gl_window_dc(const GlWindow *g)   { return g->dc; }
 HGLRC gl_window_rc(const GlWindow *g)   { return g->rc; }
 void  gl_window_make_current(const GlWindow *g) { wglMakeCurrent(g->dc, g->rc); }
+int   gl_window_vsync(const GlWindow *g) { return g->vsync; }
 
 void gl_window_destroy(GlWindow *g)
 {

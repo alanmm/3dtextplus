@@ -102,8 +102,15 @@ int host_run_saver(HINSTANCE hInst)
     if (!selftest) ShowCursor(FALSE);
     SetForegroundWindow(gl_window_hwnd(win[0]));
 
+    log_infof("saver: fps_cap=%d vsync=%d msaa=%d render_scale=%.2f auto_quality=%d",
+              cfg.fps_cap, cfg.vsync, cfg.msaa, (double)cfg.render_scale, cfg.auto_quality);
+
     char shot[MAX_PATH]; shot[0] = 0;
     GetEnvironmentVariableA("M3DT_SHOT", shot, sizeof shot);
+
+    /* teto de frame: fps_cap 0 => sem alvo (deixa o vsync/loop mandar).
+       nao busca precisao de vsync; so evita fritar a GPU quando o vsync esta off. */
+    const double frame_ms = cfg.fps_cap > 0 ? 1000.0 / (double)cfg.fps_cap : 0.0;
 
     timeBeginPeriod(1);
     LARGE_INTEGER freq, start;
@@ -112,6 +119,7 @@ int host_run_saver(HINSTANCE hInst)
 
     long frame = 0;
     while (!g_quit) {
+        LARGE_INTEGER iter_start; QueryPerformanceCounter(&iter_start);
         MSG msg;
         while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
             if (msg.message == WM_QUIT) request_quit();
@@ -121,8 +129,17 @@ int host_run_saver(HINSTANCE hInst)
         LARGE_INTEGER now; QueryPerformanceCounter(&now);
         double t = (double)(now.QuadPart - start.QuadPart) / (double)freq.QuadPart;
         for (int i = 0; i < nwin; ++i) gl_window_frame(win[i], t);
-        Sleep(1);
         ++frame;
+
+        if (frame_ms > 0.0) {
+            LARGE_INTEGER e; QueryPerformanceCounter(&e);
+            double used = (double)(e.QuadPart - iter_start.QuadPart) * 1000.0 / (double)freq.QuadPart;
+            double rest = frame_ms - used;
+            if (rest > 1.5) Sleep((DWORD)(rest - 0.5));
+            else Sleep(0);
+        } else {
+            Sleep(1);
+        }
 
         if (shot[0] && frame == 60) {
             double shot_t = 2.25;
