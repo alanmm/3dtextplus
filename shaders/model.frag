@@ -4,8 +4,10 @@ in vec3  vNrm;
 in vec3  vNrmLocal;
 in float vSurf;
 in vec2  vLocalXY;
+in float vLocalZ;
 
 uniform mat4  uModel;
+uniform float uHalfDepth;
 uniform vec3  uCamPos;
 uniform vec3  uBaseColor;
 uniform int   uMode;         // 0 classico, 1 metalico, 2 vidro, 3 fosco
@@ -60,21 +62,33 @@ vec3 sample_env(vec3 d, float rough)
 void main()
 {
     vec3 Nl = normalize(vNrmLocal);
-    // bevel sombreado: so nas tampas (surf 0 frente / 1 verso), so com SDF
-    if (uBevelMode == 0 && uBevelSize > 1e-4 && vSurf < 1.5) {
+    if (uBevelMode == 0 && uBevelSize > 1e-4) {
         vec2 uv = (vLocalXY - uSdfMin) / uSdfSize;
         vec3 s = texture(uSdf, uv).rgb;
-        float dist = s.r;                                   // < 0 dentro
-        float band = clamp(-dist / uBevelSize, 0.0, 1.0);   // 0 na borda, 1 fundo
         vec2 g = s.gb;
         float gl = length(g);
-        if (band < 1.0 && gl > 1e-4) {
-            g /= gl;
-            float zside = (vSurf < 0.5) ? 1.0 : -1.0;
-            vec3 edgeN = normalize(vec3(g * 1.7, zside));   // chanfro ~60 graus
-            float tt = 1.0 - band;
-            tt = sqrt(tt);                                  // concentra o efeito na borda
-            Nl = normalize(mix(vec3(0.0, 0.0, zside), edgeN, tt));
+
+        if (vSurf < 1.5 && gl > 1e-4) {
+            // tampa: inclina a normal da face rumo a direcao da borda (gradiente do SDF)
+            float band = clamp(-s.r / uBevelSize, 0.0, 1.0);
+            if (band < 1.0) {
+                g /= gl;
+                float zside = (vSurf < 0.5) ? 1.0 : -1.0;
+                vec3 edgeN = normalize(vec3(g * 1.7, zside));
+                float tt = sqrt(1.0 - band);
+                Nl = normalize(mix(vec3(0.0, 0.0, zside), edgeN, tt));
+            }
+        } else if (vSurf > 1.5 && vSurf < 2.5 && gl > 1e-4) {
+            // parede: perto da tampa, inclina a normal rumo a +/-Z (fecha o quarto-de-circulo)
+            float edgeDist = uHalfDepth - abs(vLocalZ);
+            float wt = clamp(1.0 - edgeDist / uBevelSize, 0.0, 1.0);
+            if (wt > 0.0) {
+                g /= gl;
+                float zside = sign(vLocalZ);
+                vec3 wallN = normalize(vec3(g, 0.0));
+                vec3 edgeN = normalize(vec3(g * 1.7, zside));
+                Nl = normalize(mix(wallN, edgeN, wt * wt));
+            }
         }
     }
 

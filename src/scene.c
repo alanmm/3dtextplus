@@ -208,7 +208,7 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h)
 
     material_begin(&s->mat, view, proj, eye, s->base_color);
     material_set_style(&s->mat, s->material_mode, s->metalness, s->roughness, s->env_tex);
-    material_set_bevel(&s->mat, s->bevel_mode, s->bevel_size,
+    material_set_bevel(&s->mat, s->bevel_mode, s->bevel_size, s->hz,
                        (v2){ s->sdf_min_x, s->sdf_min_y },
                        (v2){ s->sdf_size_x, s->sdf_size_y }, s->has_sdf ? s->sdf_tex : 0);
     material_set_model(&s->mat, model);

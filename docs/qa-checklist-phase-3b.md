@@ -40,11 +40,22 @@ Buildar (shell do w64devkit, na raiz): `mingw32-make -f build/Makefile`
       abaixo de ~150 ms.
 - [ ] 100 / 150 / 200 % DPI: aba Geometria sem corte (é a aba mais cheia).
 
+## Melhorias pós-review (mesma fase)
+
+- [x] **MSAA** ligado (8x/4x/2x conforme a GPU, no framebuffer padrão — o MSAA
+      em FBO HDR do §8.2 ainda é a Fase 4). Bordas suaves.
+- [x] Bevel **sombreado**: a normal da parede também é inclinada perto da tampa,
+      fechando o quarto-de-círculo — a faixa da tampa "encosta" na parede.
+- [x] Bevel **geométrico**: normais corrigidas pela orientação do contorno (fontes
+      têm winding horário — a normal estava invertida, quebrando o reflexo); perfil
+      passou a ser **faceta plana de ~45°** ("corte marceneiro"), não bullnose;
+      `bevel_size` padrão reduzido para 0.035.
+
 ## Notas conhecidas (fases posteriores)
 
-- Bevel **sombreado**: a silhueta continua uma quina reta (o SDF só inclina a normal
-  das faces). O micro-bevel geométrico suaviza um pouco. Aceito para screensaver
-  visto ~de frente.
+- Bevel **sombreado**: a silhueta continua uma quina reta (o SDF só inclina as
+  normais). O micro-bevel geométrico + a inclinação da parede suavizam. Aceito
+  para screensaver visto ~de frente.
 - Bevel **geométrico**: usa **outset** do contorno (robusto em cantos côncavos, ao
   contrário do inset do spec §5.5). Letra fica ~`bevel_size` maior.
 - Casca oca: um offset só; auto-interseção em traço fino → shell pulado naquela peça.

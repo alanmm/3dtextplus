@@ -12,6 +12,7 @@ out vec3  vNrm;       // normal em espaco de mundo
 out vec3  vNrmLocal;  // normal em espaco local (para o bevel via SDF)
 out float vSurf;
 out vec2  vLocalXY;   // posicao local no plano do contorno
+out float vLocalZ;    // z local (para a juncao bevel<->parede)
 
 void main()
 {
@@ -21,5 +22,6 @@ void main()
     vNrmLocal = aNrm;
     vSurf = aSurf;
     vLocalXY = aPos.xy;
+    vLocalZ = aPos.z;
     gl_Position = uProj * uView * w;
 }

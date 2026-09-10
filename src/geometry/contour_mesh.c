@@ -49,6 +49,16 @@ static float signed_area_pts(const v2 *p, int n)
 }
 static float signed_area(const Contour *c) { return signed_area_pts(c->pts, c->count); }
 
+/* normal da aresta a->b apontando para FORA da forma (ccw = contorno anti-horario) */
+static v2 edge_outN(v2 a, v2 b, int ccw)
+{
+    float ex = b.x - a.x, ey = b.y - a.y;
+    float l = sqrtf(ex * ex + ey * ey);
+    if (l < 1e-9f) return (v2){ 0.0f, 0.0f };
+    ex /= l; ey /= l;
+    return ccw ? (v2){ ey, -ex } : (v2){ -ey, ex };
+}
+
 /* offset de `c` para o interior por `d`. `inward_left` = 1 se o interior fica a
    esquerda das arestas (contorno CCW). Fallback ao ponto original quando o miter
    estoura. Escreve `c->count` pontos em `out`. */
@@ -205,10 +215,9 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
                 int j = (i + 1) % co->count;
                 v2 o0 = os[i], o1 = os[j];
                 v2 c0 = co->pts[i], c1 = co->pts[j];
-                float ex = o1.x - o0.x, ey = o1.y - o0.y;
-                float el = sqrtf(ex * ex + ey * ey);
-                if (el < 1e-9f) continue;
-                float nx = ey / el, ny = -ex / el;
+                v2 on = edge_outN(o0, o1, ccw);
+                if (on.x == 0.0f && on.y == 0.0f) continue;
+                float nx = on.x, ny = on.y;
 
                 unsigned w = (unsigned)vb.n;
                 vpush(&vb, (MeshVertex){ o0.x, o0.y,  wall_z, nx, ny, 0, 2 });
@@ -217,26 +226,31 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
                 vpush(&vb, (MeshVertex){ o0.x, o0.y, -wall_z, nx, ny, 0, 2 });
                 quad(&ib, w + 0, w + 1, w + 2, w + 3);
 
+                /* faceta plana (corte 45 graus): de (c @ hz) a (outset @ hz-bd).
+                   Normal constante = para fora + para cima, ortogonal a faceta. */
+                float run = sqrtf((o0.x - c0.x) * (o0.x - c0.x) + (o0.y - c0.y) * (o0.y - c0.y));
+                float fl = sqrtf(run * run + bd * bd);
+                float fnx = 0.0f, fny = 0.0f, fnz = 1.0f;
+                if (fl > 1e-6f) { fnx = nx * (bd / fl); fny = ny * (bd / fl); fnz = run / fl; }
+
                 for (int k = 0; k < segs; ++k) {
-                    float a0 = (float)k / (float)segs * 1.5707963f;
-                    float a1 = (float)(k + 1) / (float)segs * 1.5707963f;
-                    float s0 = sinf(a0), s1 = sinf(a1), cn0 = cosf(a0), cn1 = cosf(a1);
-                    float z0 = hz - bd * (1.0f - cn0), z1 = hz - bd * (1.0f - cn1);
-                    v2 A0 = { c0.x + (o0.x - c0.x) * s0, c0.y + (o0.y - c0.y) * s0 };
-                    v2 B0 = { c1.x + (o1.x - c1.x) * s0, c1.y + (o1.y - c1.y) * s0 };
-                    v2 A1 = { c0.x + (o0.x - c0.x) * s1, c0.y + (o0.y - c0.y) * s1 };
-                    v2 B1 = { c1.x + (o1.x - c1.x) * s1, c1.y + (o1.y - c1.y) * s1 };
+                    float u0 = (float)k / (float)segs, u1 = (float)(k + 1) / (float)segs;
+                    float z0 = hz - bd * u0, z1 = hz - bd * u1;
+                    v2 A0 = { c0.x + (o0.x - c0.x) * u0, c0.y + (o0.y - c0.y) * u0 };
+                    v2 B0 = { c1.x + (o1.x - c1.x) * u0, c1.y + (o1.y - c1.y) * u0 };
+                    v2 A1 = { c0.x + (o0.x - c0.x) * u1, c0.y + (o0.y - c0.y) * u1 };
+                    v2 B1 = { c1.x + (o1.x - c1.x) * u1, c1.y + (o1.y - c1.y) * u1 };
                     unsigned f = (unsigned)vb.n;
-                    vpush(&vb, (MeshVertex){ A0.x, A0.y,  z0, nx * s0, ny * s0,  cn0, 3 });
-                    vpush(&vb, (MeshVertex){ B0.x, B0.y,  z0, nx * s0, ny * s0,  cn0, 3 });
-                    vpush(&vb, (MeshVertex){ B1.x, B1.y,  z1, nx * s1, ny * s1,  cn1, 3 });
-                    vpush(&vb, (MeshVertex){ A1.x, A1.y,  z1, nx * s1, ny * s1,  cn1, 3 });
+                    vpush(&vb, (MeshVertex){ A0.x, A0.y,  z0, fnx, fny,  fnz, 3 });
+                    vpush(&vb, (MeshVertex){ B0.x, B0.y,  z0, fnx, fny,  fnz, 3 });
+                    vpush(&vb, (MeshVertex){ B1.x, B1.y,  z1, fnx, fny,  fnz, 3 });
+                    vpush(&vb, (MeshVertex){ A1.x, A1.y,  z1, fnx, fny,  fnz, 3 });
                     quad(&ib, f + 0, f + 1, f + 2, f + 3);
                     unsigned b = (unsigned)vb.n;
-                    vpush(&vb, (MeshVertex){ A1.x, A1.y, -z1, nx * s1, ny * s1, -cn1, 3 });
-                    vpush(&vb, (MeshVertex){ B1.x, B1.y, -z1, nx * s1, ny * s1, -cn1, 3 });
-                    vpush(&vb, (MeshVertex){ B0.x, B0.y, -z0, nx * s0, ny * s0, -cn0, 3 });
-                    vpush(&vb, (MeshVertex){ A0.x, A0.y, -z0, nx * s0, ny * s0, -cn0, 3 });
+                    vpush(&vb, (MeshVertex){ A1.x, A1.y, -z1, fnx, fny, -fnz, 3 });
+                    vpush(&vb, (MeshVertex){ B1.x, B1.y, -z1, fnx, fny, -fnz, 3 });
+                    vpush(&vb, (MeshVertex){ B0.x, B0.y, -z0, fnx, fny, -fnz, 3 });
+                    vpush(&vb, (MeshVertex){ A0.x, A0.y, -z0, fnx, fny, -fnz, 3 });
                     quad(&ib, b + 0, b + 1, b + 2, b + 3);
                 }
             }
@@ -260,10 +274,9 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
         for (int i = 0; i < co->count; ++i) {
             int j = (i + 1) % co->count;
             v2 a0 = co->pts[i], a1 = co->pts[j];
-            float ex = a1.x - a0.x, ey = a1.y - a0.y;
-            float el = sqrtf(ex * ex + ey * ey);
-            if (el < 1e-9f) continue;
-            float nx = ey / el, ny = -ex / el;   /* normal da aresta */
+            v2 on = edge_outN(a0, a1, ccw);
+            if (on.x == 0.0f && on.y == 0.0f) continue;
+            float nx = on.x, ny = on.y;
 
             /* parede: a0/a1 de +cap_z a -cap_z */
             unsigned w = (unsigned)vb.n;

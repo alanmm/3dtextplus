@@ -22,6 +22,12 @@
 #define WGL_COLOR_BITS_ARB      0x2014
 #define WGL_DEPTH_BITS_ARB      0x2022
 #define WGL_STENCIL_BITS_ARB    0x2023
+#define WGL_SAMPLE_BUFFERS_ARB  0x2041
+#define WGL_SAMPLES_ARB         0x2042
+
+#ifndef GL_MULTISAMPLE
+#define GL_MULTISAMPLE 0x809D
+#endif
 
 typedef HGLRC(WINAPI *PFN_wglCreateContextAttribsARB)(HDC, HGLRC, const int *);
 typedef BOOL (WINAPI *PFN_wglChoosePixelFormatARB)(HDC, const int *, const FLOAT *, UINT, int *, UINT *);
@@ -128,19 +134,25 @@ GlWindow *gl_window_create(HINSTANCE hInst, DWORD style, DWORD exstyle, HWND par
 
     int pf = 0;
     if (p_wglChoosePixelFormatARB) {
-        const int attribs[] = {
-            WGL_DRAW_TO_WINDOW_ARB, 1,
-            WGL_SUPPORT_OPENGL_ARB, 1,
-            WGL_DOUBLE_BUFFER_ARB,  1,
-            WGL_PIXEL_TYPE_ARB,     WGL_TYPE_RGBA_ARB,
-            WGL_COLOR_BITS_ARB,     32,
-            WGL_DEPTH_BITS_ARB,     24,
-            WGL_STENCIL_BITS_ARB,   8,
-            0
-        };
-        UINT n = 0;
-        p_wglChoosePixelFormatARB(g->dc, attribs, NULL, 1, &pf, &n);
-        if (n == 0) pf = 0;
+        int msaa[] = { 8, 4, 2, 0 };
+        for (int mi = 0; mi < 4 && pf == 0; ++mi) {
+            const int attribs[] = {
+                WGL_DRAW_TO_WINDOW_ARB, 1,
+                WGL_SUPPORT_OPENGL_ARB, 1,
+                WGL_DOUBLE_BUFFER_ARB,  1,
+                WGL_PIXEL_TYPE_ARB,     WGL_TYPE_RGBA_ARB,
+                WGL_COLOR_BITS_ARB,     32,
+                WGL_DEPTH_BITS_ARB,     24,
+                WGL_STENCIL_BITS_ARB,   8,
+                WGL_SAMPLE_BUFFERS_ARB, msaa[mi] ? 1 : 0,
+                WGL_SAMPLES_ARB,        msaa[mi],
+                0
+            };
+            UINT n = 0;
+            p_wglChoosePixelFormatARB(g->dc, attribs, NULL, 1, &pf, &n);
+            if (n == 0) pf = 0;
+            else if (msaa[mi]) log_infof("MSAA %dx", msaa[mi]);
+        }
     }
     if (!pf) {
         PIXELFORMATDESCRIPTOR pfd;
@@ -183,6 +195,7 @@ GlWindow *gl_window_create(HINSTANCE hInst, DWORD style, DWORD exstyle, HWND par
     if (p_wglSwapIntervalEXT) p_wglSwapIntervalEXT(1);
 
     if (!gl_load()) log_errorf("gl_load falhou");
+    glEnable(GL_MULTISAMPLE);
 
     static bool logged_gl = false;
     if (!logged_gl) {

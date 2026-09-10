@@ -28,8 +28,8 @@ void config_defaults(Config *c)
     c->roughness = 0.25f;
     c->env_path[0] = 0;
     c->bevel_mode = 0;
-    c->bevel_size = 0.05f;
-    c->bevel_depth = 0.04f;
+    c->bevel_size = 0.035f;
+    c->bevel_depth = 0.035f;
     c->bevel_segments = 4;
     c->shell = 0;
     c->wall_thickness = 0.06f;
