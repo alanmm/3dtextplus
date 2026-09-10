@@ -89,7 +89,7 @@ int host_run_saver(HINSTANCE hInst)
         wchar_t cls[32]; wsprintfW(cls, L"M3DTSaver%d", i);
         GlWindow *g = gl_window_create(hInst, style, exstyle, NULL,
                                        r.left, r.top, r.right - r.left, r.bottom - r.top,
-                                       cls, saver_wndproc, &cfg);
+                                       cls, saver_wndproc, &cfg, 0);
         if (g) {
             if (!selftest)
                 SetWindowPos(gl_window_hwnd(g), HWND_TOPMOST, r.left, r.top,
@@ -166,7 +166,7 @@ int host_run_preview(HINSTANCE hInst, HWND parent)
 
     RECT pr; GetClientRect(parent, &pr);
     GlWindow *g = gl_window_create(hInst, WS_CHILD | WS_VISIBLE, 0, parent,
-                                   0, 0, pr.right, pr.bottom, L"M3DTPreview", DefWindowProcW, &cfg);
+                                   0, 0, pr.right, pr.bottom, L"M3DTPreview", DefWindowProcW, &cfg, 1);
     if (!g) return 1;
 
     LARGE_INTEGER freq, start;

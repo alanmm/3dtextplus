@@ -1,6 +1,7 @@
 #include "gl_window.h"
 #include "gl_core.h"
 #include "scene.h"
+#include "post.h"
 #include "util/log.h"
 
 #include <glad/gl.h>
@@ -43,6 +44,9 @@ struct GlWindow {
     HGLRC rc;
     int   w, h;
     SceneRenderer *scene;
+    Post *post;
+    PostParams post_params;
+    int   preview;
 };
 
 /* ------------------------------------------------------------------ */
@@ -112,10 +116,11 @@ void gl_window_global_init(HINSTANCE hInst)
 
 GlWindow *gl_window_create(HINSTANCE hInst, DWORD style, DWORD exstyle, HWND parent,
                            int x, int y, int w, int h, const wchar_t *cls, WNDPROC proc,
-                           const Config *cfg)
+                           const Config *cfg, int preview)
 {
     GlWindow *g = (GlWindow *)calloc(1, sizeof *g);
     if (!g) return NULL;
+    g->preview = preview;
 
     WNDCLASSW wc;
     memset(&wc, 0, sizeof wc);
@@ -134,25 +139,19 @@ GlWindow *gl_window_create(HINSTANCE hInst, DWORD style, DWORD exstyle, HWND par
 
     int pf = 0;
     if (p_wglChoosePixelFormatARB) {
-        int msaa[] = { 8, 4, 2, 0 };
-        for (int mi = 0; mi < 4 && pf == 0; ++mi) {
-            const int attribs[] = {
-                WGL_DRAW_TO_WINDOW_ARB, 1,
-                WGL_SUPPORT_OPENGL_ARB, 1,
-                WGL_DOUBLE_BUFFER_ARB,  1,
-                WGL_PIXEL_TYPE_ARB,     WGL_TYPE_RGBA_ARB,
-                WGL_COLOR_BITS_ARB,     32,
-                WGL_DEPTH_BITS_ARB,     24,
-                WGL_STENCIL_BITS_ARB,   8,
-                WGL_SAMPLE_BUFFERS_ARB, msaa[mi] ? 1 : 0,
-                WGL_SAMPLES_ARB,        msaa[mi],
-                0
-            };
-            UINT n = 0;
-            p_wglChoosePixelFormatARB(g->dc, attribs, NULL, 1, &pf, &n);
-            if (n == 0) pf = 0;
-            else if (msaa[mi]) log_infof("MSAA %dx", msaa[mi]);
-        }
+        const int attribs[] = {
+            WGL_DRAW_TO_WINDOW_ARB, 1,
+            WGL_SUPPORT_OPENGL_ARB, 1,
+            WGL_DOUBLE_BUFFER_ARB,  1,
+            WGL_PIXEL_TYPE_ARB,     WGL_TYPE_RGBA_ARB,
+            WGL_COLOR_BITS_ARB,     32,
+            WGL_DEPTH_BITS_ARB,     24,
+            WGL_STENCIL_BITS_ARB,   8,
+            0
+        };
+        UINT n = 0;
+        p_wglChoosePixelFormatARB(g->dc, attribs, NULL, 1, &pf, &n);
+        if (n == 0) pf = 0;
     }
     if (!pf) {
         PIXELFORMATDESCRIPTOR pfd;
@@ -195,7 +194,7 @@ GlWindow *gl_window_create(HINSTANCE hInst, DWORD style, DWORD exstyle, HWND par
     if (p_wglSwapIntervalEXT) p_wglSwapIntervalEXT(1);
 
     if (!gl_load()) log_errorf("gl_load falhou");
-    glEnable(GL_MULTISAMPLE);
+    glEnable(GL_MULTISAMPLE);   /* efetivo nos FBOs MSAA do pos-processamento */
 
     static bool logged_gl = false;
     if (!logged_gl) {
@@ -209,9 +208,24 @@ GlWindow *gl_window_create(HINSTANCE hInst, DWORD style, DWORD exstyle, HWND par
     RECT cr; GetClientRect(g->hwnd, &cr);
     g->w = cr.right; g->h = cr.bottom;
 
+    g->post = post_create();
+    if (!g->post) log_errorf("post_create falhou");
+    if (cfg) gl_window_set_config(g, cfg);
+    else { g->post_params.bloom = 1; g->post_params.threshold = 1.05f;
+           g->post_params.intensity = 0.6f; g->post_params.radius = 0.55f; }
+
     g->scene = scene_create(cfg);
     if (!g->scene) log_errorf("scene_create falhou (%ls)", cls);
     return g;
+}
+
+static PostParams frame_post_params(const GlWindow *g)
+{
+    PostParams pr = g->post_params;
+    if (g->preview) pr.bloom = 0;              /* /p e fallback: so resolve + tonemap */
+    else if (!g->post_params.bloom) pr.bloom = 0;
+    else pr.bloom = 1;
+    return pr;
 }
 
 void gl_window_frame(GlWindow *g, double t)
@@ -219,13 +233,12 @@ void gl_window_frame(GlWindow *g, double t)
     wglMakeCurrent(g->dc, g->rc);
     RECT cr; GetClientRect(g->hwnd, &cr);
     g->w = cr.right; g->h = cr.bottom;
-    if (g->scene) {
-        scene_render(g->scene, t, g->w, g->h);
-    } else {
-        glViewport(0, 0, g->w, g->h);
-        glClearColor(0.10f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-    }
+
+    post_begin(g->post, g->w, g->h);
+    if (g->scene) scene_render(g->scene, t, g->w, g->h);
+    else { glClearColor(0.10f, 0.0f, 0.0f, 1.0f); glClear(GL_COLOR_BUFFER_BIT); }
+    post_present(g->post, g->w, g->h, frame_post_params(g));
+
     SwapBuffers(g->dc);
 }
 
@@ -234,11 +247,18 @@ void gl_window_render_scene_at(GlWindow *g, double t)
     wglMakeCurrent(g->dc, g->rc);
     RECT cr; GetClientRect(g->hwnd, &cr);
     g->w = cr.right; g->h = cr.bottom;
+
+    post_begin(g->post, g->w, g->h);
     if (g->scene) scene_render(g->scene, t, g->w, g->h);
+    post_present(g->post, g->w, g->h, frame_post_params(g));
 }
 
 void gl_window_set_config(GlWindow *g, const Config *cfg)
 {
+    g->post_params.bloom     = cfg->bloom_on;
+    g->post_params.threshold = cfg->bloom_threshold;
+    g->post_params.intensity = cfg->bloom_intensity;
+    g->post_params.radius    = cfg->bloom_radius;
     if (!g->scene) return;
     wglMakeCurrent(g->dc, g->rc);
     scene_set_config(g->scene, cfg);
@@ -256,6 +276,7 @@ void gl_window_destroy(GlWindow *g)
     if (g->rc) {
         wglMakeCurrent(g->dc, g->rc);
         if (g->scene) { scene_destroy(g->scene); g->scene = NULL; }
+        if (g->post)  { post_destroy(g->post);  g->post  = NULL; }
         wglMakeCurrent(NULL, NULL);
         wglDeleteContext(g->rc);
     }

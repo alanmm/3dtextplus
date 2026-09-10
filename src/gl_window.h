@@ -13,7 +13,7 @@ void gl_window_global_init(HINSTANCE hInst);
    a partir de `cfg`. NULL em falha. */
 GlWindow *gl_window_create(HINSTANCE hInst, DWORD style, DWORD exstyle, HWND parent,
                            int x, int y, int w, int h, const wchar_t *cls, WNDPROC proc,
-                           const Config *cfg);
+                           const Config *cfg, int preview);
 
 void  gl_window_frame(GlWindow *g, double t);          /* render 1 frame + SwapBuffers */
 void  gl_window_set_config(GlWindow *g, const Config *cfg);

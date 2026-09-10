@@ -367,7 +367,7 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                 RECT pr; GetClientRect(ph, &pr);
                 g_preview = gl_window_create(GetModuleHandleW(NULL), WS_CHILD | WS_VISIBLE, 0, ph,
                                              0, 0, pr.right, pr.bottom, L"M3DTCfgPreview",
-                                             DefWindowProcW, &g_work);
+                                             DefWindowProcW, &g_work, 0);
             }
             QueryPerformanceFrequency(&g_pfreq);
             QueryPerformanceCounter(&g_pstart);
