@@ -81,11 +81,9 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h)
     float tanY = tanf(fovy * 0.5f);
     float tanX = tanY * aspect;
 
-    /* enquadra: bbox ocupa ~82% de cada eixo, mais folga para o giro */
-    const float fill = 0.82f;
-    float swing = m3dt_radians(SC_MAXANGLE);
-    float reach = s->hx * cosf(swing) + s->hz * fabsf(sinf(swing));   /* extensao ao girar */
-    float distX = reach / (tanX * fill);
+    /* enquadra a bbox em ~60% de cada eixo (folga para o pendulo + perspectiva) */
+    const float fill = 0.60f;
+    float distX = s->hx / (tanX * fill);
     float distY = s->hy / (tanY * fill);
     float dist = fmaxf(distX, distY) + s->hz + 0.5f;
 
