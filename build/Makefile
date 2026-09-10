@@ -32,7 +32,8 @@ LIBS    := -lopengl32 -lgdi32 -luser32 -lkernel32 -lcomdlg32 -lcomctl32 \
            -lshell32 -lole32 -ladvapi32 -ldwmapi -lwinmm
 
 SRC_C := src/main.c src/cmdline.c src/util/log.c src/util/mathx.c src/gl_core.c \
-         src/host_win32.c src/config_dialog.c
+         src/host_win32.c src/config_dialog.c \
+         src/geometry/font_outline.c src/geometry/stb_impl.c
 TP_C  := third_party/glad/src/gl.c
 
 SRC_OBJ := $(patsubst src/%.c,build/obj/src/%.o,$(SRC_C))
@@ -64,6 +65,11 @@ build/obj/src/%.o: src/%.c $(EMBEDDED_H)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+# stb single-header implementation: nao aplicar -Wall/-Wextra (codigo de terceiros)
+build/obj/src/geometry/stb_impl.o: src/geometry/stb_impl.c
+	@mkdir -p $(dir $@)
+	$(CC) $(filter-out -Wall -Wextra,$(CFLAGS)) -w -c $< -o $@
+
 build/obj/tp/%.o: third_party/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -w -c $< -o $@
@@ -85,13 +91,16 @@ config: debug
 	./$(OUT) /c
 
 TEST_SRC   := build/tests/test_main.c build/tests/test_cmdline.c build/tests/test_log.c \
-              build/tests/test_mathx.c
-TEST_UNITS := src/cmdline.c src/util/log.c src/util/mathx.c
+              build/tests/test_mathx.c build/tests/test_font_outline.c
+TEST_UNITS := src/cmdline.c src/util/log.c src/util/mathx.c src/geometry/font_outline.c
+TEST_INC   := -Isrc -Ithird_party -Ibuild/tests
 
 test:
-	@mkdir -p build/obj
-	$(CC) -std=c11 -Wall -Wextra -Isrc -Ithird_party -Ibuild/tests \
-	  $(TEST_SRC) $(TEST_UNITS) -o build/obj/run_tests.exe -lm
+	@mkdir -p build/obj/test
+	$(CC) -std=c11 -w -Isrc -Ithird_party -c src/geometry/stb_impl.c -o build/obj/test/stb_impl.o
+	$(CC) -std=c11 -Wall -Wextra $(TEST_INC) \
+	  $(TEST_SRC) $(TEST_UNITS) build/obj/test/stb_impl.o \
+	  -o build/obj/run_tests.exe -lm -lgdi32 -luser32
 	./build/obj/run_tests.exe
 
 clean:
