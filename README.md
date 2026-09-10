@@ -3,17 +3,20 @@
 Reescrita moderna do screensaver clássico "Texto 3D" do Windows. Nativo,
 leve, OpenGL 3.3.
 
-**Status:** Fase 4a — render **HDR** (alvo RGBA16F multisample) + **bloom**
-(pirâmide de mips com bright-pass e upsample tent) + **tonemap ACES** filmic, com
-a aba **Efeitos** na config (ligar/desligar bloom, limiar, intensidade,
-espalhamento). O modo preview (`/p` do painel) roda só resolve + tonemap, sem
-bloom. Antes: **bevel** (sombreado por SDF / geométrico / desligado) + micro-bevel
-+ **casca oca** (aba Geometria); 4 materiais com ambiente refletido (procedural +
-imagem equiretangular opcional); configuração pelo registro
-(`HKCU\Software\Modern3DText`) + diálogo Win32 com abas
-**Conteúdo / Movimento / Material / Geometria / Efeitos** e mini-preview 3D ao
-vivo; texto 3D extrudado (fonte → contornos → tampa + paredes) e pêndulo limitado
-das fases 2a/2b.
+**Status:** Fase 4b — **níveis de qualidade** (cheio / reduzido, com detecção de
+GPU de software / WARP / RDP e override `M3DT_FORCE_TIER`), **escala de render**
+(renderiza numa fração da resolução e faz upscale no passe final), **VSync** e
+**limite de FPS** configuráveis, e **qualidade automática**: mede o tempo de GPU
+por frame (`GL_TIME_ELAPSED`) e degrada em degraus com histerese
+(`bloom off → MSAA 4→2→0 → escala 1→0.75→0.5`) quando a GPU não sustenta ~45 fps.
+Aba **Desempenho** no diálogo. Antes: render **HDR** + **bloom** + **tonemap
+ACES** filmic com a aba Efeitos (4a); **bevel** (sombreado por SDF / geométrico /
+desligado) + micro-bevel + **casca oca** (aba Geometria); 4 materiais com
+ambiente refletido (procedural + imagem equiretangular opcional); configuração
+pelo registro (`HKCU\Software\Modern3DText`) + diálogo Win32 com abas
+**Conteúdo / Movimento / Material / Geometria / Efeitos / Desempenho** e
+mini-preview 3D ao vivo; texto 3D extrudado (fonte → contornos → tampa + paredes)
+e pêndulo limitado das fases 2a/2b.
 
 ![bloom ligado](docs/img/phase4a-bloom-on.png)
 
