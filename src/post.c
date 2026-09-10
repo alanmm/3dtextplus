@@ -11,11 +11,11 @@
 #define BLOOM_MIPS 6
 
 struct Post {
-    GlFbo hdr_ms;
-    GlFbo hdr;
+    GlFbo hdr_ms;                 /* alvo da cena quando ms_on; senao nao usado */
+    GlFbo hdr;                    /* single-sample: destino do resolve / alvo da cena */
     GlFbo bloom[BLOOM_MIPS];
     unsigned prog_bright, prog_down, prog_up, prog_comp;
-    int w, h, samples;
+    int in_w, in_h, samples, ms_on;
 };
 
 static unsigned prog(const unsigned char *fs)
@@ -42,37 +42,42 @@ Post *post_create(void)
     glUniform1i(glGetUniformLocation(p->prog_comp, "uScene"), 0);
     glUniform1i(glGetUniformLocation(p->prog_comp, "uBloom"), 1);
 
-    int mx = gl_max_samples();
-    p->samples = mx >= 4 ? 4 : (mx >= 2 ? 2 : 1);
     return p;
 }
 
-static void ensure_size(Post *p, int w, int h)
+static void ensure_size(Post *p, int w, int h, int samples)
 {
-    if (p->w == w && p->h == h && p->hdr_ms.fbo) return;
-    p->w = w; p->h = h;
+    int ms_on = samples >= 2;
+    if (p->in_w == w && p->in_h == h && p->samples == samples && p->hdr.fbo) return;
+    p->in_w = w; p->in_h = h; p->samples = samples; p->ms_on = ms_on;
 
     gl_fbo_free(&p->hdr_ms);
     gl_fbo_free(&p->hdr);
     for (int i = 0; i < BLOOM_MIPS; ++i) gl_fbo_free(&p->bloom[i]);
 
-    p->hdr_ms = gl_fbo_hdr_ms(w, h, p->samples);
-    p->hdr = gl_fbo_color16f(w, h, 0);
+    if (ms_on) {
+        p->hdr_ms = gl_fbo_hdr_ms(w, h, samples);   /* alvo da cena */
+        p->hdr = gl_fbo_color16f(w, h, 0);          /* destino do resolve */
+    } else {
+        p->hdr = gl_fbo_color16f(w, h, 1);          /* alvo da cena (com depth) */
+    }
     int mw = w, mh = h;
     for (int i = 0; i < BLOOM_MIPS; ++i) {
         mw = mw > 1 ? mw / 2 : 1;
         mh = mh > 1 ? mh / 2 : 1;
         p->bloom[i] = gl_fbo_r11f(mw, mh);
     }
-    if (!p->hdr_ms.fbo || !p->hdr.fbo) log_errorf("post: FBO HDR incompleto");
+    if (!p->hdr.fbo || (ms_on && !p->hdr_ms.fbo)) log_errorf("post: FBO HDR incompleto");
 }
 
-void post_begin(Post *p, int w, int h)
+void post_begin(Post *p, int in_w, int in_h, int samples)
 {
-    if (w < 1) w = 1;
-    if (h < 1) h = 1;
-    ensure_size(p, w, h);
-    gl_fbo_bind(&p->hdr_ms);
+    if (in_w < 1) in_w = 1;
+    if (in_h < 1) in_h = 1;
+    if (samples > 8) samples = 8;
+    if (samples < 0) samples = 0;
+    ensure_size(p, in_w, in_h, samples);
+    gl_fbo_bind(p->ms_on ? &p->hdr_ms : &p->hdr);
     glEnable(GL_DEPTH_TEST);
     glClearColor(0.02f, 0.03f, 0.05f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -84,11 +89,12 @@ static void set_texel(unsigned program, const GlFbo *src)
                 1.0f / (float)src->w, 1.0f / (float)src->h);
 }
 
-void post_present(Post *p, int w, int h, PostParams pr)
+void post_present(Post *p, int out_w, int out_h, PostParams pr)
 {
-    if (p->w != w || p->h != h) ensure_size(p, w, h);
+    if (out_w < 1) out_w = 1;
+    if (out_h < 1) out_h = 1;
 
-    gl_blit_resolve(&p->hdr_ms, &p->hdr);
+    if (p->ms_on) gl_blit_resolve(&p->hdr_ms, &p->hdr);   /* -> p->hdr (single-sample) */
 
     glDisable(GL_DEPTH_TEST);
     glActiveTexture(GL_TEXTURE0);
@@ -125,9 +131,9 @@ void post_present(Post *p, int w, int h, PostParams pr)
         glDisable(GL_BLEND);
     }
 
-    /* composicao -> framebuffer padrao */
+    /* composicao -> framebuffer padrao (faz upscale se in < out) */
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glViewport(0, 0, w, h);
+    glViewport(0, 0, out_w, out_h);
     glUseProgram(p->prog_comp);
     int has_bloom = (pr.bloom && pr.intensity > 1e-4f) ? 1 : 0;
     glUniform1i(glGetUniformLocation(p->prog_comp, "uHasBloom"), has_bloom);

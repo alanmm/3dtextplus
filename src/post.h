@@ -9,8 +9,8 @@ typedef struct {
 typedef struct Post Post;
 
 Post *post_create(void);
-void  post_begin(Post *p, int w, int h);                        /* redimensiona + liga o FBO HDR MSAA */
-void  post_present(Post *p, int w, int h, PostParams pr);       /* resolve + bloom + tonemap -> FB 0 */
+void  post_begin(Post *p, int in_w, int in_h, int samples);     /* redimensiona + liga o alvo da cena */
+void  post_present(Post *p, int out_w, int out_h, PostParams pr);/* resolve + bloom + tonemap -> FB 0 (upscale) */
 void  post_destroy(Post *p);
 
 #endif

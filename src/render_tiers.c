@@ -68,3 +68,43 @@ M3dtTier m3dt_tier_resolve(const char *gl_renderer)
               gl_renderer ? gl_renderer : "?");
     return t;
 }
+
+/* ---------------- qualidade efetiva ---------------- */
+
+static float minf(float a, float b) { return a < b ? a : b; }
+static int   mini(int a, int b)     { return a < b ? a : b; }
+
+int render_quality_ladder_len(M3dtTier tier)
+{
+    return tier == M3DT_TIER_REDUCED ? 1 : 7;
+}
+
+RenderQuality render_quality_for_step(const Config *cfg, M3dtTier tier, int step)
+{
+    int len = render_quality_ladder_len(tier);
+    if (step < 0) step = 0;
+    if (step > len - 1) step = len - 1;
+
+    RenderQuality q;
+    q.step = step;
+
+    if (tier == M3DT_TIER_REDUCED) {
+        q.bloom = 0;
+        q.msaa = mini(cfg->msaa, 2);
+        q.render_scale = minf(cfg->render_scale, 0.75f);
+        return q;
+    }
+
+    /* FULL: ladder de 7 passos.
+       0: topo  1: bloom off  2: msaa<=4  3: msaa<=2  4: msaa 0
+       5: scale<=0.75  6: scale 0.5 */
+    q.bloom = (step >= 1) ? 0 : 1;
+    q.msaa = cfg->msaa;
+    if (step >= 2) q.msaa = mini(q.msaa, 4);
+    if (step >= 3) q.msaa = mini(q.msaa, 2);
+    if (step >= 4) q.msaa = 0;
+    q.render_scale = cfg->render_scale;
+    if (step >= 5) q.render_scale = minf(q.render_scale, 0.75f);
+    if (step >= 6) q.render_scale = 0.5f;
+    return q;
+}

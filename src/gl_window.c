@@ -2,6 +2,7 @@
 #include "gl_core.h"
 #include "scene.h"
 #include "post.h"
+#include "render_tiers.h"
 #include "util/log.h"
 
 #include <glad/gl.h>
@@ -47,6 +48,9 @@ struct GlWindow {
     Post *post;
     PostParams post_params;
     int   preview;
+    M3dtTier      tier;
+    RenderQuality quality;
+    int   vsync;
 };
 
 /* ------------------------------------------------------------------ */
@@ -191,7 +195,8 @@ GlWindow *gl_window_create(HINSTANCE hInst, DWORD style, DWORD exstyle, HWND par
     }
 
     wglMakeCurrent(g->dc, g->rc);
-    if (p_wglSwapIntervalEXT) p_wglSwapIntervalEXT(1);
+    g->vsync = cfg ? (cfg->vsync ? 1 : 0) : 1;
+    if (p_wglSwapIntervalEXT) p_wglSwapIntervalEXT(g->vsync);
 
     if (!gl_load()) log_errorf("gl_load falhou");
     glEnable(GL_MULTISAMPLE);   /* efetivo nos FBOs MSAA do pos-processamento */
@@ -203,6 +208,16 @@ GlWindow *gl_window_create(HINSTANCE hInst, DWORD style, DWORD exstyle, HWND par
                   (const char *)glGetString(GL_VENDOR),
                   (const char *)glGetString(GL_RENDERER),
                   (const char *)glGetString(GL_VERSION));
+    }
+
+    /* nivel de qualidade: o mini-preview / o /p nao adaptam (tier FULL fixo) */
+    g->tier = g->preview ? M3DT_TIER_FULL
+                         : m3dt_tier_resolve((const char *)glGetString(GL_RENDERER));
+    {
+        Config tmp;
+        const Config *qc = cfg;
+        if (!qc) { config_defaults(&tmp); qc = &tmp; }
+        g->quality = render_quality_for_step(qc, g->tier, 0);
     }
 
     RECT cr; GetClientRect(g->hwnd, &cr);
@@ -219,38 +234,43 @@ GlWindow *gl_window_create(HINSTANCE hInst, DWORD style, DWORD exstyle, HWND par
     return g;
 }
 
-static PostParams frame_post_params(const GlWindow *g)
+/* Bloom efetivo: gate de qualidade (tier/ladder) AND toggle do usuario,
+   e nunca no modo preview. */
+static int frame_bloom(const GlWindow *g)
 {
+    if (g->preview) return 0;
+    return (g->quality.bloom && g->post_params.bloom) ? 1 : 0;
+}
+
+static void render_into_post(GlWindow *g, double t)
+{
+    RECT cr; GetClientRect(g->hwnd, &cr);
+    g->w = cr.right; g->h = cr.bottom;
+
+    RenderQuality q = g->quality;
+    int sw = (int)(g->w * q.render_scale + 0.5f); if (sw < 16) sw = 16;
+    int sh = (int)(g->h * q.render_scale + 0.5f); if (sh < 16) sh = 16;
+
+    post_begin(g->post, sw, sh, q.msaa);
+    if (g->scene) scene_render(g->scene, t, sw, sh);
+    else { glClearColor(0.10f, 0.0f, 0.0f, 1.0f); glClear(GL_COLOR_BUFFER_BIT); }
+
     PostParams pr = g->post_params;
-    if (g->preview) pr.bloom = 0;              /* /p e fallback: so resolve + tonemap */
-    else if (!g->post_params.bloom) pr.bloom = 0;
-    else pr.bloom = 1;
-    return pr;
+    pr.bloom = frame_bloom(g);
+    post_present(g->post, g->w, g->h, pr);
 }
 
 void gl_window_frame(GlWindow *g, double t)
 {
     wglMakeCurrent(g->dc, g->rc);
-    RECT cr; GetClientRect(g->hwnd, &cr);
-    g->w = cr.right; g->h = cr.bottom;
-
-    post_begin(g->post, g->w, g->h);
-    if (g->scene) scene_render(g->scene, t, g->w, g->h);
-    else { glClearColor(0.10f, 0.0f, 0.0f, 1.0f); glClear(GL_COLOR_BUFFER_BIT); }
-    post_present(g->post, g->w, g->h, frame_post_params(g));
-
+    render_into_post(g, t);
     SwapBuffers(g->dc);
 }
 
 void gl_window_render_scene_at(GlWindow *g, double t)
 {
     wglMakeCurrent(g->dc, g->rc);
-    RECT cr; GetClientRect(g->hwnd, &cr);
-    g->w = cr.right; g->h = cr.bottom;
-
-    post_begin(g->post, g->w, g->h);
-    if (g->scene) scene_render(g->scene, t, g->w, g->h);
-    post_present(g->post, g->w, g->h, frame_post_params(g));
+    render_into_post(g, t);
 }
 
 void gl_window_set_config(GlWindow *g, const Config *cfg)
@@ -259,6 +279,14 @@ void gl_window_set_config(GlWindow *g, const Config *cfg)
     g->post_params.threshold = cfg->bloom_threshold;
     g->post_params.intensity = cfg->bloom_intensity;
     g->post_params.radius    = cfg->bloom_radius;
+
+    g->quality = render_quality_for_step(cfg, g->tier, g->quality.step);
+    g->vsync = cfg->vsync ? 1 : 0;
+    if (g->rc && p_wglSwapIntervalEXT) {
+        wglMakeCurrent(g->dc, g->rc);
+        p_wglSwapIntervalEXT(g->vsync);
+    }
+
     if (!g->scene) return;
     wglMakeCurrent(g->dc, g->rc);
     scene_set_config(g->scene, cfg);
