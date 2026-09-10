@@ -50,6 +50,7 @@ struct GlWindow {
     int   preview;
     M3dtTier      tier;
     RenderQuality quality;
+    AutoQuality  *aq;
     int   vsync;
 };
 
@@ -242,7 +243,7 @@ static int frame_bloom(const GlWindow *g)
     return (g->quality.bloom && g->post_params.bloom) ? 1 : 0;
 }
 
-static void render_into_post(GlWindow *g, double t)
+static void render_into_post(GlWindow *g, double t, int measure)
 {
     RECT cr; GetClientRect(g->hwnd, &cr);
     g->w = cr.right; g->h = cr.bottom;
@@ -251,6 +252,8 @@ static void render_into_post(GlWindow *g, double t)
     int sw = (int)(g->w * q.render_scale + 0.5f); if (sw < 16) sw = 16;
     int sh = (int)(g->h * q.render_scale + 0.5f); if (sh < 16) sh = 16;
 
+    if (measure) aq_frame_begin(g->aq);
+
     post_begin(g->post, sw, sh, q.msaa);
     if (g->scene) scene_render(g->scene, t, sw, sh);
     else { glClearColor(0.10f, 0.0f, 0.0f, 1.0f); glClear(GL_COLOR_BUFFER_BIT); }
@@ -258,19 +261,29 @@ static void render_into_post(GlWindow *g, double t)
     PostParams pr = g->post_params;
     pr.bloom = frame_bloom(g);
     post_present(g->post, g->w, g->h, pr);
+
+    if (measure) {
+        aq_frame_end(g->aq);
+        RenderQuality nq = g->quality;
+        if (aq_update(g->aq, &nq)) {
+            g->quality = nq;
+            log_infof("autoQuality: step %d (bloom=%d msaa=%d scale=%.2f)",
+                      nq.step, nq.bloom, nq.msaa, (double)nq.render_scale);
+        }
+    }
 }
 
 void gl_window_frame(GlWindow *g, double t)
 {
     wglMakeCurrent(g->dc, g->rc);
-    render_into_post(g, t);
+    render_into_post(g, t, 1);
     SwapBuffers(g->dc);
 }
 
 void gl_window_render_scene_at(GlWindow *g, double t)
 {
     wglMakeCurrent(g->dc, g->rc);
-    render_into_post(g, t);
+    render_into_post(g, t, 0);   /* frame de captura: fora do orcamento do aq */
 }
 
 void gl_window_set_config(GlWindow *g, const Config *cfg)
@@ -280,15 +293,19 @@ void gl_window_set_config(GlWindow *g, const Config *cfg)
     g->post_params.intensity = cfg->bloom_intensity;
     g->post_params.radius    = cfg->bloom_radius;
 
-    g->quality = render_quality_for_step(cfg, g->tier, g->quality.step);
+    if (g->rc) wglMakeCurrent(g->dc, g->rc);
+
     g->vsync = cfg->vsync ? 1 : 0;
-    if (g->rc && p_wglSwapIntervalEXT) {
-        wglMakeCurrent(g->dc, g->rc);
-        p_wglSwapIntervalEXT(g->vsync);
+    if (g->rc && p_wglSwapIntervalEXT) p_wglSwapIntervalEXT(g->vsync);
+
+    /* auto-qualidade: recria com o cfg novo (comeca no topo); sem, so o topo */
+    if (!g->preview) {
+        if (g->aq) { aq_destroy(g->aq); g->aq = NULL; }
+        if (cfg->auto_quality && g->rc) g->aq = aq_create(cfg, g->tier);
     }
+    g->quality = render_quality_for_step(cfg, g->tier, 0);
 
     if (!g->scene) return;
-    wglMakeCurrent(g->dc, g->rc);
     scene_set_config(g->scene, cfg);
 }
 
@@ -306,6 +323,7 @@ void gl_window_destroy(GlWindow *g)
         wglMakeCurrent(g->dc, g->rc);
         if (g->scene) { scene_destroy(g->scene); g->scene = NULL; }
         if (g->post)  { post_destroy(g->post);  g->post  = NULL; }
+        if (g->aq)    { aq_destroy(g->aq);      g->aq    = NULL; }
         wglMakeCurrent(NULL, NULL);
         wglDeleteContext(g->rc);
     }

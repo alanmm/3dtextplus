@@ -108,3 +108,12 @@ RenderQuality render_quality_for_step(const Config *cfg, M3dtTier tier, int step
     if (step >= 6) q.render_scale = 0.5f;
     return q;
 }
+
+/* decisao pura da auto-qualidade (o resto de AutoQuality vive em render_tiers_gl.c) */
+int aq_decide(AqInput in)
+{
+    if (in.since_change_s < 5.0) return in.step;
+    if (in.p90_ms > 22.0 && in.step < in.ladder_len - 1) return in.step + 1;
+    if (in.p90_ms < 12.0 && in.step > 0)                 return in.step - 1;
+    return in.step;
+}

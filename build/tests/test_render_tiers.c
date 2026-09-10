@@ -41,4 +41,18 @@ void run_render_tiers_tests(void)
     RenderQuality qr = render_quality_for_step(&cfg, M3DT_TIER_REDUCED, 0);
     EXPECT(qr.bloom == 0 && qr.msaa <= 2 && qr.render_scale <= 0.75f + 1e-4f);
     EXPECT(render_quality_ladder_len(M3DT_TIER_REDUCED) == 1);
+
+    /* --- aq_decide: ladder + histerese + zona morta --- */
+    AqInput a = { 0, 7, 30.0, 6.0 };
+    EXPECT(aq_decide(a) == 1);                          /* lento -> degrada */
+    a.since_change_s = 2.0;
+    EXPECT(aq_decide(a) == 0);                          /* histerese trava */
+    AqInput b = { 3, 7, 8.0, 9.0 };
+    EXPECT(aq_decide(b) == 2);                          /* folgado -> recupera */
+    AqInput c = { 6, 7, 99.0, 9.0 };
+    EXPECT(aq_decide(c) == 6);                          /* ja no fundo do ladder */
+    AqInput d = { 0, 7, 8.0, 9.0 };
+    EXPECT(aq_decide(d) == 0);                          /* ja no topo */
+    AqInput e = { 2, 7, 16.0, 9.0 };
+    EXPECT(aq_decide(e) == 2);                          /* zona morta 12..22 */
 }

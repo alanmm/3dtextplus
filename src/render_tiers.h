@@ -38,4 +38,35 @@ RenderQuality render_quality_for_step(const Config *cfg, M3dtTier tier, int step
 /* Numero de passos validos (>= 1). step e clampado a [0, len-1]. */
 int           render_quality_ladder_len(M3dtTier tier);
 
+/* ---------------- auto-qualidade adaptativa ---------------- */
+
+typedef struct AutoQuality AutoQuality;
+
+/* cfg + tier definem o ladder. Comeca no step 0. NULL se malloc falhar.
+   Requer contexto GL corrente (cria os timer queries). */
+AutoQuality *aq_create(const Config *cfg, M3dtTier tier);
+void         aq_destroy(AutoQuality *aq);            /* com contexto corrente */
+
+/* Em volta do render de 1 frame (scene + post). No-op se aq == NULL ou
+   o timer query nao existe. */
+void aq_frame_begin(AutoQuality *aq);
+void aq_frame_end(AutoQuality *aq);
+
+/* Depois do aq_frame_end. Se mudou de passo, escreve o novo RenderQuality
+   em *io e retorna 1; senao retorna 0. */
+int  aq_update(AutoQuality *aq, RenderQuality *io);
+
+/* --- decisao pura (testavel) --- */
+typedef struct {
+    int    step;            /* passo atual */
+    int    ladder_len;      /* render_quality_ladder_len(tier) */
+    double p90_ms;          /* percentil 90 da janela de tempos de GPU */
+    double since_change_s;  /* segundos desde a ultima mudanca de passo */
+} AqInput;
+
+/* Sobe de passo (degrada) se p90 > 22 ms e since_change >= 5 s;
+   desce de passo se step>0 e p90 < 12 ms e since_change >= 5 s;
+   senao mantem. */
+int  aq_decide(AqInput in);
+
 #endif
