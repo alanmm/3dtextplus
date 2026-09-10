@@ -22,11 +22,12 @@ mingw32-make -f build/Makefile test
 > (renomeie para `.exe`, ou chame pelo caminho no PowerShell com `&`), ou use o
 > diálogo real do Windows (que invoca corretamente).
 
-## Falta verificar (precisa de sessão interativa / olho humano)
+## Verificado pelo usuário no painel de controle (2026-09-10)
 
-### Instalação de teste
-- [ ] Copiar `dist/Modern3DText.scr` para `C:\Windows\System32\` (admin).
-- [ ] "Modern3DText" aparece na lista de proteções de tela do Windows.
+- [x] "Modern3DText" aparece na lista de proteções de tela do Windows.
+- [x] A mini-tela do diálogo mostra a cor animada, nos dois monitores.
+
+## Falta verificar (precisa de sessão interativa / olho humano)
 
 ### /c (config) — pelo diálogo do Windows
 - [ ] Botão **Configurações...** abre o diálogo (parented à janela de configurações).
@@ -35,11 +36,10 @@ mingw32-make -f build/Makefile test
 - [ ] 100 % / 150 % / 200 % DPI: sem corte de texto (manifest per-monitor v2).
 
 ### /p (preview) — pelo diálogo do Windows
-- [ ] A mini-tela do diálogo de Proteção de Tela mostra a cor animada (ciano→azul→roxo, escura).
 - [ ] Fechar o diálogo não deixa `Modern3DText.scr` órfão (Gerenciador de Tarefas).
 - [ ] Selecionar outra proteção de tela e voltar: preview reinicia sem erro.
 
-### /s (saver) — real, em tela cheia
+### /s (saver) — real, em tela cheia (botão "Visualizar")
 - [ ] Preenche **todos** os monitores, topmost, sem barra de título.
 - [ ] Multi-monitor com resoluções/orientações diferentes: cada tela cobre 100 %.
 - [ ] Sai ao: mover o mouse > ~4 px · qualquer tecla · clique (esq/dir/meio) · roda do mouse.
