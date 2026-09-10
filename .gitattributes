@@ -1,0 +1,10 @@
+* text=auto eol=lf
+*.rc        text eol=lf
+*.manifest  text eol=lf
+Makefile    text eol=lf
+*.ico  binary
+*.ttf  binary
+*.otf  binary
+*.png  binary
+*.glb  binary
+*.obj  -text

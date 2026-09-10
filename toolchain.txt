@@ -1,0 +1,19 @@
+w64devkit 2.9.1  (x64)
+  gcc (GCC) 16.2.0
+  GNU Make 4.4.1
+  GNU windres (GNU Binutils) 2.47.20260726
+  gdb included
+
+Baixado de:
+  https://github.com/skeeto/w64devkit/releases/download/v2.9.1/w64devkit-x64-2.9.1.7z.exe
+  SHA-256: 9208c19755cd4964b7915b9afcf02c66d493a4c870c4b3e83f6c538d9c1237a5
+  Tamanho: 61462208 bytes
+
+Alvo do compilador: x86_64-w64-mingw32
+
+Como usar:
+  - Extraia o release em qualquer pasta (sem instalador). Nesta máquina de dev:
+    C:\Users\alanm\w64devkit
+  - Rode w64devkit.exe para abrir um shell com gcc/make/windres/gdb no PATH,
+    OU adicione <pasta>\bin ao PATH manualmente (o gcc precisa achar `as` e `ld`).
+  - A partir da raiz do projeto:  mingw32-make -f build/Makefile
