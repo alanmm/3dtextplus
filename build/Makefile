@@ -17,7 +17,8 @@ WINDRES := windres
 NAME    := Modern3DText
 OUT     := dist/$(NAME).scr
 
-INCLUDES := -Isrc -Ithird_party -Ithird_party/glad/include -Igenerated
+INCLUDES := -Isrc -Ithird_party -Ithird_party/glad/include \
+            -Ithird_party/libtess2/Include -Igenerated
 
 MODE ?= release
 CFLAGS := -std=c11 -municode -Wall -Wextra $(INCLUDES)
@@ -33,8 +34,8 @@ LIBS    := -lopengl32 -lgdi32 -luser32 -lkernel32 -lcomdlg32 -lcomctl32 \
 
 SRC_C := src/main.c src/cmdline.c src/util/log.c src/util/mathx.c src/gl_core.c \
          src/host_win32.c src/config_dialog.c \
-         src/geometry/font_outline.c src/geometry/stb_impl.c
-TP_C  := third_party/glad/src/gl.c
+         src/geometry/font_outline.c src/geometry/stb_impl.c src/geometry/contour_mesh.c
+TP_C  := third_party/glad/src/gl.c $(wildcard third_party/libtess2/Source/*.c)
 
 SRC_OBJ := $(patsubst src/%.c,build/obj/src/%.o,$(SRC_C))
 TP_OBJ  := $(patsubst third_party/%.c,build/obj/tp/%.o,$(TP_C))
@@ -91,15 +92,26 @@ config: debug
 	./$(OUT) /c
 
 TEST_SRC   := build/tests/test_main.c build/tests/test_cmdline.c build/tests/test_log.c \
-              build/tests/test_mathx.c build/tests/test_font_outline.c
-TEST_UNITS := src/cmdline.c src/util/log.c src/util/mathx.c src/geometry/font_outline.c
-TEST_INC   := -Isrc -Ithird_party -Ibuild/tests
+              build/tests/test_mathx.c build/tests/test_font_outline.c \
+              build/tests/test_contour_mesh.c
+TEST_UNITS := src/cmdline.c src/util/log.c src/util/mathx.c \
+              src/geometry/font_outline.c src/geometry/contour_mesh.c
+TEST_INC   := -Isrc -Ithird_party -Ithird_party/libtess2/Include -Ibuild/tests
+LIBTESS_C  := $(wildcard third_party/libtess2/Source/*.c)
 
-test:
+LIBTESS_TEST_OBJ := $(patsubst third_party/libtess2/Source/%.c,build/obj/test/libtess_%.o,$(LIBTESS_C))
+
+build/obj/test/libtess_%.o: third_party/libtess2/Source/%.c
 	@mkdir -p build/obj/test
-	$(CC) -std=c11 -w -Isrc -Ithird_party -c src/geometry/stb_impl.c -o build/obj/test/stb_impl.o
+	$(CC) -std=c11 -w $(TEST_INC) -c $< -o $@
+
+build/obj/test/stb_impl.o: src/geometry/stb_impl.c
+	@mkdir -p build/obj/test
+	$(CC) -std=c11 -w -Isrc -Ithird_party -c $< -o $@
+
+test: build/obj/test/stb_impl.o $(LIBTESS_TEST_OBJ)
 	$(CC) -std=c11 -Wall -Wextra $(TEST_INC) \
-	  $(TEST_SRC) $(TEST_UNITS) build/obj/test/stb_impl.o \
+	  $(TEST_SRC) $(TEST_UNITS) $^ \
 	  -o build/obj/run_tests.exe -lm -lgdi32 -luser32
 	./build/obj/run_tests.exe
 

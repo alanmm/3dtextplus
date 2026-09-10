@@ -6,6 +6,7 @@ void run_cmdline_tests(void);
 void run_log_tests(void);
 void run_mathx_tests(void);
 void run_font_outline_tests(void);
+void run_contour_mesh_tests(void);
 
 int main(void)
 {
@@ -13,6 +14,7 @@ int main(void)
     run_log_tests();
     run_mathx_tests();
     run_font_outline_tests();
+    run_contour_mesh_tests();
 
     if (g_test_failures) {
         printf("\n%d assertion(s) FAILED\n", g_test_failures);
