@@ -3,7 +3,12 @@
 Reescrita moderna do screensaver clássico "Texto 3D" do Windows. Nativo,
 leve, OpenGL 3.3.
 
-**Status:** Fase 4b — **níveis de qualidade** (cheio / reduzido, com detecção de
+**Status:** Fase 4c — **streaks de difração** na aba **Efeitos**: *starburst*
+(estrela de 6 pontas) e *anamórfico* (faixa horizontal azulada), selecionáveis e
+**desligados por padrão**, gerados a partir de um bright-pass em 1/4 de resolução
+e compostos no render HDR antes do tonemap. O degrau **"streaks off"** entrou no
+**topo** da escada da qualidade automática (antes de "bloom off"). Antes: Fase 4b
+— **níveis de qualidade** (cheio / reduzido, com detecção de
 GPU de software / WARP / RDP e override `M3DT_FORCE_TIER`), **escala de render**
 (renderiza numa fração da resolução e faz upscale no passe final), **VSync** e
 **limite de FPS** configuráveis, e **qualidade automática**: mede o tempo de GPU
@@ -18,7 +23,7 @@ pelo registro (`HKCU\Software\Modern3DText`) + diálogo Win32 com abas
 mini-preview 3D ao vivo; texto 3D extrudado (fonte → contornos → tampa + paredes)
 e pêndulo limitado das fases 2a/2b.
 
-![bloom ligado](docs/img/phase4a-bloom-on.png)
+![streaks starburst](docs/img/phase4c-starburst.png)
 
 - Design completo: [`docs/superpowers/specs/2026-09-10-modern-3d-text-screensaver-design.md`](docs/superpowers/specs/2026-09-10-modern-3d-text-screensaver-design.md)
 - Planos de implementação: [`docs/superpowers/plans/`](docs/superpowers/plans/)
