@@ -67,6 +67,29 @@ BEGIN
     PUSHBUTTON "Limpar",      IDC_ENVCLEAR, 72, 140, 50, 14
 END
 
+IDD_TAB_GEOMETRY DIALOGEX 0, 0, 208, 196
+STYLE DS_SETFONT | DS_CONTROL | WS_CHILD
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    LTEXT      "Bevel:", -1, 8, 8, 60, 9
+    COMBOBOX   IDC_BEVELMODE, 8, 18, 150, 80, CBS_DROPDOWNLIST | WS_TABSTOP
+    LTEXT      "Tamanho:", -1, 8, 38, 90, 9
+    LTEXT      "", IDC_BSIZE_VAL, 150, 38, 50, 9
+    CONTROL    "", IDC_BSIZE, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 48, 192, 16
+    LTEXT      "Profundidade do chanfro:", -1, 8, 66, 120, 9
+    LTEXT      "", IDC_BDEPTH_VAL, 150, 66, 50, 9
+    CONTROL    "", IDC_BDEPTH, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 76, 192, 16
+    LTEXT      "Segmentos (modo geometrico):", -1, 8, 94, 130, 9
+    LTEXT      "", IDC_BSEG_VAL, 150, 94, 50, 9
+    CONTROL    "", IDC_BSEG, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 104, 192, 16
+    AUTOCHECKBOX "Casca oca", IDC_SHELL, 8, 126, 80, 12
+    LTEXT      "Espessura da parede:", -1, 8, 142, 110, 9
+    LTEXT      "", IDC_WALL_VAL, 150, 142, 50, 9
+    CONTROL    "", IDC_WALL, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 152, 192, 16
+    LTEXT      "Qualidade:", -1, 8, 172, 60, 9
+    COMBOBOX   IDC_QUALITY, 72, 170, 90, 80, CBS_DROPDOWNLIST | WS_TABSTOP
+END
+
 VS_VERSION_INFO VERSIONINFO
  FILEVERSION    0,3,0,0
  PRODUCTVERSION 0,3,0,0

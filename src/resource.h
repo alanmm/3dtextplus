@@ -5,6 +5,7 @@
 #define IDD_TAB_CONTENT   110
 #define IDD_TAB_MOTION    111
 #define IDD_TAB_MATERIAL  112
+#define IDD_TAB_GEOMETRY  113
 
 #define IDC_TABS          1000
 #define IDC_PREVIEW       1001
@@ -36,5 +37,18 @@
 #define IDC_ENVPATH       1305
 #define IDC_ENVPICK       1306
 #define IDC_ENVCLEAR      1307
+
+/* aba Geometria */
+#define IDC_BEVELMODE     1400
+#define IDC_BSIZE         1401
+#define IDC_BSIZE_VAL     1402
+#define IDC_BDEPTH        1403
+#define IDC_BDEPTH_VAL    1404
+#define IDC_BSEG          1405
+#define IDC_BSEG_VAL      1406
+#define IDC_SHELL         1407
+#define IDC_WALL          1408
+#define IDC_WALL_VAL      1409
+#define IDC_QUALITY       1410
 
 #endif

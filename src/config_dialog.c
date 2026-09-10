@@ -21,6 +21,7 @@ static Config     g_work;        /* config sendo editada */
 static HWND       g_content;     /* sub-dialogo da aba Conteudo */
 static HWND       g_motion;      /* sub-dialogo da aba Movimento */
 static HWND       g_material;    /* sub-dialogo da aba Material */
+static HWND       g_geometry;    /* sub-dialogo da aba Geometria */
 static bool       g_selftest;
 static GlWindow  *g_preview;
 static bool       g_dirty;
@@ -241,6 +242,79 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
     return FALSE;
 }
 
+/* ---------------- aba Geometria ---------------- */
+
+static void geometry_labels(HWND h)
+{
+    wchar_t b[32];
+    swprintf(b, 32, L"%.03f", (double)g_work.bevel_size);      SetDlgItemTextW(h, IDC_BSIZE_VAL, b);
+    swprintf(b, 32, L"%.03f", (double)g_work.bevel_depth);     SetDlgItemTextW(h, IDC_BDEPTH_VAL, b);
+    swprintf(b, 32, L"%d", g_work.bevel_segments);             SetDlgItemTextW(h, IDC_BSEG_VAL, b);
+    swprintf(b, 32, L"%.03f", (double)g_work.wall_thickness);  SetDlgItemTextW(h, IDC_WALL_VAL, b);
+}
+
+static void geometry_enable(HWND h)
+{
+    EnableWindow(GetDlgItem(h, IDC_BSEG), g_work.bevel_mode == 1);
+    EnableWindow(GetDlgItem(h, IDC_WALL), g_work.shell != 0);
+}
+
+static INT_PTR CALLBACK geometry_proc(HWND h, UINT m, WPARAM w, LPARAM l)
+{
+    (void)l;
+    switch (m) {
+        case WM_INITDIALOG: {
+            static const wchar_t *bev[]  = { L"Sombreado", L"Geometrico", L"Desligado" };
+            static const wchar_t *qual[] = { L"Baixa", L"Media", L"Alta" };
+            for (int i = 0; i < 3; ++i)
+                SendDlgItemMessageW(h, IDC_BEVELMODE, CB_ADDSTRING, 0, (LPARAM)bev[i]);
+            for (int i = 0; i < 3; ++i)
+                SendDlgItemMessageW(h, IDC_QUALITY, CB_ADDSTRING, 0, (LPARAM)qual[i]);
+            SendDlgItemMessageW(h, IDC_BEVELMODE, CB_SETCURSEL, g_work.bevel_mode, 0);
+            SendDlgItemMessageW(h, IDC_QUALITY, CB_SETCURSEL, g_work.quality, 0);
+            set_slider(h, IDC_BSIZE,  0, 200, (int)(g_work.bevel_size * 1000.0f + 0.5f));
+            set_slider(h, IDC_BDEPTH, 0, 200, (int)(g_work.bevel_depth * 1000.0f + 0.5f));
+            set_slider(h, IDC_BSEG,   2, 8,   g_work.bevel_segments);
+            set_slider(h, IDC_WALL,   10, 200, (int)(g_work.wall_thickness * 1000.0f + 0.5f));
+            CheckDlgButton(h, IDC_SHELL, g_work.shell ? BST_CHECKED : BST_UNCHECKED);
+            geometry_labels(h);
+            geometry_enable(h);
+            return TRUE;
+        }
+        case WM_HSCROLL:
+            g_work.bevel_size     = (float)SendDlgItemMessageW(h, IDC_BSIZE, TBM_GETPOS, 0, 0) / 1000.0f;
+            g_work.bevel_depth    = (float)SendDlgItemMessageW(h, IDC_BDEPTH, TBM_GETPOS, 0, 0) / 1000.0f;
+            g_work.bevel_segments = (int)SendDlgItemMessageW(h, IDC_BSEG, TBM_GETPOS, 0, 0);
+            g_work.wall_thickness = (float)SendDlgItemMessageW(h, IDC_WALL, TBM_GETPOS, 0, 0) / 1000.0f;
+            geometry_labels(h);
+            preview_dirty(h);
+            return TRUE;
+        case WM_COMMAND:
+            switch (LOWORD(w)) {
+                case IDC_BEVELMODE:
+                    if (HIWORD(w) == CBN_SELCHANGE) {
+                        g_work.bevel_mode = (int)SendDlgItemMessageW(h, IDC_BEVELMODE, CB_GETCURSEL, 0, 0);
+                        geometry_enable(h);
+                        preview_dirty(h);
+                    }
+                    break;
+                case IDC_QUALITY:
+                    if (HIWORD(w) == CBN_SELCHANGE) {
+                        g_work.quality = (int)SendDlgItemMessageW(h, IDC_QUALITY, CB_GETCURSEL, 0, 0);
+                        preview_dirty(h);
+                    }
+                    break;
+                case IDC_SHELL:
+                    g_work.shell = (IsDlgButtonChecked(h, IDC_SHELL) == BST_CHECKED);
+                    geometry_enable(h);
+                    preview_dirty(h);
+                    break;
+            }
+            return TRUE;
+    }
+    return FALSE;
+}
+
 /* ---------------- dialogo principal ---------------- */
 
 static void place_tab_child(HWND dlg, HWND tabs, HWND child)
@@ -266,6 +340,8 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             TabCtrl_InsertItem(tabs, 1, &ti);
             ti.pszText = L"Material";
             TabCtrl_InsertItem(tabs, 2, &ti);
+            ti.pszText = L"Geometria";
+            TabCtrl_InsertItem(tabs, 3, &ti);
 
             g_content = CreateDialogW(GetModuleHandleW(NULL),
                                       MAKEINTRESOURCEW(IDD_TAB_CONTENT), h, content_proc);
@@ -273,12 +349,16 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                                      MAKEINTRESOURCEW(IDD_TAB_MOTION), h, motion_proc);
             g_material = CreateDialogW(GetModuleHandleW(NULL),
                                       MAKEINTRESOURCEW(IDD_TAB_MATERIAL), h, material_proc);
+            g_geometry = CreateDialogW(GetModuleHandleW(NULL),
+                                       MAKEINTRESOURCEW(IDD_TAB_GEOMETRY), h, geometry_proc);
             place_tab_child(h, tabs, g_content);
             place_tab_child(h, tabs, g_motion);
             place_tab_child(h, tabs, g_material);
+            place_tab_child(h, tabs, g_geometry);
             ShowWindow(g_content, SW_SHOW);
             ShowWindow(g_motion, SW_HIDE);
             ShowWindow(g_material, SW_HIDE);
+            ShowWindow(g_geometry, SW_HIDE);
 
             /* mini-preview 3D ao vivo */
             gl_window_global_init(GetModuleHandleW(NULL));
@@ -339,6 +419,7 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                 ShowWindow(g_content,  sel == 0 ? SW_SHOW : SW_HIDE);
                 ShowWindow(g_motion,   sel == 1 ? SW_SHOW : SW_HIDE);
                 ShowWindow(g_material, sel == 2 ? SW_SHOW : SW_HIDE);
+                ShowWindow(g_geometry, sel == 3 ? SW_SHOW : SW_HIDE);
                 return TRUE;
             }
             break;
