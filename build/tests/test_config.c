@@ -44,6 +44,10 @@ void run_config_tests(void)
     a.shell = 1;
     a.wall_thickness = 0.09f;
     a.quality = 2;
+    a.bloom_on = 0;
+    a.bloom_threshold = 1.8f;
+    a.bloom_intensity = 1.2f;
+    a.bloom_radius = 0.3f;
     config_save_to(&a, TESTKEY);
 
     Config b;
@@ -67,6 +71,10 @@ void run_config_tests(void)
     EXPECT(b.shell == 1);
     EXPECT(nearf(b.wall_thickness, 0.09f));
     EXPECT(b.quality == 2);
+    EXPECT(b.bloom_on == 0);
+    EXPECT(nearf(b.bloom_threshold, 1.8f));
+    EXPECT(nearf(b.bloom_intensity, 1.2f));
+    EXPECT(nearf(b.bloom_radius, 0.3f));
 
     /* valor ausente -> default; fora de faixa -> clamp; lixo -> default */
     RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
@@ -80,6 +88,8 @@ void run_config_tests(void)
     RegSetValueExW(k, L"bevel_segments", 0, REG_SZ, (const BYTE *)L"1", 2 * sizeof(wchar_t));
     RegSetValueExW(k, L"quality", 0, REG_SZ, (const BYTE *)L"5", 2 * sizeof(wchar_t));
     RegSetValueExW(k, L"bevel_size", 0, REG_SZ, (const BYTE *)L"9", 2 * sizeof(wchar_t));
+    RegSetValueExW(k, L"bloom_intensity", 0, REG_SZ, (const BYTE *)L"-1", 3 * sizeof(wchar_t));
+    RegSetValueExW(k, L"bloom_radius", 0, REG_SZ, (const BYTE *)L"5", 2 * sizeof(wchar_t));
     RegCloseKey(k);
 
     Config c;
@@ -93,6 +103,8 @@ void run_config_tests(void)
     EXPECT(c.bevel_segments == 2);             /* 1 -> 2 */
     EXPECT(c.quality == 1);                    /* 5 -> default 1 */
     EXPECT(c.bevel_size <= 0.2f);              /* 9 -> clamp */
+    EXPECT(c.bloom_intensity >= 0.0f);         /* -1 -> clamp */
+    EXPECT(c.bloom_radius <= 1.0f);            /* 5 -> clamp */
 
     RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
 }

@@ -27,6 +27,10 @@ typedef struct {
     int          shell;                /* 0/1 */
     float        wall_thickness;       /* 0.01 .. 0.2 (em) */
     int          quality;              /* 0 baixa, 1 media, 2 alta */
+    int          bloom_on;             /* 0/1 */
+    float        bloom_threshold;      /* 0.2 .. 3.0 */
+    float        bloom_intensity;      /* 0 .. 2.0 */
+    float        bloom_radius;         /* 0 .. 1 */
 } Config;
 
 void config_defaults(Config *c);

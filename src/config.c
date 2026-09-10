@@ -34,6 +34,10 @@ void config_defaults(Config *c)
     c->shell = 0;
     c->wall_thickness = 0.06f;
     c->quality = 1;
+    c->bloom_on = 1;
+    c->bloom_threshold = 1.05f;
+    c->bloom_intensity = 0.6f;
+    c->bloom_radius = 0.55f;
 }
 
 static float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
@@ -108,6 +112,7 @@ void config_load_from(Config *c, const wchar_t *subkey)
     reg_get_i(k, L"bevel_segments", &c->bevel_segments);
     reg_get_i(k, L"shell", &c->shell);
     reg_get_i(k, L"quality", &c->quality);
+    reg_get_i(k, L"bloom_on", &c->bloom_on);
 
     float f;
     if (reg_get_f(k, L"depth", &f))       c->depth = f;
@@ -119,6 +124,9 @@ void config_load_from(Config *c, const wchar_t *subkey)
     if (reg_get_f(k, L"bevel_size", &f))     c->bevel_size = f;
     if (reg_get_f(k, L"bevel_depth", &f))    c->bevel_depth = f;
     if (reg_get_f(k, L"wall_thickness", &f)) c->wall_thickness = f;
+    if (reg_get_f(k, L"bloom_threshold", &f)) c->bloom_threshold = f;
+    if (reg_get_f(k, L"bloom_intensity", &f)) c->bloom_intensity = f;
+    if (reg_get_f(k, L"bloom_radius", &f))    c->bloom_radius = f;
 
     wchar_t col[16];
     if (reg_get_w(k, L"base_color", col, 16) && col[0] == L'#' && wcslen(col) >= 7) {
@@ -150,6 +158,10 @@ void config_load_from(Config *c, const wchar_t *subkey)
     c->bevel_size = clampf(c->bevel_size, 0.0f, 0.2f);
     c->bevel_depth = clampf(c->bevel_depth, 0.0f, 0.2f);
     c->wall_thickness = clampf(c->wall_thickness, 0.01f, 0.2f);
+    c->bloom_on = c->bloom_on ? 1 : 0;
+    c->bloom_threshold = clampf(c->bloom_threshold, 0.2f, 3.0f);
+    c->bloom_intensity = clampf(c->bloom_intensity, 0.0f, 2.0f);
+    c->bloom_radius = clampf(c->bloom_radius, 0.0f, 1.0f);
     if (c->text[0] == 0) strcpy(c->text, "Modern 3D Text");
     if (c->font_family[0] == 0) wcscpy(c->font_family, L"Segoe UI");
 }
@@ -187,6 +199,10 @@ void config_save_to(const Config *c, const wchar_t *subkey)
     set_f(k, L"shell", (float)c->shell);
     set_f(k, L"wall_thickness", c->wall_thickness);
     set_f(k, L"quality", (float)c->quality);
+    set_f(k, L"bloom_on", (float)c->bloom_on);
+    set_f(k, L"bloom_threshold", c->bloom_threshold);
+    set_f(k, L"bloom_intensity", c->bloom_intensity);
+    set_f(k, L"bloom_radius", c->bloom_radius);
 
     wchar_t col[16];
     unsigned r = (unsigned)(c->base_r * 255.0f + 0.5f);
