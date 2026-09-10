@@ -38,15 +38,16 @@ static int sdf_res_for(int quality)
     return quality <= 0 ? 256 : (quality == 1 ? 512 : 768);
 }
 
-static float signed_area(const Contour *c)
+static float signed_area_pts(const v2 *p, int n)
 {
     float a = 0.0f;
-    for (int i = 0; i < c->count; ++i) {
-        v2 p0 = c->pts[i], p1 = c->pts[(i + 1) % c->count];
+    for (int i = 0; i < n; ++i) {
+        v2 p0 = p[i], p1 = p[(i + 1) % n];
         a += p0.x * p1.y - p1.x * p0.y;
     }
     return 0.5f * a;
 }
+static float signed_area(const Contour *c) { return signed_area_pts(c->pts, c->count); }
 
 /* offset de `c` para o interior por `d`. `inward_left` = 1 se o interior fica a
    esquerda das arestas (contorno CCW). Fallback ao ponto original quando o miter
@@ -94,6 +95,7 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
 
     const float hz = p.depth * 0.5f;
     const int shading = (p.bevel_mode == 0);
+    const int geombev = (p.bevel_mode == 1);
     float mb = 0.0f;
     if (shading) {
         mb = p.bevel_size;
@@ -143,8 +145,74 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
     }
     tessDeleteTess(t);
 
-    /* paredes + micro-bevel por contorno */
-    for (int ci = 0; ci < cs->count; ++ci) {
+    /* ---------- modo geometrico: faixa de bevel multi-segmento (outset robusto) ---------- */
+    if (geombev) {
+        float bs = p.bevel_size;
+        float bd = fminf(p.bevel_depth > 1e-4f ? p.bevel_depth : bs, hz * 0.9f);
+        int segs = p.bevel_segments;
+        if (segs < 2) segs = 2;
+        if (segs > 8) segs = 8;
+        float wall_z = hz - bd;
+        int clamped = 0;
+
+        for (int ci = 0; ci < cs->count; ++ci) {
+            const Contour *co = &cs->contours[ci];
+            if (co->count < 3) continue;
+            int ccw = signed_area(co) > 0.0f;
+
+            v2 *os = (v2 *)malloc((size_t)co->count * sizeof(v2));
+            inset_contour(co, -bs, ccw, os);   /* outset */
+            if ((signed_area_pts(os, co->count) > 0.0f) != ccw) {
+                for (int i = 0; i < co->count; ++i) os[i] = co->pts[i];
+                clamped++;
+            }
+
+            for (int i = 0; i < co->count; ++i) {
+                int j = (i + 1) % co->count;
+                v2 o0 = os[i], o1 = os[j];
+                v2 c0 = co->pts[i], c1 = co->pts[j];
+                float ex = o1.x - o0.x, ey = o1.y - o0.y;
+                float el = sqrtf(ex * ex + ey * ey);
+                if (el < 1e-9f) continue;
+                float nx = ey / el, ny = -ex / el;
+
+                unsigned w = (unsigned)vb.n;
+                vpush(&vb, (MeshVertex){ o0.x, o0.y,  wall_z, nx, ny, 0, 2 });
+                vpush(&vb, (MeshVertex){ o1.x, o1.y,  wall_z, nx, ny, 0, 2 });
+                vpush(&vb, (MeshVertex){ o1.x, o1.y, -wall_z, nx, ny, 0, 2 });
+                vpush(&vb, (MeshVertex){ o0.x, o0.y, -wall_z, nx, ny, 0, 2 });
+                quad(&ib, w + 0, w + 1, w + 2, w + 3);
+
+                for (int k = 0; k < segs; ++k) {
+                    float a0 = (float)k / (float)segs * 1.5707963f;
+                    float a1 = (float)(k + 1) / (float)segs * 1.5707963f;
+                    float s0 = sinf(a0), s1 = sinf(a1), cn0 = cosf(a0), cn1 = cosf(a1);
+                    float z0 = hz - bd * (1.0f - cn0), z1 = hz - bd * (1.0f - cn1);
+                    v2 A0 = { c0.x + (o0.x - c0.x) * s0, c0.y + (o0.y - c0.y) * s0 };
+                    v2 B0 = { c1.x + (o1.x - c1.x) * s0, c1.y + (o1.y - c1.y) * s0 };
+                    v2 A1 = { c0.x + (o0.x - c0.x) * s1, c0.y + (o0.y - c0.y) * s1 };
+                    v2 B1 = { c1.x + (o1.x - c1.x) * s1, c1.y + (o1.y - c1.y) * s1 };
+                    unsigned f = (unsigned)vb.n;
+                    vpush(&vb, (MeshVertex){ A0.x, A0.y,  z0, nx * s0, ny * s0,  cn0, 3 });
+                    vpush(&vb, (MeshVertex){ B0.x, B0.y,  z0, nx * s0, ny * s0,  cn0, 3 });
+                    vpush(&vb, (MeshVertex){ B1.x, B1.y,  z1, nx * s1, ny * s1,  cn1, 3 });
+                    vpush(&vb, (MeshVertex){ A1.x, A1.y,  z1, nx * s1, ny * s1,  cn1, 3 });
+                    quad(&ib, f + 0, f + 1, f + 2, f + 3);
+                    unsigned b = (unsigned)vb.n;
+                    vpush(&vb, (MeshVertex){ A1.x, A1.y, -z1, nx * s1, ny * s1, -cn1, 3 });
+                    vpush(&vb, (MeshVertex){ B1.x, B1.y, -z1, nx * s1, ny * s1, -cn1, 3 });
+                    vpush(&vb, (MeshVertex){ B0.x, B0.y, -z0, nx * s0, ny * s0, -cn0, 3 });
+                    vpush(&vb, (MeshVertex){ A0.x, A0.y, -z0, nx * s0, ny * s0, -cn0, 3 });
+                    quad(&ib, b + 0, b + 1, b + 2, b + 3);
+                }
+            }
+            free(os);
+        }
+        if (clamped) log_infof("bevel geom: %d contornos clampados", clamped);
+    }
+
+    /* paredes + micro-bevel por contorno (modos sombreado e desligado) */
+    for (int ci = 0; !geombev && ci < cs->count; ++ci) {
         const Contour *co = &cs->contours[ci];
         if (co->count < 3) continue;
 

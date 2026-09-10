@@ -42,6 +42,17 @@ static MeshParams mp_shading(float depth, float bevel)
     p.quality = 0;
     return p;
 }
+static MeshParams mp_geom(float depth, float bevel, int segs)
+{
+    MeshParams p; memset(&p, 0, sizeof p);
+    p.depth = depth;
+    p.bevel_mode = 1;
+    p.bevel_size = bevel;
+    p.bevel_depth = bevel;
+    p.bevel_segments = segs;
+    p.quality = 0;
+    return p;
+}
 
 void run_contour_mesh_tests(void)
 {
@@ -104,6 +115,34 @@ void run_contour_mesh_tests(void)
         cs_set(&cs, 0, L, 6);
         MeshData md;
         EXPECT(contour_mesh_build(&cs, mp_shading(0.3f, 0.06f), &md) == 1);
+        EXPECT(md.nidx % 3 == 0);
+        mesh_data_free(&md);
+        cs_free(&cs);
+    }
+
+    /* modo geometrico: quadrado -> faixa de bevel, contagem coerente */
+    {
+        ContourSet cs = cs_make(1);
+        float sq[] = { -1,-1,  1,-1,  1,1,  -1,1 };
+        cs_set(&cs, 0, sq, 4);
+        MeshData md;
+        EXPECT(contour_mesh_build(&cs, mp_geom(0.4f, 0.15f, 4), &md) == 1);
+        EXPECT(md.nidx % 3 == 0 && md.nverts > 0);
+        EXPECT(md.has_sdf == 0);
+        int chamfer = 0;
+        for (int i = 0; i < md.nverts; ++i) if (md.verts[i].surf > 2.5f) chamfer++;
+        EXPECT(chamfer >= 4 * 4 * 2 * 4);   /* 4 arestas * 4 segs * 2 lados * 4 vertices */
+        mesh_data_free(&md);
+        cs_free(&cs);
+    }
+
+    /* modo geometrico: "L" concavo com bevel grande -> nao crasha */
+    {
+        ContourSet cs = cs_make(1);
+        float L[] = { 0,0,  2,0,  2,1,  1,1,  1,3,  0,3 };
+        cs_set(&cs, 0, L, 6);
+        MeshData md;
+        EXPECT(contour_mesh_build(&cs, mp_geom(0.3f, 0.4f, 3), &md) == 1);
         EXPECT(md.nidx % 3 == 0);
         mesh_data_free(&md);
         cs_free(&cs);
