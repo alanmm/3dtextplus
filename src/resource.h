@@ -7,6 +7,7 @@
 #define IDD_TAB_MATERIAL  112
 #define IDD_TAB_GEOMETRY  113
 #define IDD_TAB_EFFECTS   114
+#define IDD_TAB_PERF      115
 
 #define IDC_TABS          1000
 #define IDC_PREVIEW       1001
@@ -60,5 +61,13 @@
 #define IDC_BINT_VAL      1504
 #define IDC_BRAD          1505
 #define IDC_BRAD_VAL      1506
+
+/* aba Desempenho */
+#define IDC_FPSCAP        1600
+#define IDC_VSYNC         1601
+#define IDC_MSAA          1602
+#define IDC_RSCALE        1603
+#define IDC_RSCALE_VAL    1604
+#define IDC_AUTOQ         1605
 
 #endif

@@ -23,6 +23,7 @@ static HWND       g_motion;      /* sub-dialogo da aba Movimento */
 static HWND       g_material;    /* sub-dialogo da aba Material */
 static HWND       g_geometry;    /* sub-dialogo da aba Geometria */
 static HWND       g_effects;     /* sub-dialogo da aba Efeitos */
+static HWND       g_perf;        /* sub-dialogo da aba Desempenho */
 static bool       g_selftest;
 static GlWindow  *g_preview;
 static bool       g_dirty;
@@ -364,6 +365,78 @@ static INT_PTR CALLBACK effects_proc(HWND h, UINT m, WPARAM w, LPARAM l)
     return FALSE;
 }
 
+/* ---------------- aba Desempenho ---------------- */
+
+static const int PERF_FPS[4]  = { 0, 30, 60, 120 };
+static const int PERF_MSAA[4] = { 0, 2, 4, 8 };
+
+static void perf_labels(HWND h)
+{
+    wchar_t b[32];
+    swprintf(b, 32, L"%d%%", (int)(g_work.render_scale * 100.0f + 0.5f));
+    SetDlgItemTextW(h, IDC_RSCALE_VAL, b);
+}
+
+static INT_PTR CALLBACK perf_proc(HWND h, UINT m, WPARAM w, LPARAM l)
+{
+    (void)l;
+    switch (m) {
+        case WM_INITDIALOG: {
+            static const wchar_t *fps[] = { L"Sem limite", L"30", L"60", L"120" };
+            static const wchar_t *ms[]  = { L"Desligado", L"2x", L"4x", L"8x" };
+            for (int i = 0; i < 4; ++i) {
+                SendDlgItemMessageW(h, IDC_FPSCAP, CB_ADDSTRING, 0, (LPARAM)fps[i]);
+                SendDlgItemMessageW(h, IDC_MSAA,   CB_ADDSTRING, 0, (LPARAM)ms[i]);
+            }
+            int fi = 2, mi = 2;
+            for (int i = 0; i < 4; ++i) {
+                if (PERF_FPS[i] == g_work.fps_cap) fi = i;
+                if (PERF_MSAA[i] == g_work.msaa)   mi = i;
+            }
+            SendDlgItemMessageW(h, IDC_FPSCAP, CB_SETCURSEL, fi, 0);
+            SendDlgItemMessageW(h, IDC_MSAA,   CB_SETCURSEL, mi, 0);
+            CheckDlgButton(h, IDC_VSYNC, g_work.vsync ? BST_CHECKED : BST_UNCHECKED);
+            CheckDlgButton(h, IDC_AUTOQ, g_work.auto_quality ? BST_CHECKED : BST_UNCHECKED);
+            set_slider(h, IDC_RSCALE, 50, 100, (int)(g_work.render_scale * 100.0f + 0.5f));
+            perf_labels(h);
+            return TRUE;
+        }
+        case WM_HSCROLL:
+            g_work.render_scale =
+                (float)SendDlgItemMessageW(h, IDC_RSCALE, TBM_GETPOS, 0, 0) / 100.0f;
+            perf_labels(h);
+            preview_dirty(h);
+            return TRUE;
+        case WM_COMMAND:
+            switch (LOWORD(w)) {
+                case IDC_FPSCAP:
+                    if (HIWORD(w) == CBN_SELCHANGE) {
+                        int i = (int)SendDlgItemMessageW(h, IDC_FPSCAP, CB_GETCURSEL, 0, 0);
+                        if (i >= 0 && i < 4) g_work.fps_cap = PERF_FPS[i];
+                        preview_dirty(h);
+                    }
+                    break;
+                case IDC_MSAA:
+                    if (HIWORD(w) == CBN_SELCHANGE) {
+                        int i = (int)SendDlgItemMessageW(h, IDC_MSAA, CB_GETCURSEL, 0, 0);
+                        if (i >= 0 && i < 4) g_work.msaa = PERF_MSAA[i];
+                        preview_dirty(h);
+                    }
+                    break;
+                case IDC_VSYNC:
+                    g_work.vsync = (IsDlgButtonChecked(h, IDC_VSYNC) == BST_CHECKED);
+                    preview_dirty(h);
+                    break;
+                case IDC_AUTOQ:
+                    g_work.auto_quality = (IsDlgButtonChecked(h, IDC_AUTOQ) == BST_CHECKED);
+                    preview_dirty(h);
+                    break;
+            }
+            return TRUE;
+    }
+    return FALSE;
+}
+
 /* ---------------- dialogo principal ---------------- */
 
 static void place_tab_child(HWND dlg, HWND tabs, HWND child)
@@ -382,6 +455,7 @@ static void select_tab(int sel)
     ShowWindow(g_material, sel == 2 ? SW_SHOW : SW_HIDE);
     ShowWindow(g_geometry, sel == 3 ? SW_SHOW : SW_HIDE);
     ShowWindow(g_effects,  sel == 4 ? SW_SHOW : SW_HIDE);
+    ShowWindow(g_perf,     sel == 5 ? SW_SHOW : SW_HIDE);
 }
 
 static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
@@ -402,6 +476,8 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             TabCtrl_InsertItem(tabs, 3, &ti);
             ti.pszText = L"Efeitos";
             TabCtrl_InsertItem(tabs, 4, &ti);
+            ti.pszText = L"Desempenho";
+            TabCtrl_InsertItem(tabs, 5, &ti);
 
             g_content = CreateDialogW(GetModuleHandleW(NULL),
                                       MAKEINTRESOURCEW(IDD_TAB_CONTENT), h, content_proc);
@@ -413,11 +489,14 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                                        MAKEINTRESOURCEW(IDD_TAB_GEOMETRY), h, geometry_proc);
             g_effects = CreateDialogW(GetModuleHandleW(NULL),
                                       MAKEINTRESOURCEW(IDD_TAB_EFFECTS), h, effects_proc);
+            g_perf = CreateDialogW(GetModuleHandleW(NULL),
+                                   MAKEINTRESOURCEW(IDD_TAB_PERF), h, perf_proc);
             place_tab_child(h, tabs, g_content);
             place_tab_child(h, tabs, g_motion);
             place_tab_child(h, tabs, g_material);
             place_tab_child(h, tabs, g_geometry);
             place_tab_child(h, tabs, g_effects);
+            place_tab_child(h, tabs, g_perf);
             select_tab(0);
 
             /* mini-preview 3D ao vivo */
@@ -439,7 +518,7 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                 if (GetEnvironmentVariableA("M3DT_TAB", tb, sizeof tb) > 0) {
                     int sel = atoi(tb);
                     if (sel < 0) sel = 0;
-                    if (sel > 4) sel = 4;
+                    if (sel > 5) sel = 5;
                     TabCtrl_SetCurSel(tabs, sel);
                     select_tab(sel);
                 }
