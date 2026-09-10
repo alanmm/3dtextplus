@@ -2,6 +2,7 @@
 #include <shellapi.h>
 #include "cmdline.h"
 #include "host_win32.h"
+#include "config_dialog.h"
 #include "util/log.h"
 
 int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, PWSTR lpCmdLine, int nShow)
@@ -22,7 +23,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, PWSTR lpCmdLine, int nShow
     switch (cmd.mode) {
         case M3DT_MODE_SAVER:   rc = host_run_saver(hInst); break;
         case M3DT_MODE_PREVIEW: rc = host_run_preview(hInst, (HWND)(UINT_PTR)cmd.parent_hwnd); break;
-        case M3DT_MODE_CONFIG:  rc = 0; break;   /* Task 7 */
+        case M3DT_MODE_CONFIG:  rc = config_dialog_run(hInst, (HWND)(UINT_PTR)cmd.parent_hwnd); break;
     }
 
     log_infof("exit rc=%d", rc);
