@@ -33,14 +33,10 @@ void log_init(void)
     char path[MAX_PATH + 64];
     snprintf(path, sizeof path, "%s\\log.txt", dir);
 
-    /* trunca se o log ja passou de ~200 KB, senao mantem o historico */
-    const char *mode = "a";
-    HANDLE h = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
-                           NULL, OPEN_EXISTING, 0, NULL);
-    if (h != INVALID_HANDLE_VALUE) {
-        if (GetFileSize(h, NULL) > 200000) mode = "w";
-        CloseHandle(h);
-    }
+    /* trunca a cada execucao; append opcional via M3DT_LOG_APPEND */
+    char ap[8];
+    DWORD an = GetEnvironmentVariableA("M3DT_LOG_APPEND", ap, sizeof ap);
+    const char *mode = (an > 0 && an < sizeof ap && ap[0] != '0') ? "a" : "w";
 
     g_log = fopen(path, mode);
     log_infof("---- log_init ----");

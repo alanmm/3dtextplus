@@ -3,20 +3,55 @@
 
 1 24 "screensaver.manifest"
 
-IDD_CONFIG DIALOGEX 0, 0, 260, 96
+IDD_CONFIG DIALOGEX 0, 0, 420, 236
 STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Modern 3D Text"
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
-    LTEXT           "Modern 3D Text - janela de configuracao (Fase 1, em construcao).",
-                    IDC_INTRO, 14, 16, 232, 24
-    DEFPUSHBUTTON   "OK",       IDOK,     150, 72, 46, 15
-    PUSHBUTTON      "Cancelar", IDCANCEL, 202, 72, 46, 15
+    CONTROL         "", IDC_TABS, "SysTabControl32", WS_TABSTOP, 6, 6, 220, 224
+    CONTROL         "", IDC_PREVIEW, "Static", SS_BLACKFRAME, 234, 18, 180, 180
+    DEFPUSHBUTTON   "OK",       IDOK,      234, 206, 56, 14
+    PUSHBUTTON      "Cancelar", IDCANCEL,  294, 206, 56, 14
+    PUSHBUTTON      "Aplicar",  IDC_APPLY, 356, 206, 56, 14
+END
+
+IDD_TAB_CONTENT DIALOGEX 0, 0, 208, 196
+STYLE DS_SETFONT | DS_CONTROL | WS_CHILD
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    LTEXT           "Texto:", -1, 8, 10, 60, 9
+    EDITTEXT        IDC_TEXT, 8, 22, 192, 40,
+                    ES_MULTILINE | ES_WANTRETURN | ES_AUTOVSCROLL | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Fonte:", -1, 8, 72, 60, 9
+    COMBOBOX        IDC_FONT, 8, 84, 192, 160,
+                    CBS_DROPDOWNLIST | CBS_SORT | WS_VSCROLL | WS_TABSTOP
+    AUTOCHECKBOX     "Negrito", IDC_BOLD,   8, 108, 60, 12
+    AUTOCHECKBOX     "Italico", IDC_ITALIC, 76, 108, 60, 12
+    LTEXT           "Cor:", -1, 8, 130, 60, 9
+    PUSHBUTTON      "Escolher cor...", IDC_COLOR, 8, 142, 90, 14
+END
+
+IDD_TAB_MOTION DIALOGEX 0, 0, 208, 196
+STYLE DS_SETFONT | DS_CONTROL | WS_CHILD
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    LTEXT    "Profundidade:", -1, 8, 10, 90, 9
+    LTEXT    "", IDC_DEPTH_VAL, 150, 10, 50, 9
+    CONTROL  "", IDC_DEPTH, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 20, 192, 18
+    LTEXT    "Angulo max. (graus):", -1, 8, 44, 110, 9
+    LTEXT    "", IDC_ANGLE_VAL, 150, 44, 50, 9
+    CONTROL  "", IDC_ANGLE, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 54, 192, 18
+    LTEXT    "Inclinacao X (graus):", -1, 8, 78, 110, 9
+    LTEXT    "", IDC_TILT_VAL, 150, 78, 50, 9
+    CONTROL  "", IDC_TILT, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 88, 192, 18
+    LTEXT    "Periodo (s):", -1, 8, 112, 90, 9
+    LTEXT    "", IDC_PERIOD_VAL, 150, 112, 50, 9
+    CONTROL  "", IDC_PERIOD, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 122, 192, 18
 END
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION    0,1,0,0
- PRODUCTVERSION 0,1,0,0
+ FILEVERSION    0,2,1,0
+ PRODUCTVERSION 0,2,1,0
  FILEOS         VOS_NT_WINDOWS32
  FILETYPE       VFT_APP
 BEGIN
@@ -26,11 +61,11 @@ BEGIN
     BEGIN
       VALUE "CompanyName",      "Alan Maziero"
       VALUE "FileDescription",  "Modern 3D Text Screensaver"
-      VALUE "FileVersion",      "0.1.0.0"
+      VALUE "FileVersion",      "0.2.1.0"
       VALUE "InternalName",     "Modern3DText"
       VALUE "OriginalFilename", "Modern3DText.scr"
       VALUE "ProductName",      "Modern 3D Text"
-      VALUE "ProductVersion",   "0.1.0.0"
+      VALUE "ProductVersion",   "0.2.1.0"
     END
   END
   BLOCK "VarFileInfo"
