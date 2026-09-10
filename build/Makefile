@@ -65,13 +65,14 @@ run: debug
 config: debug
 	./$(OUT) /c
 
-TEST_SRC   := build/tests/test_main.c build/tests/test_cmdline.c build/tests/test_log.c
-TEST_UNITS := src/cmdline.c src/util/log.c
+TEST_SRC   := build/tests/test_main.c build/tests/test_cmdline.c build/tests/test_log.c \
+              build/tests/test_mathx.c
+TEST_UNITS := src/cmdline.c src/util/log.c src/util/mathx.c
 
 test:
 	@mkdir -p build/obj
 	$(CC) -std=c11 -Wall -Wextra -Isrc -Ibuild/tests \
-	  $(TEST_SRC) $(TEST_UNITS) -o build/obj/run_tests.exe
+	  $(TEST_SRC) $(TEST_UNITS) -o build/obj/run_tests.exe -lm
 	./build/obj/run_tests.exe
 
 clean:
