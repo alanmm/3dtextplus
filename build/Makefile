@@ -34,7 +34,7 @@ LIBS    := -lopengl32 -lgdi32 -luser32 -lkernel32 -lcomdlg32 -lcomctl32 \
 
 SRC_C := src/main.c src/cmdline.c src/util/log.c src/util/mathx.c src/gl_core.c \
          src/gl_window.c src/host_win32.c src/config_dialog.c src/config.c \
-         src/material.c src/scene.c src/env.c \
+         src/material.c src/scene.c src/env.c src/post.c \
          src/geometry/font_outline.c src/geometry/stb_impl.c src/geometry/contour_mesh.c \
          src/geometry/sdf.c
 TP_C  := third_party/glad/src/gl.c $(wildcard third_party/libtess2/Source/*.c)
