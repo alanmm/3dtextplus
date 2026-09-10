@@ -12,6 +12,7 @@
 
 static Config g_work;        /* config sendo editada */
 static HWND   g_content;     /* sub-dialogo da aba Conteudo */
+static HWND   g_motion;      /* sub-dialogo da aba Movimento */
 static bool   g_selftest;
 
 static bool env_selftest(void)
@@ -112,6 +113,46 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
     return FALSE;
 }
 
+/* ---------------- aba Movimento ---------------- */
+
+static void set_slider(HWND h, int id, int lo, int hi, int pos)
+{
+    SendDlgItemMessageW(h, id, TBM_SETRANGE, TRUE, MAKELPARAM(lo, hi));
+    SendDlgItemMessageW(h, id, TBM_SETPOS, TRUE, pos);
+}
+
+static void motion_labels(HWND h)
+{
+    wchar_t b[32];
+    swprintf(b, 32, L"%.2f", (double)g_work.depth);       SetDlgItemTextW(h, IDC_DEPTH_VAL, b);
+    swprintf(b, 32, L"%.0f", (double)g_work.max_angle_y); SetDlgItemTextW(h, IDC_ANGLE_VAL, b);
+    swprintf(b, 32, L"%.0f", (double)g_work.tilt_x);      SetDlgItemTextW(h, IDC_TILT_VAL, b);
+    swprintf(b, 32, L"%.1f", (double)g_work.period);      SetDlgItemTextW(h, IDC_PERIOD_VAL, b);
+}
+
+static INT_PTR CALLBACK motion_proc(HWND h, UINT m, WPARAM w, LPARAM l)
+{
+    (void)w; (void)l;
+    switch (m) {
+        case WM_INITDIALOG:
+            set_slider(h, IDC_DEPTH,  2, 200, (int)(g_work.depth * 100.0f + 0.5f));
+            set_slider(h, IDC_ANGLE,  5, 170, (int)(g_work.max_angle_y + 0.5f));
+            set_slider(h, IDC_TILT,   0, 30,  (int)(g_work.tilt_x + 0.5f));
+            set_slider(h, IDC_PERIOD, 20, 300, (int)(g_work.period * 10.0f + 0.5f));
+            motion_labels(h);
+            return TRUE;
+        case WM_HSCROLL:
+            g_work.depth       = (float)SendDlgItemMessageW(h, IDC_DEPTH, TBM_GETPOS, 0, 0) / 100.0f;
+            g_work.max_angle_y = (float)SendDlgItemMessageW(h, IDC_ANGLE, TBM_GETPOS, 0, 0);
+            g_work.tilt_x      = (float)SendDlgItemMessageW(h, IDC_TILT, TBM_GETPOS, 0, 0);
+            g_work.period      = (float)SendDlgItemMessageW(h, IDC_PERIOD, TBM_GETPOS, 0, 0) / 10.0f;
+            motion_labels(h);
+            preview_dirty(h);
+            return TRUE;
+    }
+    return FALSE;
+}
+
 /* ---------------- dialogo principal ---------------- */
 
 static void place_tab_child(HWND dlg, HWND tabs, HWND child)
@@ -138,8 +179,12 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
 
             g_content = CreateDialogW(GetModuleHandleW(NULL),
                                       MAKEINTRESOURCEW(IDD_TAB_CONTENT), h, content_proc);
+            g_motion = CreateDialogW(GetModuleHandleW(NULL),
+                                     MAKEINTRESOURCEW(IDD_TAB_MOTION), h, motion_proc);
             place_tab_child(h, tabs, g_content);
+            place_tab_child(h, tabs, g_motion);
             ShowWindow(g_content, SW_SHOW);
+            ShowWindow(g_motion, SW_HIDE);
 
             if (g_selftest) SetTimer(h, 1, 700, NULL);
             return TRUE;
@@ -151,6 +196,7 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             if (((LPNMHDR)l)->idFrom == IDC_TABS && ((LPNMHDR)l)->code == TCN_SELCHANGE) {
                 int sel = TabCtrl_GetCurSel(GetDlgItem(h, IDC_TABS));
                 ShowWindow(g_content, sel == 0 ? SW_SHOW : SW_HIDE);
+                ShowWindow(g_motion,  sel == 1 ? SW_SHOW : SW_HIDE);
                 return TRUE;
             }
             break;
