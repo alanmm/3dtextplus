@@ -16,6 +16,10 @@ typedef struct {
     float        tilt_x;               /* 0 .. 30 (graus) */
     float        period;               /* 2 .. 30 (s) */
     float        base_r, base_g, base_b;  /* 0..1 */
+    int          material_mode;        /* 0 classico, 1 metalico, 2 vidro, 3 fosco */
+    float        metalness;            /* 0..1 */
+    float        roughness;            /* 0..1 */
+    wchar_t      env_path[512];        /* vazio = ambiente procedural */
 } Config;
 
 void config_defaults(Config *c);

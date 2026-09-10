@@ -23,6 +23,10 @@ void config_defaults(Config *c)
     c->tilt_x = 8.0f;
     c->period = 9.0f;
     c->base_r = 0.72f; c->base_g = 0.74f; c->base_b = 0.78f;
+    c->material_mode = 0;
+    c->metalness = 0.9f;
+    c->roughness = 0.25f;
+    c->env_path[0] = 0;
 }
 
 static float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
@@ -83,12 +87,16 @@ void config_load_from(Config *c, const wchar_t *subkey)
     reg_get_i(k, L"font_bold", &c->font_bold);
     reg_get_i(k, L"font_italic", &c->font_italic);
     reg_get_i(k, L"version", &c->version);
+    reg_get_i(k, L"material_mode", &c->material_mode);
+    reg_get_w(k, L"env_path", c->env_path, 512);
 
     float f;
     if (reg_get_f(k, L"depth", &f))       c->depth = f;
     if (reg_get_f(k, L"max_angle_y", &f)) c->max_angle_y = f;
     if (reg_get_f(k, L"tilt_x", &f))      c->tilt_x = f;
     if (reg_get_f(k, L"period", &f))      c->period = f;
+    if (reg_get_f(k, L"metalness", &f))   c->metalness = f;
+    if (reg_get_f(k, L"roughness", &f))   c->roughness = f;
 
     wchar_t col[16];
     if (reg_get_w(k, L"base_color", col, 16) && col[0] == L'#' && wcslen(col) >= 7) {
@@ -109,6 +117,9 @@ void config_load_from(Config *c, const wchar_t *subkey)
     c->base_r = clampf(c->base_r, 0.0f, 1.0f);
     c->base_g = clampf(c->base_g, 0.0f, 1.0f);
     c->base_b = clampf(c->base_b, 0.0f, 1.0f);
+    if (c->material_mode < 0 || c->material_mode > 3) c->material_mode = 0;
+    c->metalness = clampf(c->metalness, 0.0f, 1.0f);
+    c->roughness = clampf(c->roughness, 0.0f, 1.0f);
     if (c->text[0] == 0) strcpy(c->text, "Modern 3D Text");
     if (c->font_family[0] == 0) wcscpy(c->font_family, L"Segoe UI");
 }
@@ -135,6 +146,10 @@ void config_save_to(const Config *c, const wchar_t *subkey)
     set_f(k, L"max_angle_y", c->max_angle_y);
     set_f(k, L"tilt_x", c->tilt_x);
     set_f(k, L"period", c->period);
+    set_f(k, L"material_mode", (float)c->material_mode);
+    set_f(k, L"metalness", c->metalness);
+    set_f(k, L"roughness", c->roughness);
+    set_w(k, L"env_path", c->env_path);
 
     wchar_t col[16];
     unsigned r = (unsigned)(c->base_r * 255.0f + 0.5f);
