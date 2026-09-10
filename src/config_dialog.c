@@ -22,6 +22,7 @@ static HWND       g_content;     /* sub-dialogo da aba Conteudo */
 static HWND       g_motion;      /* sub-dialogo da aba Movimento */
 static HWND       g_material;    /* sub-dialogo da aba Material */
 static HWND       g_geometry;    /* sub-dialogo da aba Geometria */
+static HWND       g_effects;     /* sub-dialogo da aba Efeitos */
 static bool       g_selftest;
 static GlWindow  *g_preview;
 static bool       g_dirty;
@@ -315,6 +316,54 @@ static INT_PTR CALLBACK geometry_proc(HWND h, UINT m, WPARAM w, LPARAM l)
     return FALSE;
 }
 
+/* ---------------- aba Efeitos ---------------- */
+
+static void effects_labels(HWND h)
+{
+    wchar_t b[32];
+    swprintf(b, 32, L"%.2f", (double)g_work.bloom_threshold); SetDlgItemTextW(h, IDC_BTHRESH_VAL, b);
+    swprintf(b, 32, L"%.2f", (double)g_work.bloom_intensity); SetDlgItemTextW(h, IDC_BINT_VAL, b);
+    swprintf(b, 32, L"%.2f", (double)g_work.bloom_radius);    SetDlgItemTextW(h, IDC_BRAD_VAL, b);
+}
+
+static void effects_enable(HWND h)
+{
+    BOOL on = g_work.bloom_on ? TRUE : FALSE;
+    EnableWindow(GetDlgItem(h, IDC_BTHRESH), on);
+    EnableWindow(GetDlgItem(h, IDC_BINT), on);
+    EnableWindow(GetDlgItem(h, IDC_BRAD), on);
+}
+
+static INT_PTR CALLBACK effects_proc(HWND h, UINT m, WPARAM w, LPARAM l)
+{
+    (void)l;
+    switch (m) {
+        case WM_INITDIALOG:
+            CheckDlgButton(h, IDC_BLOOM, g_work.bloom_on ? BST_CHECKED : BST_UNCHECKED);
+            set_slider(h, IDC_BTHRESH, 20, 300, (int)(g_work.bloom_threshold * 100.0f + 0.5f));
+            set_slider(h, IDC_BINT,     0, 200, (int)(g_work.bloom_intensity * 100.0f + 0.5f));
+            set_slider(h, IDC_BRAD,     0, 100, (int)(g_work.bloom_radius * 100.0f + 0.5f));
+            effects_labels(h);
+            effects_enable(h);
+            return TRUE;
+        case WM_HSCROLL:
+            g_work.bloom_threshold = (float)SendDlgItemMessageW(h, IDC_BTHRESH, TBM_GETPOS, 0, 0) / 100.0f;
+            g_work.bloom_intensity = (float)SendDlgItemMessageW(h, IDC_BINT, TBM_GETPOS, 0, 0) / 100.0f;
+            g_work.bloom_radius    = (float)SendDlgItemMessageW(h, IDC_BRAD, TBM_GETPOS, 0, 0) / 100.0f;
+            effects_labels(h);
+            preview_dirty(h);
+            return TRUE;
+        case WM_COMMAND:
+            if (LOWORD(w) == IDC_BLOOM) {
+                g_work.bloom_on = (IsDlgButtonChecked(h, IDC_BLOOM) == BST_CHECKED);
+                effects_enable(h);
+                preview_dirty(h);
+            }
+            return TRUE;
+    }
+    return FALSE;
+}
+
 /* ---------------- dialogo principal ---------------- */
 
 static void place_tab_child(HWND dlg, HWND tabs, HWND child)
@@ -324,6 +373,15 @@ static void place_tab_child(HWND dlg, HWND tabs, HWND child)
     TabCtrl_AdjustRect(tabs, FALSE, &rc);
     MapWindowPoints(tabs, dlg, (POINT *)&rc, 2);
     SetWindowPos(child, HWND_TOP, rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top, 0);
+}
+
+static void select_tab(int sel)
+{
+    ShowWindow(g_content,  sel == 0 ? SW_SHOW : SW_HIDE);
+    ShowWindow(g_motion,   sel == 1 ? SW_SHOW : SW_HIDE);
+    ShowWindow(g_material, sel == 2 ? SW_SHOW : SW_HIDE);
+    ShowWindow(g_geometry, sel == 3 ? SW_SHOW : SW_HIDE);
+    ShowWindow(g_effects,  sel == 4 ? SW_SHOW : SW_HIDE);
 }
 
 static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
@@ -342,6 +400,8 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             TabCtrl_InsertItem(tabs, 2, &ti);
             ti.pszText = L"Geometria";
             TabCtrl_InsertItem(tabs, 3, &ti);
+            ti.pszText = L"Efeitos";
+            TabCtrl_InsertItem(tabs, 4, &ti);
 
             g_content = CreateDialogW(GetModuleHandleW(NULL),
                                       MAKEINTRESOURCEW(IDD_TAB_CONTENT), h, content_proc);
@@ -351,14 +411,14 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                                       MAKEINTRESOURCEW(IDD_TAB_MATERIAL), h, material_proc);
             g_geometry = CreateDialogW(GetModuleHandleW(NULL),
                                        MAKEINTRESOURCEW(IDD_TAB_GEOMETRY), h, geometry_proc);
+            g_effects = CreateDialogW(GetModuleHandleW(NULL),
+                                      MAKEINTRESOURCEW(IDD_TAB_EFFECTS), h, effects_proc);
             place_tab_child(h, tabs, g_content);
             place_tab_child(h, tabs, g_motion);
             place_tab_child(h, tabs, g_material);
             place_tab_child(h, tabs, g_geometry);
-            ShowWindow(g_content, SW_SHOW);
-            ShowWindow(g_motion, SW_HIDE);
-            ShowWindow(g_material, SW_HIDE);
-            ShowWindow(g_geometry, SW_HIDE);
+            place_tab_child(h, tabs, g_effects);
+            select_tab(0);
 
             /* mini-preview 3D ao vivo */
             gl_window_global_init(GetModuleHandleW(NULL));
@@ -375,8 +435,20 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             if (g_preview) SetTimer(h, TIMER_PREVIEW, 33, NULL);
 
             if (g_selftest) {
-                char shot[8];
+                char tb[8];
+                if (GetEnvironmentVariableA("M3DT_TAB", tb, sizeof tb) > 0) {
+                    int sel = atoi(tb);
+                    if (sel < 0) sel = 0;
+                    if (sel > 4) sel = 4;
+                    TabCtrl_SetCurSel(tabs, sel);
+                    select_tab(sel);
+                }
+                char shot[8], hold[16];
                 UINT ms = (GetEnvironmentVariableA("M3DT_SHOT", shot, sizeof shot) > 0) ? 1500 : 700;
+                if (GetEnvironmentVariableA("M3DT_HOLD_MS", hold, sizeof hold) > 0) {
+                    int v = atoi(hold);
+                    if (v > 0) ms = (UINT)v;
+                }
                 SetTimer(h, TIMER_SELFTEST, ms, NULL);
             }
             return TRUE;
@@ -415,11 +487,7 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             break;
         case WM_NOTIFY:
             if (((LPNMHDR)l)->idFrom == IDC_TABS && ((LPNMHDR)l)->code == TCN_SELCHANGE) {
-                int sel = TabCtrl_GetCurSel(GetDlgItem(h, IDC_TABS));
-                ShowWindow(g_content,  sel == 0 ? SW_SHOW : SW_HIDE);
-                ShowWindow(g_motion,   sel == 1 ? SW_SHOW : SW_HIDE);
-                ShowWindow(g_material, sel == 2 ? SW_SHOW : SW_HIDE);
-                ShowWindow(g_geometry, sel == 3 ? SW_SHOW : SW_HIDE);
+                select_tab(TabCtrl_GetCurSel(GetDlgItem(h, IDC_TABS)));
                 return TRUE;
             }
             break;

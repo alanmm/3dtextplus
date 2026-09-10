@@ -6,6 +6,7 @@
 #define IDD_TAB_MOTION    111
 #define IDD_TAB_MATERIAL  112
 #define IDD_TAB_GEOMETRY  113
+#define IDD_TAB_EFFECTS   114
 
 #define IDC_TABS          1000
 #define IDC_PREVIEW       1001
@@ -50,5 +51,14 @@
 #define IDC_WALL          1408
 #define IDC_WALL_VAL      1409
 #define IDC_QUALITY       1410
+
+/* aba Efeitos */
+#define IDC_BLOOM         1500
+#define IDC_BTHRESH       1501
+#define IDC_BTHRESH_VAL   1502
+#define IDC_BINT          1503
+#define IDC_BINT_VAL      1504
+#define IDC_BRAD          1505
+#define IDC_BRAD_VAL      1506
 
 #endif

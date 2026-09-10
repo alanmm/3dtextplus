@@ -3,27 +3,27 @@
 
 1 24 "screensaver.manifest"
 
-IDD_CONFIG DIALOGEX 0, 0, 420, 236
+IDD_CONFIG DIALOGEX 0, 0, 448, 236
 STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Modern 3D Text"
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
-    CONTROL         "", IDC_TABS, "SysTabControl32", WS_TABSTOP, 6, 6, 220, 224
-    CONTROL         "", IDC_PREVIEW, "Static", SS_BLACKFRAME, 234, 18, 180, 180
-    DEFPUSHBUTTON   "OK",       IDOK,      234, 206, 56, 14
-    PUSHBUTTON      "Cancelar", IDCANCEL,  294, 206, 56, 14
-    PUSHBUTTON      "Aplicar",  IDC_APPLY, 356, 206, 56, 14
+    CONTROL         "", IDC_TABS, "SysTabControl32", WS_TABSTOP, 6, 6, 250, 224
+    CONTROL         "", IDC_PREVIEW, "Static", SS_BLACKFRAME, 264, 18, 178, 180
+    DEFPUSHBUTTON   "OK",       IDOK,      264, 206, 56, 14
+    PUSHBUTTON      "Cancelar", IDCANCEL,  326, 206, 56, 14
+    PUSHBUTTON      "Aplicar",  IDC_APPLY, 386, 206, 56, 14
 END
 
-IDD_TAB_CONTENT DIALOGEX 0, 0, 208, 196
+IDD_TAB_CONTENT DIALOGEX 0, 0, 240, 196
 STYLE DS_SETFONT | DS_CONTROL | WS_CHILD
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     LTEXT           "Texto:", -1, 8, 10, 60, 9
-    EDITTEXT        IDC_TEXT, 8, 22, 192, 40,
+    EDITTEXT        IDC_TEXT, 8, 22, 224, 40,
                     ES_MULTILINE | ES_WANTRETURN | ES_AUTOVSCROLL | WS_VSCROLL | WS_TABSTOP
     LTEXT           "Fonte:", -1, 8, 72, 60, 9
-    COMBOBOX        IDC_FONT, 8, 84, 192, 160,
+    COMBOBOX        IDC_FONT, 8, 84, 224, 160,
                     CBS_DROPDOWNLIST | CBS_SORT | WS_VSCROLL | WS_TABSTOP
     AUTOCHECKBOX     "Negrito", IDC_BOLD,   8, 108, 60, 12
     AUTOCHECKBOX     "Italico", IDC_ITALIC, 76, 108, 60, 12
@@ -31,63 +31,81 @@ BEGIN
     PUSHBUTTON      "Escolher cor...", IDC_COLOR, 8, 142, 90, 14
 END
 
-IDD_TAB_MOTION DIALOGEX 0, 0, 208, 196
+IDD_TAB_MOTION DIALOGEX 0, 0, 240, 196
 STYLE DS_SETFONT | DS_CONTROL | WS_CHILD
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     LTEXT    "Profundidade:", -1, 8, 10, 90, 9
-    LTEXT    "", IDC_DEPTH_VAL, 150, 10, 50, 9
-    CONTROL  "", IDC_DEPTH, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 20, 192, 18
+    LTEXT    "", IDC_DEPTH_VAL, 182, 10, 50, 9
+    CONTROL  "", IDC_DEPTH, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 20, 224, 18
     LTEXT    "Angulo max. (graus):", -1, 8, 44, 110, 9
-    LTEXT    "", IDC_ANGLE_VAL, 150, 44, 50, 9
-    CONTROL  "", IDC_ANGLE, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 54, 192, 18
+    LTEXT    "", IDC_ANGLE_VAL, 182, 44, 50, 9
+    CONTROL  "", IDC_ANGLE, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 54, 224, 18
     LTEXT    "Inclinacao X (graus):", -1, 8, 78, 110, 9
-    LTEXT    "", IDC_TILT_VAL, 150, 78, 50, 9
-    CONTROL  "", IDC_TILT, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 88, 192, 18
+    LTEXT    "", IDC_TILT_VAL, 182, 78, 50, 9
+    CONTROL  "", IDC_TILT, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 88, 224, 18
     LTEXT    "Periodo (s):", -1, 8, 112, 90, 9
-    LTEXT    "", IDC_PERIOD_VAL, 150, 112, 50, 9
-    CONTROL  "", IDC_PERIOD, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 122, 192, 18
+    LTEXT    "", IDC_PERIOD_VAL, 182, 112, 50, 9
+    CONTROL  "", IDC_PERIOD, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 122, 224, 18
 END
 
-IDD_TAB_MATERIAL DIALOGEX 0, 0, 208, 196
+IDD_TAB_MATERIAL DIALOGEX 0, 0, 240, 196
 STYLE DS_SETFONT | DS_CONTROL | WS_CHILD
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     LTEXT      "Material:", -1, 8, 10, 60, 9
     COMBOBOX   IDC_MATMODE, 8, 22, 150, 80, CBS_DROPDOWNLIST | WS_TABSTOP
     LTEXT      "Metalizacao:", -1, 8, 46, 90, 9
-    LTEXT      "", IDC_METAL_VAL, 150, 46, 50, 9
-    CONTROL    "", IDC_METAL, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 56, 192, 18
+    LTEXT      "", IDC_METAL_VAL, 182, 46, 50, 9
+    CONTROL    "", IDC_METAL, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 56, 224, 18
     LTEXT      "Rugosidade:", -1, 8, 80, 90, 9
-    LTEXT      "", IDC_ROUGH_VAL, 150, 80, 50, 9
-    CONTROL    "", IDC_ROUGH, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 90, 192, 18
-    LTEXT      "Imagem de ambiente (opcional):", -1, 8, 116, 190, 9
-    LTEXT      "(procedural)", IDC_ENVPATH, 8, 128, 192, 9, SS_PATHELLIPSIS
+    LTEXT      "", IDC_ROUGH_VAL, 182, 80, 50, 9
+    CONTROL    "", IDC_ROUGH, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 90, 224, 18
+    LTEXT      "Imagem de ambiente (opcional):", -1, 8, 116, 200, 9
+    LTEXT      "(procedural)", IDC_ENVPATH, 8, 128, 224, 9, SS_PATHELLIPSIS
     PUSHBUTTON "Escolher...", IDC_ENVPICK, 8, 140, 60, 14
     PUSHBUTTON "Limpar",      IDC_ENVCLEAR, 72, 140, 50, 14
 END
 
-IDD_TAB_GEOMETRY DIALOGEX 0, 0, 208, 196
+IDD_TAB_GEOMETRY DIALOGEX 0, 0, 240, 196
 STYLE DS_SETFONT | DS_CONTROL | WS_CHILD
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     LTEXT      "Bevel:", -1, 8, 8, 60, 9
     COMBOBOX   IDC_BEVELMODE, 8, 18, 150, 80, CBS_DROPDOWNLIST | WS_TABSTOP
     LTEXT      "Tamanho:", -1, 8, 38, 90, 9
-    LTEXT      "", IDC_BSIZE_VAL, 150, 38, 50, 9
-    CONTROL    "", IDC_BSIZE, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 48, 192, 16
+    LTEXT      "", IDC_BSIZE_VAL, 182, 38, 50, 9
+    CONTROL    "", IDC_BSIZE, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 48, 224, 16
     LTEXT      "Profundidade do chanfro:", -1, 8, 66, 120, 9
-    LTEXT      "", IDC_BDEPTH_VAL, 150, 66, 50, 9
-    CONTROL    "", IDC_BDEPTH, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 76, 192, 16
+    LTEXT      "", IDC_BDEPTH_VAL, 182, 66, 50, 9
+    CONTROL    "", IDC_BDEPTH, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 76, 224, 16
     LTEXT      "Segmentos (modo geometrico):", -1, 8, 94, 130, 9
-    LTEXT      "", IDC_BSEG_VAL, 150, 94, 50, 9
-    CONTROL    "", IDC_BSEG, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 104, 192, 16
+    LTEXT      "", IDC_BSEG_VAL, 182, 94, 50, 9
+    CONTROL    "", IDC_BSEG, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 104, 224, 16
     AUTOCHECKBOX "Casca oca", IDC_SHELL, 8, 126, 80, 12
     LTEXT      "Espessura da parede:", -1, 8, 142, 110, 9
-    LTEXT      "", IDC_WALL_VAL, 150, 142, 50, 9
-    CONTROL    "", IDC_WALL, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 152, 192, 16
+    LTEXT      "", IDC_WALL_VAL, 182, 142, 50, 9
+    CONTROL    "", IDC_WALL, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 152, 224, 16
     LTEXT      "Qualidade:", -1, 8, 172, 60, 9
     COMBOBOX   IDC_QUALITY, 72, 170, 90, 80, CBS_DROPDOWNLIST | WS_TABSTOP
+END
+
+IDD_TAB_EFFECTS DIALOGEX 0, 0, 240, 196
+STYLE DS_SETFONT | DS_CONTROL | WS_CHILD
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    AUTOCHECKBOX "Bloom (glare)", IDC_BLOOM, 8, 10, 120, 12
+    LTEXT      "Limiar:", -1, 8, 32, 90, 9
+    LTEXT      "", IDC_BTHRESH_VAL, 182, 32, 50, 9
+    CONTROL    "", IDC_BTHRESH, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 42, 224, 18
+    LTEXT      "Intensidade:", -1, 8, 66, 90, 9
+    LTEXT      "", IDC_BINT_VAL, 182, 66, 50, 9
+    CONTROL    "", IDC_BINT, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 76, 224, 18
+    LTEXT      "Espalhamento:", -1, 8, 100, 90, 9
+    LTEXT      "", IDC_BRAD_VAL, 182, 100, 50, 9
+    CONTROL    "", IDC_BRAD, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 110, 224, 18
+    LTEXT      "O bloom age no render HDR: os realces claros sangram um brilho suave.",
+               -1, 8, 138, 224, 20
 END
 
 VS_VERSION_INFO VERSIONINFO
