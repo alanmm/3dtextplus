@@ -4,6 +4,7 @@
 #define IDD_CONFIG        101
 #define IDD_TAB_CONTENT   110
 #define IDD_TAB_MOTION    111
+#define IDD_TAB_MATERIAL  112
 
 #define IDC_TABS          1000
 #define IDC_PREVIEW       1001
@@ -25,5 +26,15 @@
 #define IDC_TILT_VAL      1205
 #define IDC_PERIOD        1206
 #define IDC_PERIOD_VAL    1207
+
+/* aba Material */
+#define IDC_MATMODE       1300
+#define IDC_METAL         1301
+#define IDC_METAL_VAL     1302
+#define IDC_ROUGH         1303
+#define IDC_ROUGH_VAL     1304
+#define IDC_ENVPATH       1305
+#define IDC_ENVPICK       1306
+#define IDC_ENVCLEAR      1307
 
 #endif

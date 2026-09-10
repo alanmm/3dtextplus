@@ -20,6 +20,7 @@
 static Config     g_work;        /* config sendo editada */
 static HWND       g_content;     /* sub-dialogo da aba Conteudo */
 static HWND       g_motion;      /* sub-dialogo da aba Movimento */
+static HWND       g_material;    /* sub-dialogo da aba Material */
 static bool       g_selftest;
 static GlWindow  *g_preview;
 static bool       g_dirty;
@@ -172,6 +173,74 @@ static INT_PTR CALLBACK motion_proc(HWND h, UINT m, WPARAM w, LPARAM l)
     return FALSE;
 }
 
+/* ---------------- aba Material ---------------- */
+
+static void material_labels(HWND h)
+{
+    wchar_t b[32];
+    swprintf(b, 32, L"%.2f", (double)g_work.metalness);  SetDlgItemTextW(h, IDC_METAL_VAL, b);
+    swprintf(b, 32, L"%.2f", (double)g_work.roughness);  SetDlgItemTextW(h, IDC_ROUGH_VAL, b);
+    SetDlgItemTextW(h, IDC_ENVPATH, g_work.env_path[0] ? g_work.env_path : L"(procedural)");
+}
+
+static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
+{
+    (void)l;
+    switch (m) {
+        case WM_INITDIALOG: {
+            static const wchar_t *names[] = { L"Classico", L"Metalico", L"Vidro", L"Fosco" };
+            for (int i = 0; i < 4; ++i)
+                SendDlgItemMessageW(h, IDC_MATMODE, CB_ADDSTRING, 0, (LPARAM)names[i]);
+            SendDlgItemMessageW(h, IDC_MATMODE, CB_SETCURSEL, g_work.material_mode, 0);
+            set_slider(h, IDC_METAL, 0, 100, (int)(g_work.metalness * 100.0f + 0.5f));
+            set_slider(h, IDC_ROUGH, 0, 100, (int)(g_work.roughness * 100.0f + 0.5f));
+            material_labels(h);
+            return TRUE;
+        }
+        case WM_HSCROLL:
+            g_work.metalness = (float)SendDlgItemMessageW(h, IDC_METAL, TBM_GETPOS, 0, 0) / 100.0f;
+            g_work.roughness = (float)SendDlgItemMessageW(h, IDC_ROUGH, TBM_GETPOS, 0, 0) / 100.0f;
+            material_labels(h);
+            preview_dirty(h);
+            return TRUE;
+        case WM_COMMAND:
+            switch (LOWORD(w)) {
+                case IDC_MATMODE:
+                    if (HIWORD(w) == CBN_SELCHANGE) {
+                        g_work.material_mode =
+                            (int)SendDlgItemMessageW(h, IDC_MATMODE, CB_GETCURSEL, 0, 0);
+                        preview_dirty(h);
+                    }
+                    break;
+                case IDC_ENVPICK: {
+                    wchar_t file[512] = L"";
+                    OPENFILENAMEW ofn;
+                    memset(&ofn, 0, sizeof ofn);
+                    ofn.lStructSize = sizeof ofn;
+                    ofn.hwndOwner = h;
+                    ofn.lpstrFilter = L"Imagens\0*.jpg;*.jpeg;*.png;*.bmp;*.tga\0Todos\0*.*\0";
+                    ofn.lpstrFile = file;
+                    ofn.nMaxFile = 512;
+                    ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+                    if (GetOpenFileNameW(&ofn)) {
+                        wcsncpy(g_work.env_path, file, 511);
+                        g_work.env_path[511] = 0;
+                        material_labels(h);
+                        preview_dirty(h);
+                    }
+                    break;
+                }
+                case IDC_ENVCLEAR:
+                    g_work.env_path[0] = 0;
+                    material_labels(h);
+                    preview_dirty(h);
+                    break;
+            }
+            return TRUE;
+    }
+    return FALSE;
+}
+
 /* ---------------- dialogo principal ---------------- */
 
 static void place_tab_child(HWND dlg, HWND tabs, HWND child)
@@ -195,15 +264,21 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             TabCtrl_InsertItem(tabs, 0, &ti);
             ti.pszText = L"Movimento";
             TabCtrl_InsertItem(tabs, 1, &ti);
+            ti.pszText = L"Material";
+            TabCtrl_InsertItem(tabs, 2, &ti);
 
             g_content = CreateDialogW(GetModuleHandleW(NULL),
                                       MAKEINTRESOURCEW(IDD_TAB_CONTENT), h, content_proc);
             g_motion = CreateDialogW(GetModuleHandleW(NULL),
                                      MAKEINTRESOURCEW(IDD_TAB_MOTION), h, motion_proc);
+            g_material = CreateDialogW(GetModuleHandleW(NULL),
+                                      MAKEINTRESOURCEW(IDD_TAB_MATERIAL), h, material_proc);
             place_tab_child(h, tabs, g_content);
             place_tab_child(h, tabs, g_motion);
+            place_tab_child(h, tabs, g_material);
             ShowWindow(g_content, SW_SHOW);
             ShowWindow(g_motion, SW_HIDE);
+            ShowWindow(g_material, SW_HIDE);
 
             /* mini-preview 3D ao vivo */
             gl_window_global_init(GetModuleHandleW(NULL));
@@ -261,8 +336,9 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
         case WM_NOTIFY:
             if (((LPNMHDR)l)->idFrom == IDC_TABS && ((LPNMHDR)l)->code == TCN_SELCHANGE) {
                 int sel = TabCtrl_GetCurSel(GetDlgItem(h, IDC_TABS));
-                ShowWindow(g_content, sel == 0 ? SW_SHOW : SW_HIDE);
-                ShowWindow(g_motion,  sel == 1 ? SW_SHOW : SW_HIDE);
+                ShowWindow(g_content,  sel == 0 ? SW_SHOW : SW_HIDE);
+                ShowWindow(g_motion,   sel == 1 ? SW_SHOW : SW_HIDE);
+                ShowWindow(g_material, sel == 2 ? SW_SHOW : SW_HIDE);
                 return TRUE;
             }
             break;

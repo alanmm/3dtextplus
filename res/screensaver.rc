@@ -49,6 +49,24 @@ BEGIN
     CONTROL  "", IDC_PERIOD, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 122, 192, 18
 END
 
+IDD_TAB_MATERIAL DIALOGEX 0, 0, 208, 196
+STYLE DS_SETFONT | DS_CONTROL | WS_CHILD
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    LTEXT      "Material:", -1, 8, 10, 60, 9
+    COMBOBOX   IDC_MATMODE, 8, 22, 150, 80, CBS_DROPDOWNLIST | WS_TABSTOP
+    LTEXT      "Metalizacao:", -1, 8, 46, 90, 9
+    LTEXT      "", IDC_METAL_VAL, 150, 46, 50, 9
+    CONTROL    "", IDC_METAL, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 56, 192, 18
+    LTEXT      "Rugosidade:", -1, 8, 80, 90, 9
+    LTEXT      "", IDC_ROUGH_VAL, 150, 80, 50, 9
+    CONTROL    "", IDC_ROUGH, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 90, 192, 18
+    LTEXT      "Imagem de ambiente (opcional):", -1, 8, 116, 190, 9
+    LTEXT      "(procedural)", IDC_ENVPATH, 8, 128, 192, 9, SS_PATHELLIPSIS
+    PUSHBUTTON "Escolher...", IDC_ENVPICK, 8, 140, 60, 14
+    PUSHBUTTON "Limpar",      IDC_ENVCLEAR, 72, 140, 50, 14
+END
+
 VS_VERSION_INFO VERSIONINFO
  FILEVERSION    0,2,1,0
  PRODUCTVERSION 0,2,1,0
