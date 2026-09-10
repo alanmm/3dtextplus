@@ -18,7 +18,6 @@ static void vpush(VBuf *b, MeshVertex mv)
     }
     b->v[b->n++] = mv;
 }
-
 static void ipush(IBuf *b, unsigned x)
 {
     if (b->n == b->cap) {
@@ -26,6 +25,61 @@ static void ipush(IBuf *b, unsigned x)
         b->i = (unsigned *)realloc(b->i, (size_t)b->cap * sizeof *b->i);
     }
     b->i[b->n++] = x;
+}
+static void tri(IBuf *b, unsigned a, unsigned c, unsigned d) { ipush(b, a); ipush(b, c); ipush(b, d); }
+static void quad(IBuf *b, unsigned a, unsigned c, unsigned d, unsigned e)
+{
+    tri(b, a, c, d);
+    tri(b, a, d, e);
+}
+
+static int sdf_res_for(int quality)
+{
+    return quality <= 0 ? 256 : (quality == 1 ? 512 : 768);
+}
+
+static float signed_area(const Contour *c)
+{
+    float a = 0.0f;
+    for (int i = 0; i < c->count; ++i) {
+        v2 p0 = c->pts[i], p1 = c->pts[(i + 1) % c->count];
+        a += p0.x * p1.y - p1.x * p0.y;
+    }
+    return 0.5f * a;
+}
+
+/* offset de `c` para o interior por `d`. `inward_left` = 1 se o interior fica a
+   esquerda das arestas (contorno CCW). Fallback ao ponto original quando o miter
+   estoura. Escreve `c->count` pontos em `out`. */
+static void inset_contour(const Contour *c, float d, int inward_left, v2 *out)
+{
+    for (int i = 0; i < c->count; ++i) {
+        v2 pm = c->pts[(i - 1 + c->count) % c->count];
+        v2 p  = c->pts[i];
+        v2 pp = c->pts[(i + 1) % c->count];
+
+        v2 e0 = { p.x - pm.x, p.y - pm.y };
+        v2 e1 = { pp.x - p.x, pp.y - p.y };
+        float l0 = sqrtf(e0.x * e0.x + e0.y * e0.y);
+        float l1 = sqrtf(e1.x * e1.x + e1.y * e1.y);
+        if (l0 < 1e-9f || l1 < 1e-9f) { out[i] = p; continue; }
+        e0.x /= l0; e0.y /= l0;
+        e1.x /= l1; e1.y /= l1;
+
+        /* normal interior de cada aresta */
+        v2 n0, n1;
+        if (inward_left) { n0 = (v2){ -e0.y, e0.x }; n1 = (v2){ -e1.y, e1.x }; }
+        else             { n0 = (v2){ e0.y, -e0.x }; n1 = (v2){ e1.y, -e1.x }; }
+
+        v2 bis = { n0.x + n1.x, n0.y + n1.y };
+        float bl = sqrtf(bis.x * bis.x + bis.y * bis.y);
+        if (bl < 1e-4f) { out[i] = p; continue; }   /* reversao de 180 graus */
+        bis.x /= bl; bis.y /= bl;
+
+        float cosang = bis.x * n0.x + bis.y * n0.y;    /* = cos(theta/2) */
+        float step = d / (cosang > 0.3f ? cosang : 0.3f);
+        out[i] = (v2){ p.x + bis.x * step, p.y + bis.y * step };
+    }
 }
 
 int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
@@ -39,6 +93,15 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
     if (valid_pts < 3) return 0;
 
     const float hz = p.depth * 0.5f;
+    const int shading = (p.bevel_mode == 0);
+    float mb = 0.0f;
+    if (shading) {
+        mb = p.bevel_size;
+        float cap = p.depth * 0.03f;
+        if (mb > cap) mb = cap;
+        if (mb < 1e-4f) mb = 0.0f;
+    }
+    const float cap_z = hz - mb;   /* tampa recuada pelo micro-bevel */
 
     TESStesselator *t = tessNewTess(NULL);
     if (!t) return 0;
@@ -51,7 +114,6 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
         tessDeleteTess(t);
         return 0;
     }
-
     const float *tv = tessGetVertices(t);
     const int   *te = tessGetElements(t);
     int nte = tessGetElementCount(t);
@@ -59,7 +121,7 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
     VBuf vb = { 0, 0, 0 };
     IBuf ib = { 0, 0, 0 };
 
-    /* tampas */
+    /* tampas em cap_z */
     for (int e = 0; e < nte; ++e) {
         int a = te[e * 3 + 0], b = te[e * 3 + 1], c = te[e * 3 + 2];
         if (a == TESS_UNDEF || b == TESS_UNDEF || c == TESS_UNDEF) continue;
@@ -68,41 +130,69 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
         float cx = tv[c * 2], cy = tv[c * 2 + 1];
 
         unsigned f = (unsigned)vb.n;
-        vpush(&vb, (MeshVertex){ ax, ay, hz, 0, 0, 1, 0 });
-        vpush(&vb, (MeshVertex){ bx, by, hz, 0, 0, 1, 0 });
-        vpush(&vb, (MeshVertex){ cx, cy, hz, 0, 0, 1, 0 });
-        ipush(&ib, f + 0); ipush(&ib, f + 1); ipush(&ib, f + 2);
+        vpush(&vb, (MeshVertex){ ax, ay, cap_z, 0, 0, 1, 0 });
+        vpush(&vb, (MeshVertex){ bx, by, cap_z, 0, 0, 1, 0 });
+        vpush(&vb, (MeshVertex){ cx, cy, cap_z, 0, 0, 1, 0 });
+        tri(&ib, f + 0, f + 1, f + 2);
 
         unsigned k = (unsigned)vb.n;
-        vpush(&vb, (MeshVertex){ ax, ay, -hz, 0, 0, -1, 1 });
-        vpush(&vb, (MeshVertex){ bx, by, -hz, 0, 0, -1, 1 });
-        vpush(&vb, (MeshVertex){ cx, cy, -hz, 0, 0, -1, 1 });
-        ipush(&ib, k + 0); ipush(&ib, k + 2); ipush(&ib, k + 1);   /* winding invertido */
+        vpush(&vb, (MeshVertex){ ax, ay, -cap_z, 0, 0, -1, 1 });
+        vpush(&vb, (MeshVertex){ bx, by, -cap_z, 0, 0, -1, 1 });
+        vpush(&vb, (MeshVertex){ cx, cy, -cap_z, 0, 0, -1, 1 });
+        tri(&ib, k + 0, k + 2, k + 1);
     }
+    tessDeleteTess(t);
 
-    /* paredes: um quad por aresta de cada contorno de entrada */
+    /* paredes + micro-bevel por contorno */
     for (int ci = 0; ci < cs->count; ++ci) {
         const Contour *co = &cs->contours[ci];
         if (co->count < 3) continue;
+
+        int ccw = signed_area(co) > 0.0f;
+        v2 *inset = NULL;
+        if (mb > 0.0f) {
+            inset = (v2 *)malloc((size_t)co->count * sizeof(v2));
+            inset_contour(co, mb, ccw, inset);
+        }
+
         for (int i = 0; i < co->count; ++i) {
-            v2 p0 = co->pts[i];
-            v2 p1 = co->pts[(i + 1) % co->count];
-            float ex = p1.x - p0.x, ey = p1.y - p0.y;
+            int j = (i + 1) % co->count;
+            v2 a0 = co->pts[i], a1 = co->pts[j];
+            float ex = a1.x - a0.x, ey = a1.y - a0.y;
             float el = sqrtf(ex * ex + ey * ey);
             if (el < 1e-9f) continue;
-            float nx = ey / el, ny = -ex / el;   /* a direita da aresta = fora, p/ contorno CCW */
+            float nx = ey / el, ny = -ex / el;   /* normal da aresta */
 
-            unsigned base = (unsigned)vb.n;
-            vpush(&vb, (MeshVertex){ p0.x, p0.y,  hz, nx, ny, 0, 2 });
-            vpush(&vb, (MeshVertex){ p1.x, p1.y,  hz, nx, ny, 0, 2 });
-            vpush(&vb, (MeshVertex){ p1.x, p1.y, -hz, nx, ny, 0, 2 });
-            vpush(&vb, (MeshVertex){ p0.x, p0.y, -hz, nx, ny, 0, 2 });
-            ipush(&ib, base + 0); ipush(&ib, base + 1); ipush(&ib, base + 2);
-            ipush(&ib, base + 0); ipush(&ib, base + 2); ipush(&ib, base + 3);
+            /* parede: a0/a1 de +cap_z a -cap_z */
+            unsigned w = (unsigned)vb.n;
+            vpush(&vb, (MeshVertex){ a0.x, a0.y,  cap_z, nx, ny, 0, 2 });
+            vpush(&vb, (MeshVertex){ a1.x, a1.y,  cap_z, nx, ny, 0, 2 });
+            vpush(&vb, (MeshVertex){ a1.x, a1.y, -cap_z, nx, ny, 0, 2 });
+            vpush(&vb, (MeshVertex){ a0.x, a0.y, -cap_z, nx, ny, 0, 2 });
+            quad(&ib, w + 0, w + 1, w + 2, w + 3);
+
+            if (mb > 0.0f) {
+                v2 b0 = inset[i], b1 = inset[j];
+                float s = 0.70710678f;                 /* chanfro ~45 graus */
+                float fnx = nx * s, fny = ny * s;       /* componente horizontal */
+                /* chanfro frontal: inset @ +hz  ->  original @ +cap_z */
+                unsigned cf = (unsigned)vb.n;
+                vpush(&vb, (MeshVertex){ b0.x, b0.y,  hz,    fnx, fny,  s, 3 });
+                vpush(&vb, (MeshVertex){ b1.x, b1.y,  hz,    fnx, fny,  s, 3 });
+                vpush(&vb, (MeshVertex){ a1.x, a1.y,  cap_z, fnx, fny,  s, 3 });
+                vpush(&vb, (MeshVertex){ a0.x, a0.y,  cap_z, fnx, fny,  s, 3 });
+                quad(&ib, cf + 0, cf + 1, cf + 2, cf + 3);
+                /* chanfro traseiro */
+                unsigned cb = (unsigned)vb.n;
+                vpush(&vb, (MeshVertex){ a0.x, a0.y, -cap_z, fnx, fny, -s, 3 });
+                vpush(&vb, (MeshVertex){ a1.x, a1.y, -cap_z, fnx, fny, -s, 3 });
+                vpush(&vb, (MeshVertex){ b1.x, b1.y, -hz,    fnx, fny, -s, 3 });
+                vpush(&vb, (MeshVertex){ b0.x, b0.y, -hz,    fnx, fny, -s, 3 });
+                quad(&ib, cb + 0, cb + 1, cb + 2, cb + 3);
+            }
         }
+        free(inset);
     }
-
-    tessDeleteTess(t);
 
     if (vb.n == 0 || ib.n == 0) { free(vb.v); free(ib.i); return 0; }
 
@@ -121,6 +211,11 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
     out->idx = ib.i;   out->nidx = ib.n;
     out->minx = mnx; out->miny = mny; out->minz = mnz;
     out->maxx = mxx; out->maxy = mxy; out->maxz = mxz;
+
+    if (shading) {
+        if (sdf_build(cs, sdf_res_for(p.quality), &out->sdf))
+            out->has_sdf = 1;
+    }
     return 1;
 }
 
@@ -128,5 +223,6 @@ void mesh_data_free(MeshData *m)
 {
     free(m->verts);
     free(m->idx);
+    if (m->has_sdf) sdf_free(&m->sdf);
     memset(m, 0, sizeof *m);
 }

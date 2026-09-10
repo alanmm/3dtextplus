@@ -2,6 +2,7 @@
 #include "geometry/contour_mesh.h"
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 static ContourSet cs_make(int nc)
 {
@@ -23,17 +24,37 @@ static void cs_free(ContourSet *cs)
     free(cs->contours);
 }
 
+/* MeshParams: modo desligado (2) -> so tampa + paredes, sem SDF, sem micro-bevel */
+static MeshParams mp_plain(float depth)
+{
+    MeshParams p; memset(&p, 0, sizeof p);
+    p.depth = depth;
+    p.bevel_mode = 2;
+    p.quality = 0;
+    return p;
+}
+static MeshParams mp_shading(float depth, float bevel)
+{
+    MeshParams p; memset(&p, 0, sizeof p);
+    p.depth = depth;
+    p.bevel_mode = 0;
+    p.bevel_size = bevel;
+    p.quality = 0;
+    return p;
+}
+
 void run_contour_mesh_tests(void)
 {
-    /* quadrado */
+    /* quadrado, sem bevel */
     {
         ContourSet cs = cs_make(1);
         float sq[] = { -1,-1,  1,-1,  1,1,  -1,1 };
         cs_set(&cs, 0, sq, 4);
         MeshData md;
-        EXPECT(contour_mesh_build(&cs, (MeshParams){ 0.5f }, &md) == 1);
+        EXPECT(contour_mesh_build(&cs, mp_plain(0.5f), &md) == 1);
         EXPECT(md.nverts > 0 && md.nidx > 0 && md.nidx % 3 == 0);
         EXPECT(fabsf(md.minz + 0.25f) < 1e-4f && fabsf(md.maxz - 0.25f) < 1e-4f);
+        EXPECT(md.has_sdf == 0);
         int caps = 0, walls = 0;
         for (int i = 0; i < md.nverts; ++i) {
             const MeshVertex *v = &md.verts[i];
@@ -41,6 +62,23 @@ void run_contour_mesh_tests(void)
             else { EXPECT(fabsf(v->nz) < 1e-3f); walls++; }
         }
         EXPECT(caps > 0 && walls > 0);
+        mesh_data_free(&md);
+        cs_free(&cs);
+    }
+
+    /* quadrado, modo sombreado: gera SDF, dentro < 0 */
+    {
+        ContourSet cs = cs_make(1);
+        float sq[] = { -1,-1,  1,-1,  1,1,  -1,1 };
+        cs_set(&cs, 0, sq, 4);
+        MeshData md;
+        EXPECT(contour_mesh_build(&cs, mp_shading(0.5f, 0.08f), &md) == 1);
+        EXPECT(md.has_sdf == 1 && md.sdf.res > 0);
+        EXPECT(sdf_sample(&md.sdf, 0.0f, 0.0f) < 0.0f);
+        int chamfer = 0;
+        for (int i = 0; i < md.nverts; ++i)
+            if (md.verts[i].surf > 2.5f) chamfer++;
+        EXPECT(chamfer > 0);                       /* micro-bevel presente */
         mesh_data_free(&md);
         cs_free(&cs);
     }
@@ -53,19 +91,19 @@ void run_contour_mesh_tests(void)
         cs_set(&cs, 0, outer, 4);
         cs_set(&cs, 1, inner, 4);
         MeshData md;
-        EXPECT(contour_mesh_build(&cs, (MeshParams){ 0.4f }, &md) == 1);
+        EXPECT(contour_mesh_build(&cs, mp_plain(0.4f), &md) == 1);
         EXPECT(md.nidx % 3 == 0 && md.nverts > 0);
         mesh_data_free(&md);
         cs_free(&cs);
     }
 
-    /* "L" concavo */
+    /* "L" concavo, sombreado (offset do micro-bevel nao pode crashar) */
     {
         ContourSet cs = cs_make(1);
         float L[] = { 0,0,  2,0,  2,1,  1,1,  1,3,  0,3 };
         cs_set(&cs, 0, L, 6);
         MeshData md;
-        EXPECT(contour_mesh_build(&cs, (MeshParams){ 0.3f }, &md) == 1);
+        EXPECT(contour_mesh_build(&cs, mp_shading(0.3f, 0.06f), &md) == 1);
         EXPECT(md.nidx % 3 == 0);
         mesh_data_free(&md);
         cs_free(&cs);
@@ -77,9 +115,9 @@ void run_contour_mesh_tests(void)
         float two[] = { 0,0, 1,1 };
         cs_set(&cs, 0, two, 2);
         MeshData md;
-        int r = contour_mesh_build(&cs, (MeshParams){ 0.3f }, &md);
-        EXPECT(r == 0 || md.nidx == 0);
-        if (r == 1) mesh_data_free(&md);
+        int r = contour_mesh_build(&cs, mp_shading(0.3f, 0.05f), &md);
+        EXPECT(r == 0);
+        EXPECT(md.has_sdf == 0);
         cs_free(&cs);
     }
 }

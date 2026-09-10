@@ -10,5 +10,6 @@ GlMesh   gl_mesh_upload(const MeshVertex *v, int nverts, const unsigned *idx, in
 void     gl_mesh_draw(const GlMesh *m);
 void     gl_mesh_free(GlMesh *m);
 unsigned gl_texture_2d_rgb8(int w, int h, const unsigned char *rgb, int mipmaps);
+unsigned gl_texture_2d_rgba32f(int w, int h, const float *rgba);   /* GL_LINEAR, clamp */
 
 #endif
