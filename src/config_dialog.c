@@ -1,19 +1,38 @@
 #include "config_dialog.h"
 #include "resource.h"
 #include "config.h"
+#include "gl_window.h"
 #include "util/log.h"
 
 #include <windows.h>
 #include <commctrl.h>
+#include <glad/gl.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <string.h>
 
-#define WM_PREVIEW_DIRTY (WM_APP + 1)
+#include "stb_image_write.h"
 
-static Config g_work;        /* config sendo editada */
-static HWND   g_content;     /* sub-dialogo da aba Conteudo */
-static HWND   g_motion;      /* sub-dialogo da aba Movimento */
-static bool   g_selftest;
+#define WM_PREVIEW_DIRTY (WM_APP + 1)
+#define TIMER_SELFTEST 1
+#define TIMER_PREVIEW  2
+
+static Config     g_work;        /* config sendo editada */
+static HWND       g_content;     /* sub-dialogo da aba Conteudo */
+static HWND       g_motion;      /* sub-dialogo da aba Movimento */
+static bool       g_selftest;
+static GlWindow  *g_preview;
+static bool       g_dirty;
+static LARGE_INTEGER g_pstart, g_pfreq;
+
+static void preview_teardown(HWND h)
+{
+    if (g_preview) {
+        KillTimer(h, TIMER_PREVIEW);
+        gl_window_destroy(g_preview);
+        g_preview = NULL;
+    }
+}
 
 static bool env_selftest(void)
 {
@@ -186,11 +205,58 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             ShowWindow(g_content, SW_SHOW);
             ShowWindow(g_motion, SW_HIDE);
 
-            if (g_selftest) SetTimer(h, 1, 700, NULL);
+            /* mini-preview 3D ao vivo */
+            gl_window_global_init(GetModuleHandleW(NULL));
+            {
+                HWND ph = GetDlgItem(h, IDC_PREVIEW);
+                RECT pr; GetClientRect(ph, &pr);
+                g_preview = gl_window_create(GetModuleHandleW(NULL), WS_CHILD | WS_VISIBLE, 0, ph,
+                                             0, 0, pr.right, pr.bottom, L"M3DTCfgPreview",
+                                             DefWindowProcW, &g_work);
+            }
+            QueryPerformanceFrequency(&g_pfreq);
+            QueryPerformanceCounter(&g_pstart);
+            g_dirty = false;
+            if (g_preview) SetTimer(h, TIMER_PREVIEW, 33, NULL);
+
+            if (g_selftest) {
+                char shot[8];
+                UINT ms = (GetEnvironmentVariableA("M3DT_SHOT", shot, sizeof shot) > 0) ? 1500 : 700;
+                SetTimer(h, TIMER_SELFTEST, ms, NULL);
+            }
             return TRUE;
         }
         case WM_TIMER:
-            if (w == 1) { KillTimer(h, 1); EndDialog(h, IDCANCEL); return TRUE; }
+            if (w == TIMER_SELFTEST) {
+                KillTimer(h, TIMER_SELFTEST);
+                preview_teardown(h);
+                EndDialog(h, IDCANCEL);
+                return TRUE;
+            }
+            if (w == TIMER_PREVIEW && g_preview) {
+                if (g_dirty) { gl_window_set_config(g_preview, &g_work); g_dirty = false; }
+                LARGE_INTEGER now; QueryPerformanceCounter(&now);
+                double t = (double)(now.QuadPart - g_pstart.QuadPart) / (double)g_pfreq.QuadPart;
+                gl_window_frame(g_preview, t);
+
+                static int ticks = 0;
+                char shot[MAX_PATH];
+                if (++ticks == 20 && GetEnvironmentVariableA("M3DT_SHOT", shot, sizeof shot) > 0) {
+                    gl_window_render_scene_at(g_preview, 2.25);
+                    int W = 0, H = 0;
+                    gl_window_size(g_preview, &W, &H);
+                    unsigned char *px = (unsigned char *)malloc((size_t)W * H * 3);
+                    if (px) {
+                        glPixelStorei(GL_PACK_ALIGNMENT, 1);
+                        glReadPixels(0, 0, W, H, GL_RGB, GL_UNSIGNED_BYTE, px);
+                        stbi_flip_vertically_on_write(1);
+                        stbi_write_png(shot, W, H, 3, px, W * 3);
+                        free(px);
+                        log_infof("config: preview shot %s (%dx%d)", shot, W, H);
+                    }
+                }
+                return TRUE;
+            }
             break;
         case WM_NOTIFY:
             if (((LPNMHDR)l)->idFrom == IDC_TABS && ((LPNMHDR)l)->code == TCN_SELCHANGE) {
@@ -201,16 +267,17 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             }
             break;
         case WM_PREVIEW_DIRTY:
-            /* Task 5 liga ao mini-preview */
+            g_dirty = true;   /* aplicado no proximo tick do preview (debounce natural) */
             return TRUE;
         case WM_COMMAND:
             switch (LOWORD(w)) {
-                case IDOK:      config_save(&g_work); EndDialog(h, IDOK); return TRUE;
+                case IDOK:      config_save(&g_work); preview_teardown(h); EndDialog(h, IDOK); return TRUE;
                 case IDC_APPLY: config_save(&g_work); return TRUE;
-                case IDCANCEL:  EndDialog(h, IDCANCEL); return TRUE;
+                case IDCANCEL:  preview_teardown(h); EndDialog(h, IDCANCEL); return TRUE;
             }
             break;
         case WM_CLOSE:
+            preview_teardown(h);
             EndDialog(h, IDCANCEL);
             return TRUE;
     }
