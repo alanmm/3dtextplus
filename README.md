@@ -1,7 +1,12 @@
 # Modern 3D Text
 
 Reescrita moderna do screensaver clássico "Texto 3D" do Windows. Nativo,
-leve (~1 MB), OpenGL 3.3.
+leve, OpenGL 3.3.
+
+**Status:** Fase 2a — renderiza texto 3D extrudado (fonte instalada → contornos →
+tampa + paredes), pêndulo limitado, material especular clássico. Parâmetros
+ainda fixos no código; a configuração (registro + diálogo com abas) entra na
+Fase 2b.
 
 - Design completo: [`docs/superpowers/specs/2026-09-10-modern-3d-text-screensaver-design.md`](docs/superpowers/specs/2026-09-10-modern-3d-text-screensaver-design.md)
 - Planos de implementação: [`docs/superpowers/plans/`](docs/superpowers/plans/)
