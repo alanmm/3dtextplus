@@ -29,7 +29,7 @@ LDFLAGS := -mwindows -municode -static -static-libgcc -s
 LIBS    := -lopengl32 -lgdi32 -luser32 -lkernel32 -lcomdlg32 -lcomctl32 \
            -lshell32 -lole32 -ladvapi32 -ldwmapi -lwinmm
 
-SRC := src/main.c
+SRC := src/main.c src/cmdline.c src/util/log.c src/host_win32.c
 OBJ := $(patsubst src/%.c,build/obj/%.o,$(SRC))
 RES := build/obj/screensaver.res
 
