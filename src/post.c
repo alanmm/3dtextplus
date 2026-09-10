@@ -172,8 +172,8 @@ void post_present(Post *p, int out_w, int out_h, PostParams pr)
         static const float TINT_WHITE[3] = { 1.0f, 1.0f, 1.0f };
         static const float TINT_ANAMO[3] = { 0.55f, 0.72f, 1.0f };
         int          naxes     = (pr.streaks_mode == 1) ? 3 : 1;
-        float        base_step = (pr.streaks_mode == 2) ? 2.5f : 1.0f;
-        float        len       = (pr.streaks_mode == 2) ? pr.streaks_length * 1.6f
+        float        base_step = (pr.streaks_mode == 2) ? 1.7f : 1.0f;
+        float        len       = (pr.streaks_mode == 2) ? pr.streaks_length * 1.0f
                                                         : pr.streaks_length;
         const float *tint      = (pr.streaks_mode == 2) ? TINT_ANAMO : TINT_WHITE;
 
