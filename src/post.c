@@ -189,7 +189,7 @@ void post_present(Post *p, int out_w, int out_h, PostParams pr)
 
             const GlFbo *in = &p->streak_src;
             const GlFbo *ping[2] = { &p->streak_a, &p->streak_b };
-            float steps[3] = { base_step, base_step * 4.0f, base_step * 16.0f };
+            float steps[3] = { base_step, base_step * 3.0f, base_step * 9.0f };
             for (int it = 0; it < 3; ++it) {
                 int last = (it == 2);
                 if (last) {

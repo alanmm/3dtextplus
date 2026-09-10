@@ -3,7 +3,7 @@ in vec2 vUV;
 uniform sampler2D uTex;
 uniform vec2  uTexel;    // 1/tamanho do buffer de streak
 uniform vec2  uDir;      // eixo unitario (ex.: (1,0), (0.5,0.866))
-uniform float uStep;     // passo desta iteracao (1, 4, 16)
+uniform float uStep;     // passo desta iteracao (1, 3, 9)
 uniform float uLength;   // 0..1 do usuario -> multiplica o espacamento
 uniform vec3  uTint;     // branco (starburst) | azulado (anamorfico)
 out vec3 o;
