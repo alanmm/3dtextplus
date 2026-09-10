@@ -4,6 +4,9 @@
 typedef struct {
     int   bloom;                 /* 0 desliga a cadeia de bloom */
     float threshold, intensity, radius;
+    int   streaks_mode;          /* 0 off | 1 starburst | 2 anamorfico */
+    float streaks_intensity;     /* 0 .. 2 */
+    float streaks_length;        /* 0 .. 1 */
 } PostParams;
 
 typedef struct Post Post;
