@@ -1,0 +1,17 @@
+# Build output
+/build/obj/
+/build/embed.exe
+/build/tests/*.exe
+/dist/
+/generated/
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
+
+# Local toolchain (if extracted into the tree)
+/w64devkit/
+/tools-local/
