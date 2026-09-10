@@ -3,12 +3,19 @@
 Reescrita moderna do screensaver clássico "Texto 3D" do Windows. Nativo,
 leve, OpenGL 3.3.
 
-**Status:** Fase 3b — **bevel** (sombreado por SDF / geométrico / desligado) +
-micro-bevel + **casca oca**, aba **Geometria** na config. Antes: 4 materiais com
-ambiente refletido (procedural + imagem equiretangular opcional), configuração pelo
-registro (`HKCU\Software\Modern3DText`) + diálogo Win32 com abas
-**Conteúdo / Movimento / Material / Geometria** e mini-preview 3D ao vivo. Texto 3D
-extrudado (fonte → contornos → tampa + paredes) e pêndulo limitado das fases 2a/2b.
+**Status:** Fase 4a — render **HDR** (alvo RGBA16F multisample) + **bloom**
+(pirâmide de mips com bright-pass e upsample tent) + **tonemap ACES** filmic, com
+a aba **Efeitos** na config (ligar/desligar bloom, limiar, intensidade,
+espalhamento). O modo preview (`/p` do painel) roda só resolve + tonemap, sem
+bloom. Antes: **bevel** (sombreado por SDF / geométrico / desligado) + micro-bevel
++ **casca oca** (aba Geometria); 4 materiais com ambiente refletido (procedural +
+imagem equiretangular opcional); configuração pelo registro
+(`HKCU\Software\Modern3DText`) + diálogo Win32 com abas
+**Conteúdo / Movimento / Material / Geometria / Efeitos** e mini-preview 3D ao
+vivo; texto 3D extrudado (fonte → contornos → tampa + paredes) e pêndulo limitado
+das fases 2a/2b.
+
+![bloom ligado](docs/img/phase4a-bloom-on.png)
 
 - Design completo: [`docs/superpowers/specs/2026-09-10-modern-3d-text-screensaver-design.md`](docs/superpowers/specs/2026-09-10-modern-3d-text-screensaver-design.md)
 - Planos de implementação: [`docs/superpowers/plans/`](docs/superpowers/plans/)
