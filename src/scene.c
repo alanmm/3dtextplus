@@ -1,6 +1,7 @@
 #include "scene.h"
 #include "material.h"
 #include "gl_core.h"
+#include "env.h"
 #include "geometry/font_outline.h"
 #include "geometry/contour_mesh.h"
 #include "util/mathx.h"
@@ -9,6 +10,7 @@
 #include <glad/gl.h>
 #include <stdlib.h>
 #include <string.h>
+#include <wchar.h>
 #include <math.h>
 
 #define SC_FLATTEN 0.004f
@@ -101,6 +103,13 @@ void scene_set_config(SceneRenderer *s, const Config *cfg)
     s->metalness = cfg->metalness;
     s->roughness = cfg->roughness;
 
+    if (wcscmp(s->env_path, cfg->env_path) != 0) {
+        env_free(s->env_tex);
+        wcsncpy(s->env_path, cfg->env_path, 511);
+        s->env_path[511] = 0;
+        s->env_tex = env_load_texture(s->env_path);
+    }
+
     if (mesh_dirty) {
         if (!rebuild_mesh(s))
             log_errorf("scene: rebuild_mesh falhou (text='%s' font='%ls')", s->text, s->font_family);
@@ -155,6 +164,7 @@ void scene_destroy(SceneRenderer *s)
 {
     if (!s) return;
     if (s->have_mesh) gl_mesh_free(&s->mesh);
+    env_free(s->env_tex);
     material_destroy(&s->mat);
     free(s);
 }
