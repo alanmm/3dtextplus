@@ -27,6 +27,13 @@ void config_defaults(Config *c)
     c->metalness = 0.9f;
     c->roughness = 0.25f;
     c->env_path[0] = 0;
+    c->bevel_mode = 0;
+    c->bevel_size = 0.05f;
+    c->bevel_depth = 0.04f;
+    c->bevel_segments = 4;
+    c->shell = 0;
+    c->wall_thickness = 0.06f;
+    c->quality = 1;
 }
 
 static float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
@@ -96,6 +103,10 @@ void config_load_from(Config *c, const wchar_t *subkey)
     reg_get_i(k, L"version", &c->version);
     reg_get_i(k, L"material_mode", &c->material_mode);
     reg_get_w(k, L"env_path", c->env_path, 512);
+    reg_get_i(k, L"bevel_mode", &c->bevel_mode);
+    reg_get_i(k, L"bevel_segments", &c->bevel_segments);
+    reg_get_i(k, L"shell", &c->shell);
+    reg_get_i(k, L"quality", &c->quality);
 
     float f;
     if (reg_get_f(k, L"depth", &f))       c->depth = f;
@@ -104,6 +115,9 @@ void config_load_from(Config *c, const wchar_t *subkey)
     if (reg_get_f(k, L"period", &f))      c->period = f;
     if (reg_get_f(k, L"metalness", &f))   c->metalness = f;
     if (reg_get_f(k, L"roughness", &f))   c->roughness = f;
+    if (reg_get_f(k, L"bevel_size", &f))     c->bevel_size = f;
+    if (reg_get_f(k, L"bevel_depth", &f))    c->bevel_depth = f;
+    if (reg_get_f(k, L"wall_thickness", &f)) c->wall_thickness = f;
 
     wchar_t col[16];
     if (reg_get_w(k, L"base_color", col, 16) && col[0] == L'#' && wcslen(col) >= 7) {
@@ -127,6 +141,14 @@ void config_load_from(Config *c, const wchar_t *subkey)
     if (c->material_mode < 0 || c->material_mode > 3) c->material_mode = 0;
     c->metalness = clampf(c->metalness, 0.0f, 1.0f);
     c->roughness = clampf(c->roughness, 0.0f, 1.0f);
+    if (c->bevel_mode < 0 || c->bevel_mode > 2) c->bevel_mode = 0;
+    if (c->bevel_segments < 2) c->bevel_segments = 2;
+    if (c->bevel_segments > 8) c->bevel_segments = 8;
+    if (c->quality < 0 || c->quality > 2) c->quality = 1;
+    c->shell = c->shell ? 1 : 0;
+    c->bevel_size = clampf(c->bevel_size, 0.0f, 0.2f);
+    c->bevel_depth = clampf(c->bevel_depth, 0.0f, 0.2f);
+    c->wall_thickness = clampf(c->wall_thickness, 0.01f, 0.2f);
     if (c->text[0] == 0) strcpy(c->text, "Modern 3D Text");
     if (c->font_family[0] == 0) wcscpy(c->font_family, L"Segoe UI");
 }
@@ -157,6 +179,13 @@ void config_save_to(const Config *c, const wchar_t *subkey)
     set_f(k, L"metalness", c->metalness);
     set_f(k, L"roughness", c->roughness);
     set_w(k, L"env_path", c->env_path);
+    set_f(k, L"bevel_mode", (float)c->bevel_mode);
+    set_f(k, L"bevel_size", c->bevel_size);
+    set_f(k, L"bevel_depth", c->bevel_depth);
+    set_f(k, L"bevel_segments", (float)c->bevel_segments);
+    set_f(k, L"shell", (float)c->shell);
+    set_f(k, L"wall_thickness", c->wall_thickness);
+    set_f(k, L"quality", (float)c->quality);
 
     wchar_t col[16];
     unsigned r = (unsigned)(c->base_r * 255.0f + 0.5f);

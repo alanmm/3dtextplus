@@ -37,6 +37,13 @@ void run_config_tests(void)
     a.metalness = 0.4f;
     a.roughness = 0.7f;
     wcscpy(a.env_path, L"C:\\img\\studio.jpg");
+    a.bevel_mode = 1;
+    a.bevel_size = 0.08f;
+    a.bevel_depth = 0.06f;
+    a.bevel_segments = 6;
+    a.shell = 1;
+    a.wall_thickness = 0.09f;
+    a.quality = 2;
     config_save_to(&a, TESTKEY);
 
     Config b;
@@ -53,6 +60,13 @@ void run_config_tests(void)
     EXPECT(nearf(b.metalness, 0.4f));
     EXPECT(nearf(b.roughness, 0.7f));
     EXPECT(wcscmp(b.env_path, L"C:\\img\\studio.jpg") == 0);
+    EXPECT(b.bevel_mode == 1);
+    EXPECT(nearf(b.bevel_size, 0.08f));
+    EXPECT(nearf(b.bevel_depth, 0.06f));
+    EXPECT(b.bevel_segments == 6);
+    EXPECT(b.shell == 1);
+    EXPECT(nearf(b.wall_thickness, 0.09f));
+    EXPECT(b.quality == 2);
 
     /* valor ausente -> default; fora de faixa -> clamp; lixo -> default */
     RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
@@ -62,6 +76,10 @@ void run_config_tests(void)
     RegSetValueExW(k, L"period", 0, REG_SZ, (const BYTE *)L"lixo", 5 * sizeof(wchar_t));
     RegSetValueExW(k, L"material_mode", 0, REG_SZ, (const BYTE *)L"7", 2 * sizeof(wchar_t));
     RegSetValueExW(k, L"metalness", 0, REG_SZ, (const BYTE *)L"5", 2 * sizeof(wchar_t));
+    RegSetValueExW(k, L"bevel_mode", 0, REG_SZ, (const BYTE *)L"9", 2 * sizeof(wchar_t));
+    RegSetValueExW(k, L"bevel_segments", 0, REG_SZ, (const BYTE *)L"1", 2 * sizeof(wchar_t));
+    RegSetValueExW(k, L"quality", 0, REG_SZ, (const BYTE *)L"5", 2 * sizeof(wchar_t));
+    RegSetValueExW(k, L"bevel_size", 0, REG_SZ, (const BYTE *)L"9", 2 * sizeof(wchar_t));
     RegCloseKey(k);
 
     Config c;
@@ -71,6 +89,10 @@ void run_config_tests(void)
     EXPECT(strcmp(c.text, "Modern 3D Text") == 0);
     EXPECT(c.material_mode == 0);              /* 7 fora de 0..3 -> 0 */
     EXPECT(c.metalness >= 0.0f && c.metalness <= 1.0f);   /* 5 -> clamp */
+    EXPECT(c.bevel_mode == 0);                 /* 9 -> 0 */
+    EXPECT(c.bevel_segments == 2);             /* 1 -> 2 */
+    EXPECT(c.quality == 1);                    /* 5 -> default 1 */
+    EXPECT(c.bevel_size <= 0.2f);              /* 9 -> clamp */
 
     RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
 }

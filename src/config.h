@@ -20,6 +20,13 @@ typedef struct {
     float        metalness;            /* 0..1 */
     float        roughness;            /* 0..1 */
     wchar_t      env_path[512];        /* vazio = ambiente procedural */
+    int          bevel_mode;           /* 0 sombreado, 1 geometrico, 2 desligado */
+    float        bevel_size;           /* 0 .. 0.2 (em) */
+    float        bevel_depth;          /* 0 .. 0.2 (em) */
+    int          bevel_segments;       /* 2 .. 8 (so no modo geometrico) */
+    int          shell;                /* 0/1 */
+    float        wall_thickness;       /* 0.01 .. 0.2 (em) */
+    int          quality;              /* 0 baixa, 1 media, 2 alta */
 } Config;
 
 void config_defaults(Config *c);
