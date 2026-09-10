@@ -8,7 +8,7 @@ uniform float uLength;   // 0..1 do usuario -> multiplica o espacamento
 uniform vec3  uTint;     // branco (starburst) | azulado (anamorfico)
 out vec3 o;
 
-const int TAPS = 4;
+const int TAPS = 10;
 
 void main()
 {
@@ -17,8 +17,9 @@ void main()
     float spacing = uStep * (1.0 + uLength * 3.0);
     for (int i = 0; i < TAPS; ++i) {
         float fi = float(i);
-        float w  = pow(0.82, uStep * fi);          // atenuacao exponencial
-        vec2  off = uDir * uTexel * spacing * fi;
+        float t  = fi * 3.0 / float(TAPS - 1);
+        float w  = pow(0.82, uStep * t);           // atenuacao exponencial
+        vec2  off = uDir * uTexel * spacing * t;
         c += texture(uTex, vUV + off).rgb * w;
         c += texture(uTex, vUV - off).rgb * w;     // simetrico -> raio nos 2 sentidos
         wsum += 2.0 * w;
