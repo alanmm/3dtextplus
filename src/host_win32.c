@@ -1,13 +1,14 @@
 #include "host_win32.h"
+#include "gl_core.h"
 #include "util/log.h"
 
 #include <windowsx.h>
-#include <GL/gl.h>
+#include <glad/gl.h>
 #include <stdbool.h>
 #include <string.h>
 #include <math.h>
 
-/* ---------- constantes WGL ARB (nao estao no <GL/gl.h> do MinGW) ---------- */
+/* ---------- constantes WGL ARB (nao estao no <glad/gl.h>) ---------- */
 #define WGL_CONTEXT_MAJOR_VERSION_ARB     0x2091
 #define WGL_CONTEXT_MINOR_VERSION_ARB     0x2092
 #define WGL_CONTEXT_PROFILE_MASK_ARB      0x9126
@@ -85,10 +86,6 @@ static void m3dt_wgl_bootstrap(HINSTANCE hInst)
         (PFN_wglChoosePixelFormatARB)(void *)wglGetProcAddress("wglChoosePixelFormatARB");
     p_wglSwapIntervalEXT =
         (PFN_wglSwapIntervalEXT)(void *)wglGetProcAddress("wglSwapIntervalEXT");
-
-    log_infof("GL bootstrap: vendor=%s renderer=%s",
-              (const char *)glGetString(GL_VENDOR),
-              (const char *)glGetString(GL_RENDERER));
 
     wglMakeCurrent(NULL, NULL);
     wglDeleteContext(rc);
@@ -173,6 +170,17 @@ static int gl_window_create(HINSTANCE hInst, GlWindow *g, DWORD style, DWORD exs
 
     wglMakeCurrent(g->dc, g->rc);
     if (p_wglSwapIntervalEXT) p_wglSwapIntervalEXT(1);
+
+    if (!gl_load()) log_errorf("gl_load falhou");
+
+    static bool logged_gl = false;
+    if (!logged_gl) {
+        logged_gl = true;
+        log_infof("GL: vendor=%s renderer=%s version=%s",
+                  (const char *)glGetString(GL_VENDOR),
+                  (const char *)glGetString(GL_RENDERER),
+                  (const char *)glGetString(GL_VERSION));
+    }
 
     RECT cr; GetClientRect(g->hwnd, &cr);
     g->w = cr.right; g->h = cr.bottom;

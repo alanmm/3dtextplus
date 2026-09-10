@@ -32,7 +32,17 @@ void log_init(void)
 
     char path[MAX_PATH + 64];
     snprintf(path, sizeof path, "%s\\log.txt", dir);
-    g_log = fopen(path, "a");
+
+    /* trunca se o log ja passou de ~200 KB, senao mantem o historico */
+    const char *mode = "a";
+    HANDLE h = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                           NULL, OPEN_EXISTING, 0, NULL);
+    if (h != INVALID_HANDLE_VALUE) {
+        if (GetFileSize(h, NULL) > 200000) mode = "w";
+        CloseHandle(h);
+    }
+
+    g_log = fopen(path, mode);
     log_infof("---- log_init ----");
 }
 

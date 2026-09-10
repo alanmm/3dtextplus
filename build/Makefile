@@ -17,8 +17,10 @@ WINDRES := windres
 NAME    := Modern3DText
 OUT     := dist/$(NAME).scr
 
+INCLUDES := -Isrc -Ithird_party -Ithird_party/glad/include -Igenerated
+
 MODE ?= release
-CFLAGS := -std=c11 -municode -Wall -Wextra -Isrc
+CFLAGS := -std=c11 -municode -Wall -Wextra $(INCLUDES)
 ifeq ($(MODE),debug)
   CFLAGS += -O0 -g -DDEBUG
 else
@@ -29,9 +31,14 @@ LDFLAGS := -mwindows -municode -static -static-libgcc -s
 LIBS    := -lopengl32 -lgdi32 -luser32 -lkernel32 -lcomdlg32 -lcomctl32 \
            -lshell32 -lole32 -ladvapi32 -ldwmapi -lwinmm
 
-SRC := src/main.c src/cmdline.c src/util/log.c src/host_win32.c src/config_dialog.c
-OBJ := $(patsubst src/%.c,build/obj/%.o,$(SRC))
-RES := build/obj/screensaver.res
+SRC_C := src/main.c src/cmdline.c src/util/log.c src/util/mathx.c src/gl_core.c \
+         src/host_win32.c src/config_dialog.c
+TP_C  := third_party/glad/src/gl.c
+
+SRC_OBJ := $(patsubst src/%.c,build/obj/src/%.o,$(SRC_C))
+TP_OBJ  := $(patsubst third_party/%.c,build/obj/tp/%.o,$(TP_C))
+OBJ     := $(SRC_OBJ) $(TP_OBJ)
+RES     := build/obj/screensaver.res
 
 MAX_BYTES := 3145728
 
@@ -45,9 +52,13 @@ release:
 debug:
 	@$(MAKE) -f $(THIS) MODE=debug all
 
-build/obj/%.o: src/%.c
+build/obj/src/%.o: src/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
+
+build/obj/tp/%.o: third_party/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -w -c $< -o $@
 
 $(RES): res/screensaver.rc res/screensaver.manifest
 	@mkdir -p build/obj
@@ -71,7 +82,7 @@ TEST_UNITS := src/cmdline.c src/util/log.c src/util/mathx.c
 
 test:
 	@mkdir -p build/obj
-	$(CC) -std=c11 -Wall -Wextra -Isrc -Ibuild/tests \
+	$(CC) -std=c11 -Wall -Wextra -Isrc -Ithird_party -Ibuild/tests \
 	  $(TEST_SRC) $(TEST_UNITS) -o build/obj/run_tests.exe -lm
 	./build/obj/run_tests.exe
 
