@@ -40,6 +40,9 @@ TP_OBJ  := $(patsubst third_party/%.c,build/obj/tp/%.o,$(TP_C))
 OBJ     := $(SRC_OBJ) $(TP_OBJ)
 RES     := build/obj/screensaver.res
 
+EMBED_INPUTS := shaders/model.vert shaders/model.frag
+EMBEDDED_H   := generated/embedded.h
+
 MAX_BYTES := 3145728
 
 .PHONY: all release debug run config test clean
@@ -52,7 +55,12 @@ release:
 debug:
 	@$(MAKE) -f $(THIS) MODE=debug all
 
-build/obj/src/%.o: src/%.c
+$(EMBEDDED_H): build/tools/embed.c $(EMBED_INPUTS)
+	@mkdir -p generated build/obj
+	$(CC) -O2 -std=c11 build/tools/embed.c -o build/obj/embed.exe
+	./build/obj/embed.exe $(EMBEDDED_H) $(EMBED_INPUTS)
+
+build/obj/src/%.o: src/%.c $(EMBEDDED_H)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
