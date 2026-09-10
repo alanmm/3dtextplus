@@ -325,6 +325,8 @@ static void effects_labels(HWND h)
     swprintf(b, 32, L"%.2f", (double)g_work.bloom_threshold); SetDlgItemTextW(h, IDC_BTHRESH_VAL, b);
     swprintf(b, 32, L"%.2f", (double)g_work.bloom_intensity); SetDlgItemTextW(h, IDC_BINT_VAL, b);
     swprintf(b, 32, L"%.2f", (double)g_work.bloom_radius);    SetDlgItemTextW(h, IDC_BRAD_VAL, b);
+    swprintf(b, 32, L"%.2f", (double)g_work.streaks_intensity); SetDlgItemTextW(h, IDC_SINT_VAL, b);
+    swprintf(b, 32, L"%.2f", (double)g_work.streaks_length);    SetDlgItemTextW(h, IDC_SLEN_VAL, b);
 }
 
 static void effects_enable(HWND h)
@@ -333,6 +335,9 @@ static void effects_enable(HWND h)
     EnableWindow(GetDlgItem(h, IDC_BTHRESH), on);
     EnableWindow(GetDlgItem(h, IDC_BINT), on);
     EnableWindow(GetDlgItem(h, IDC_BRAD), on);
+    BOOL st = g_work.streaks_mode != 0;
+    EnableWindow(GetDlgItem(h, IDC_SINT), st);
+    EnableWindow(GetDlgItem(h, IDC_SLEN), st);
 }
 
 static INT_PTR CALLBACK effects_proc(HWND h, UINT m, WPARAM w, LPARAM l)
@@ -344,6 +349,12 @@ static INT_PTR CALLBACK effects_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             set_slider(h, IDC_BTHRESH, 20, 300, (int)(g_work.bloom_threshold * 100.0f + 0.5f));
             set_slider(h, IDC_BINT,     0, 200, (int)(g_work.bloom_intensity * 100.0f + 0.5f));
             set_slider(h, IDC_BRAD,     0, 100, (int)(g_work.bloom_radius * 100.0f + 0.5f));
+            static const wchar_t *sm[] = { L"Desligado", L"Starburst", L"Anamorfico" };
+            for (int i = 0; i < 3; ++i)
+                SendDlgItemMessageW(h, IDC_STREAKMODE, CB_ADDSTRING, 0, (LPARAM)sm[i]);
+            SendDlgItemMessageW(h, IDC_STREAKMODE, CB_SETCURSEL, g_work.streaks_mode, 0);
+            set_slider(h, IDC_SINT, 0, 200, (int)(g_work.streaks_intensity * 100.0f + 0.5f));
+            set_slider(h, IDC_SLEN, 0, 100, (int)(g_work.streaks_length * 100.0f + 0.5f));
             effects_labels(h);
             effects_enable(h);
             return TRUE;
@@ -351,12 +362,19 @@ static INT_PTR CALLBACK effects_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             g_work.bloom_threshold = (float)SendDlgItemMessageW(h, IDC_BTHRESH, TBM_GETPOS, 0, 0) / 100.0f;
             g_work.bloom_intensity = (float)SendDlgItemMessageW(h, IDC_BINT, TBM_GETPOS, 0, 0) / 100.0f;
             g_work.bloom_radius    = (float)SendDlgItemMessageW(h, IDC_BRAD, TBM_GETPOS, 0, 0) / 100.0f;
+            g_work.streaks_intensity = (float)SendDlgItemMessageW(h, IDC_SINT, TBM_GETPOS, 0, 0) / 100.0f;
+            g_work.streaks_length    = (float)SendDlgItemMessageW(h, IDC_SLEN, TBM_GETPOS, 0, 0) / 100.0f;
             effects_labels(h);
             preview_dirty(h);
             return TRUE;
         case WM_COMMAND:
             if (LOWORD(w) == IDC_BLOOM) {
                 g_work.bloom_on = (IsDlgButtonChecked(h, IDC_BLOOM) == BST_CHECKED);
+                effects_enable(h);
+                preview_dirty(h);
+            } else if (LOWORD(w) == IDC_STREAKMODE && HIWORD(w) == CBN_SELCHANGE) {
+                g_work.streaks_mode =
+                    (int)SendDlgItemMessageW(h, IDC_STREAKMODE, CB_GETCURSEL, 0, 0);
                 effects_enable(h);
                 preview_dirty(h);
             }

@@ -61,6 +61,11 @@
 #define IDC_BINT_VAL      1504
 #define IDC_BRAD          1505
 #define IDC_BRAD_VAL      1506
+#define IDC_STREAKMODE    1510
+#define IDC_SINT          1511
+#define IDC_SINT_VAL      1512
+#define IDC_SLEN          1513
+#define IDC_SLEN_VAL      1514
 
 /* aba Desempenho */
 #define IDC_FPSCAP        1600
