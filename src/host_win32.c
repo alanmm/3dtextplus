@@ -320,5 +320,48 @@ int host_run_saver(HINSTANCE hInst)
     return 0;
 }
 
-/* host_run_preview: Task 6. Stub por ora. */
-int host_run_preview(HINSTANCE hInst, HWND parent) { (void)hInst; (void)parent; return 0; }
+/* ---------------- modo preview ---------------- */
+
+int host_run_preview(HINSTANCE hInst, HWND parent)
+{
+    if (!IsWindow(parent)) { log_errorf("preview: parent invalido"); return 1; }
+
+    m3dt_set_dpi_aware();
+    m3dt_wgl_bootstrap(hInst);
+
+    RECT pr; GetClientRect(parent, &pr);
+    GlWindow g;
+    if (!gl_window_create(hInst, &g, WS_CHILD | WS_VISIBLE, 0, parent,
+                          0, 0, pr.right, pr.bottom, L"M3DTPreview", DefWindowProcW))
+        return 1;
+
+    LARGE_INTEGER freq, start;
+    QueryPerformanceFrequency(&freq);
+    QueryPerformanceCounter(&start);
+
+    log_infof("preview: parent=%p client=%ldx%ld", (void *)parent, pr.right, pr.bottom);
+
+    for (;;) {
+        MSG msg;
+        while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+        if (!IsWindow(parent)) break;
+
+        RECT c; GetClientRect(parent, &c);
+        if (c.right != g.w || c.bottom != g.h) {
+            SetWindowPos(g.hwnd, NULL, 0, 0, c.right, c.bottom, SWP_NOZORDER | SWP_NOACTIVATE);
+            g.w = c.right; g.h = c.bottom;
+        }
+
+        LARGE_INTEGER now; QueryPerformanceCounter(&now);
+        double t = (double)(now.QuadPart - start.QuadPart) / (double)freq.QuadPart;
+        gl_render_clear(&g, t);
+        Sleep(16);
+    }
+
+    gl_window_destroy(&g);
+    log_infof("preview encerrou");
+    return 0;
+}
