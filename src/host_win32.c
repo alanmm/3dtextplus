@@ -205,38 +205,120 @@ static void gl_render_clear(GlWindow *g, double t)
     SwapBuffers(g->dc);
 }
 
-/* host_run_saver / host_run_preview: Tasks 5 e 6. Stubs por ora. */
-int host_run_saver(HINSTANCE hInst) { (void)hInst; return 0; }
-int host_run_preview(HINSTANCE hInst, HWND parent) { (void)hInst; (void)parent; return 0; }
+/* ---------------- modo saver ---------------- */
 
-/* -------- verificacao do Task 4 (headless): removida no Task 5 -------- */
-int m3dt_task4_smoke(HINSTANCE hInst);
-int m3dt_task4_smoke(HINSTANCE hInst)
+static volatile LONG g_quit;
+static POINT g_mouse_anchor;
+static bool  g_mouse_anchored;
+
+static void request_quit(void) { InterlockedExchange(&g_quit, 1); }
+
+static bool env_flag(const char *name)
 {
-    log_init();
+    char buf[8];
+    DWORD k = GetEnvironmentVariableA(name, buf, sizeof buf);
+    return k > 0 && k < sizeof buf && buf[0] != '0';
+}
+
+static LRESULT CALLBACK saver_wndproc(HWND h, UINT m, WPARAM w, LPARAM l)
+{
+    switch (m) {
+        case WM_MOUSEMOVE: {
+            POINT p; GetCursorPos(&p);
+            if (!g_mouse_anchored) { g_mouse_anchor = p; g_mouse_anchored = true; break; }
+            long dx = p.x - g_mouse_anchor.x, dy = p.y - g_mouse_anchor.y;
+            if (dx * dx + dy * dy > 16) request_quit();   /* > 4 px */
+            break;
+        }
+        case WM_KEYDOWN: case WM_SYSKEYDOWN:
+        case WM_LBUTTONDOWN: case WM_RBUTTONDOWN: case WM_MBUTTONDOWN:
+        case WM_MOUSEWHEEL:
+            request_quit();
+            break;
+        case WM_CLOSE: case WM_DESTROY:
+            request_quit();
+            return 0;
+        case WM_SETCURSOR:
+            SetCursor(NULL);
+            return TRUE;
+    }
+    return DefWindowProcW(h, m, w, l);
+}
+
+typedef struct { RECT r[16]; int n; } MonitorList;
+
+static BOOL CALLBACK monitor_cb(HMONITOR mon, HDC dc, LPRECT rc, LPARAM lp)
+{
+    (void)mon; (void)dc;
+    MonitorList *ml = (MonitorList *)lp;
+    if (ml->n < 16) ml->r[ml->n++] = *rc;
+    return TRUE;
+}
+
+int host_run_saver(HINSTANCE hInst)
+{
     m3dt_set_dpi_aware();
     m3dt_wgl_bootstrap(hInst);
 
-    GlWindow g;
-    if (!gl_window_create(hInst, &g, WS_OVERLAPPEDWINDOW, 0, NULL,
-                          0, 0, 320, 200, L"M3DTSmoke", NULL)) {
-        log_errorf("smoke: gl_window_create falhou");
-        return 1;
+    const bool selftest = env_flag("M3DT_SELFTEST");   /* dev/CI: janela + auto-saida */
+
+    MonitorList ml; ml.n = 0;
+    if (!selftest)
+        EnumDisplayMonitors(NULL, NULL, monitor_cb, (LPARAM)&ml);
+    if (ml.n == 0) {
+        ml.r[0].left = 0; ml.r[0].top = 0;
+        ml.r[0].right  = selftest ? 640 : GetSystemMetrics(SM_CXSCREEN);
+        ml.r[0].bottom = selftest ? 400 : GetSystemMetrics(SM_CYSCREEN);
+        ml.n = 1;
     }
 
-    const char *ver = (const char *)glGetString(GL_VERSION);
-    log_infof("smoke: GL_VERSION=%s", ver ? ver : "(null)");
+    const DWORD style   = selftest ? (WS_OVERLAPPEDWINDOW | WS_VISIBLE) : (WS_POPUP | WS_VISIBLE);
+    const DWORD exstyle = selftest ? 0u : WS_EX_TOPMOST;
 
-    int rc = 0;
-    for (int i = 0; i < 5; ++i)
-        gl_render_clear(&g, (double)i * 0.5);
+    GlWindow win[16]; int nwin = 0;
+    for (int i = 0; i < ml.n; ++i) {
+        RECT r = ml.r[i];
+        wchar_t cls[32]; wsprintfW(cls, L"M3DTSaver%d", i);
+        if (gl_window_create(hInst, &win[nwin], style, exstyle, NULL,
+                             r.left, r.top, r.right - r.left, r.bottom - r.top,
+                             cls, saver_wndproc)) {
+            if (!selftest)
+                SetWindowPos(win[nwin].hwnd, HWND_TOPMOST, r.left, r.top,
+                             r.right - r.left, r.bottom - r.top, SWP_SHOWWINDOW);
+            nwin++;
+        }
+    }
+    if (nwin == 0) { log_errorf("nenhuma janela saver criada"); return 1; }
 
-    GLenum err = glGetError();
-    if (err != GL_NO_ERROR) { log_errorf("smoke: glGetError=0x%04x", (unsigned)err); rc = 1; }
-    if (!ver) rc = 1;
+    if (!selftest) ShowCursor(FALSE);
+    SetForegroundWindow(win[0].hwnd);
 
-    gl_window_destroy(&g);
-    log_infof("smoke: fim rc=%d", rc);
-    log_shutdown();
-    return rc;
+    timeBeginPeriod(1);
+    LARGE_INTEGER freq, start;
+    QueryPerformanceFrequency(&freq);
+    QueryPerformanceCounter(&start);
+
+    long frame = 0;
+    while (!g_quit) {
+        MSG msg;
+        while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
+            if (msg.message == WM_QUIT) request_quit();
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+        LARGE_INTEGER now; QueryPerformanceCounter(&now);
+        double t = (double)(now.QuadPart - start.QuadPart) / (double)freq.QuadPart;
+        for (int i = 0; i < nwin; ++i) gl_render_clear(&win[i], t);
+        Sleep(1);
+        if (selftest && ++frame >= 90) request_quit();
+    }
+
+    timeEndPeriod(1);
+    if (!selftest) ShowCursor(TRUE);
+    for (int i = 0; i < nwin; ++i) gl_window_destroy(&win[i]);
+    log_infof("saver encerrou (frames=%ld)", frame);
+    return 0;
 }
+
+/* host_run_preview: Task 6. Stub por ora. */
+int host_run_preview(HINSTANCE hInst, HWND parent) { (void)hInst; (void)parent; return 0; }

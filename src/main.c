@@ -4,7 +4,5 @@
 int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, PWSTR lpCmdLine, int nShow)
 {
     (void)hPrev; (void)lpCmdLine; (void)nShow;
-    /* VERIFICACAO TEMPORARIA do Task 4 - substituida no Task 8 */
-    extern int m3dt_task4_smoke(HINSTANCE);
-    return m3dt_task4_smoke(hInst);
+    return host_run_saver(hInst);   /* provisorio: so /s ate o Task 8 */
 }
