@@ -94,9 +94,10 @@ config: debug
 
 TEST_SRC   := build/tests/test_main.c build/tests/test_cmdline.c build/tests/test_log.c \
               build/tests/test_mathx.c build/tests/test_font_outline.c \
-              build/tests/test_contour_mesh.c build/tests/test_config.c
+              build/tests/test_contour_mesh.c build/tests/test_config.c build/tests/test_sdf.c
 TEST_UNITS := src/cmdline.c src/util/log.c src/util/mathx.c \
-              src/geometry/font_outline.c src/geometry/contour_mesh.c src/config.c
+              src/geometry/font_outline.c src/geometry/contour_mesh.c src/config.c \
+              src/geometry/sdf.c
 TEST_INC   := -Isrc -Ithird_party -Ithird_party/libtess2/Include -Ibuild/tests
 LIBTESS_C  := $(wildcard third_party/libtess2/Source/*.c)
 
