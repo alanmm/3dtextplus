@@ -54,9 +54,16 @@ static int reg_get_f(HKEY k, const wchar_t *name, float *out)
 static int reg_get_i(HKEY k, const wchar_t *name, int *out)
 {
     float f;
-    if (!reg_get_f(k, name, &f)) return 0;
-    *out = (int)(f + 0.5f);
-    return 1;
+    if (reg_get_f(k, name, &f)) { *out = (int)(f + 0.5f); return 1; }
+
+    /* tolera REG_DWORD (ex.: valor criado a mao no regedit) */
+    DWORD type = 0, val = 0, cb = sizeof val;
+    if (RegQueryValueExW(k, name, NULL, &type, (BYTE *)&val, &cb) == ERROR_SUCCESS
+        && type == REG_DWORD) {
+        *out = (int)val;
+        return 1;
+    }
+    return 0;
 }
 
 static void set_w(HKEY k, const wchar_t *name, const wchar_t *val)

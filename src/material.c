@@ -14,6 +14,13 @@ int material_init(Material *m)
     m->uProj      = glGetUniformLocation(m->prog, "uProj");
     m->uCamPos    = glGetUniformLocation(m->prog, "uCamPos");
     m->uBaseColor = glGetUniformLocation(m->prog, "uBaseColor");
+    m->uMode      = glGetUniformLocation(m->prog, "uMode");
+    m->uMetalness = glGetUniformLocation(m->prog, "uMetalness");
+    m->uRoughness = glGetUniformLocation(m->prog, "uRoughness");
+    m->uEnvTex    = glGetUniformLocation(m->prog, "uEnvTex");
+    m->uHasEnv    = glGetUniformLocation(m->prog, "uHasEnv");
+    glUseProgram(m->prog);
+    glUniform1i(m->uEnvTex, 0);   /* unidade de textura 0 */
     return 1;
 }
 
@@ -24,6 +31,20 @@ void material_begin(const Material *m, m4 view, m4 proj, v3 campos, v3 base)
     glUniformMatrix4fv(m->uProj, 1, GL_FALSE, proj.m);
     glUniform3f(m->uCamPos, campos.x, campos.y, campos.z);
     glUniform3f(m->uBaseColor, base.x, base.y, base.z);
+}
+
+void material_set_style(const Material *m, int mode, float metalness, float roughness,
+                        unsigned env_tex)
+{
+    glUseProgram(m->prog);
+    glUniform1i(m->uMode, mode);
+    glUniform1f(m->uMetalness, metalness);
+    glUniform1f(m->uRoughness, roughness);
+    glUniform1i(m->uHasEnv, env_tex ? 1 : 0);
+    if (env_tex) {
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, env_tex);
+    }
 }
 
 void material_set_model(const Material *m, m4 model)

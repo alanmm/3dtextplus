@@ -26,6 +26,10 @@ struct SceneRenderer {
     float    depth;
     float    max_angle_y, tilt_x, period;
     v3       base_color;
+    int      material_mode;
+    float    metalness, roughness;
+    wchar_t  env_path[512];
+    unsigned env_tex;
 };
 
 static int rebuild_mesh(SceneRenderer *s)
@@ -93,6 +97,9 @@ void scene_set_config(SceneRenderer *s, const Config *cfg)
     s->tilt_x = cfg->tilt_x;
     s->period = cfg->period;
     s->base_color = (v3){ cfg->base_r, cfg->base_g, cfg->base_b };
+    s->material_mode = cfg->material_mode;
+    s->metalness = cfg->metalness;
+    s->roughness = cfg->roughness;
 
     if (mesh_dirty) {
         if (!rebuild_mesh(s))
@@ -128,8 +135,20 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h)
     m4 model = m4_mul(m4_rotate_y(m3dt_radians(ay)), m4_rotate_x(m3dt_radians(ax)));
 
     material_begin(&s->mat, view, proj, eye, s->base_color);
+    material_set_style(&s->mat, s->material_mode, s->metalness, s->roughness, s->env_tex);
     material_set_model(&s->mat, model);
+
+    int glass = (s->material_mode == 2);
+    if (glass) {
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDepthMask(GL_FALSE);
+    }
     gl_mesh_draw(&s->mesh);
+    if (glass) {
+        glDepthMask(GL_TRUE);
+        glDisable(GL_BLEND);
+    }
 }
 
 void scene_destroy(SceneRenderer *s)
