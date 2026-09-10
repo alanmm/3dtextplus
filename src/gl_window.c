@@ -228,7 +228,8 @@ GlWindow *gl_window_create(HINSTANCE hInst, DWORD style, DWORD exstyle, HWND par
     if (!g->post) log_errorf("post_create falhou");
     if (cfg) gl_window_set_config(g, cfg);
     else { g->post_params.bloom = 1; g->post_params.threshold = 1.05f;
-           g->post_params.intensity = 0.6f; g->post_params.radius = 0.55f; }
+           g->post_params.intensity = 0.6f; g->post_params.radius = 0.55f;
+           g->post_params.streaks_mode = 0; }
 
     g->scene = scene_create(cfg);
     if (!g->scene) log_errorf("scene_create falhou (%ls)", cls);
@@ -260,6 +261,8 @@ static void render_into_post(GlWindow *g, double t, int measure)
 
     PostParams pr = g->post_params;
     pr.bloom = frame_bloom(g);
+    pr.streaks_mode = (!g->preview && g->quality.streaks && g->post_params.streaks_mode)
+                      ? g->post_params.streaks_mode : 0;
     post_present(g->post, g->w, g->h, pr);
 
     if (measure) {
@@ -267,8 +270,8 @@ static void render_into_post(GlWindow *g, double t, int measure)
         RenderQuality nq = g->quality;
         if (aq_update(g->aq, &nq)) {
             g->quality = nq;
-            log_infof("autoQuality: step %d (bloom=%d msaa=%d scale=%.2f)",
-                      nq.step, nq.bloom, nq.msaa, (double)nq.render_scale);
+            log_infof("autoQuality: step %d (streaks=%d bloom=%d msaa=%d scale=%.2f)",
+                      nq.step, nq.streaks, nq.bloom, nq.msaa, (double)nq.render_scale);
         }
     }
 }
@@ -292,6 +295,10 @@ void gl_window_set_config(GlWindow *g, const Config *cfg)
     g->post_params.threshold = cfg->bloom_threshold;
     g->post_params.intensity = cfg->bloom_intensity;
     g->post_params.radius    = cfg->bloom_radius;
+
+    g->post_params.streaks_mode      = cfg->streaks_mode;
+    g->post_params.streaks_intensity = cfg->streaks_intensity;
+    g->post_params.streaks_length    = cfg->streaks_length;
 
     if (g->rc) wglMakeCurrent(g->dc, g->rc);
 

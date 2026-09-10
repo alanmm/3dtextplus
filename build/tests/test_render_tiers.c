@@ -27,32 +27,34 @@ void run_render_tiers_tests(void)
     config_defaults(&cfg);      /* msaa 4, render_scale 1.0 */
 
     RenderQuality q0 = render_quality_for_step(&cfg, M3DT_TIER_FULL, 0);
-    EXPECT(q0.bloom == 1 && q0.msaa == 4 && q0.render_scale > 0.99f);
+    EXPECT(q0.streaks == 1 && q0.bloom == 1 && q0.msaa == 4 && q0.render_scale > 0.99f);
     RenderQuality q1 = render_quality_for_step(&cfg, M3DT_TIER_FULL, 1);
-    EXPECT(q1.bloom == 0 && q1.msaa == 4);
-    RenderQuality q4 = render_quality_for_step(&cfg, M3DT_TIER_FULL, 4);
-    EXPECT(q4.msaa == 0 && q4.bloom == 0);
-    RenderQuality q6 = render_quality_for_step(&cfg, M3DT_TIER_FULL, 6);
-    EXPECT(q6.render_scale <= 0.5f + 1e-4f);
+    EXPECT(q1.streaks == 0 && q1.bloom == 1);
+    RenderQuality q2 = render_quality_for_step(&cfg, M3DT_TIER_FULL, 2);
+    EXPECT(q2.streaks == 0 && q2.bloom == 0 && q2.msaa == 4);
+    RenderQuality q5 = render_quality_for_step(&cfg, M3DT_TIER_FULL, 5);
+    EXPECT(q5.msaa == 0);
+    RenderQuality q7 = render_quality_for_step(&cfg, M3DT_TIER_FULL, 7);
+    EXPECT(q7.render_scale <= 0.5f + 1e-4f);
     RenderQuality qhi = render_quality_for_step(&cfg, M3DT_TIER_FULL, 99);   /* clamp */
-    EXPECT(qhi.render_scale <= 0.5f + 1e-4f && qhi.step == 6);
-    EXPECT(render_quality_ladder_len(M3DT_TIER_FULL) == 7);
+    EXPECT(qhi.step == 7);
+    EXPECT(render_quality_ladder_len(M3DT_TIER_FULL) == 8);
 
     RenderQuality qr = render_quality_for_step(&cfg, M3DT_TIER_REDUCED, 0);
-    EXPECT(qr.bloom == 0 && qr.msaa <= 2 && qr.render_scale <= 0.75f + 1e-4f);
+    EXPECT(qr.streaks == 0 && qr.bloom == 0 && qr.msaa <= 2 && qr.render_scale <= 0.75f + 1e-4f);
     EXPECT(render_quality_ladder_len(M3DT_TIER_REDUCED) == 1);
 
     /* --- aq_decide: ladder + histerese + zona morta --- */
-    AqInput a = { 0, 7, 30.0, 6.0 };
+    AqInput a = { 0, 8, 30.0, 6.0 };
     EXPECT(aq_decide(a) == 1);                          /* lento -> degrada */
     a.since_change_s = 2.0;
     EXPECT(aq_decide(a) == 0);                          /* histerese trava */
-    AqInput b = { 3, 7, 8.0, 9.0 };
+    AqInput b = { 3, 8, 8.0, 9.0 };
     EXPECT(aq_decide(b) == 2);                          /* folgado -> recupera */
-    AqInput c = { 6, 7, 99.0, 9.0 };
-    EXPECT(aq_decide(c) == 6);                          /* ja no fundo do ladder */
-    AqInput d = { 0, 7, 8.0, 9.0 };
+    AqInput c = { 7, 8, 99.0, 9.0 };
+    EXPECT(aq_decide(c) == 7);                          /* ja no fundo do ladder */
+    AqInput d = { 0, 8, 8.0, 9.0 };
     EXPECT(aq_decide(d) == 0);                          /* ja no topo */
-    AqInput e = { 2, 7, 16.0, 9.0 };
+    AqInput e = { 2, 8, 16.0, 9.0 };
     EXPECT(aq_decide(e) == 2);                          /* zona morta 12..22 */
 }
