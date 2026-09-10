@@ -105,15 +105,49 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
     }
     const float cap_z = hz - mb;   /* tampa recuada pelo micro-bevel */
 
+    /* casca oca: inset de cada contorno; valido se preserva a orientacao e mantem area */
+    v2 **inner = NULL;
+    int  *shell_ok = NULL;
+    int   any_shell = 0;
+    if (p.shell) {
+        inner = (v2 **)calloc((size_t)cs->count, sizeof(v2 *));
+        shell_ok = (int *)calloc((size_t)cs->count, sizeof(int));
+        for (int i = 0; i < cs->count; ++i) {
+            const Contour *co = &cs->contours[i];
+            if (co->count < 3) continue;
+            int ccw = signed_area(co) > 0.0f;
+            float a0 = fabsf(signed_area(co));
+            v2 *ins = (v2 *)malloc((size_t)co->count * sizeof(v2));
+            inset_contour(co, p.wall_thickness, ccw, ins);
+            float ai = signed_area_pts(ins, co->count);
+            if ((ai > 0.0f) == ccw && fabsf(ai) > 0.15f * a0) {
+                inner[i] = ins;
+                shell_ok[i] = 1;
+                any_shell = 1;
+            } else {
+                free(ins);
+            }
+        }
+    }
+
     TESStesselator *t = tessNewTess(NULL);
-    if (!t) return 0;
+    if (!t) { free(inner); free(shell_ok); return 0; }
     for (int i = 0; i < cs->count; ++i) {
         const Contour *co = &cs->contours[i];
         if (co->count < 3) continue;
         tessAddContour(t, 2, co->pts, (int)sizeof(v2), co->count);
+        if (inner && shell_ok[i]) {
+            /* buraco = inset com a ordem dos pontos invertida */
+            v2 *rev = (v2 *)malloc((size_t)co->count * sizeof(v2));
+            for (int k = 0; k < co->count; ++k) rev[k] = inner[i][co->count - 1 - k];
+            tessAddContour(t, 2, rev, (int)sizeof(v2), co->count);
+            free(rev);
+        }
     }
     if (!tessTesselate(t, TESS_WINDING_NONZERO, TESS_POLYGONS, 3, 2, NULL)) {
         tessDeleteTess(t);
+        for (int i = 0; i < cs->count; ++i) free(inner ? inner[i] : NULL);
+        free(inner); free(shell_ok);
         return 0;
     }
     const float *tv = tessGetVertices(t);
@@ -261,6 +295,34 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
         }
         free(inset);
     }
+
+    /* paredes internas da casca oca */
+    if (any_shell) {
+        for (int ci = 0; ci < cs->count; ++ci) {
+            if (!shell_ok[ci]) continue;
+            const Contour *co = &cs->contours[ci];
+            const v2 *in = inner[ci];
+            for (int i = 0; i < co->count; ++i) {
+                int j = (i + 1) % co->count;
+                v2 a0 = in[i], a1 = in[j];
+                float ex = a1.x - a0.x, ey = a1.y - a0.y;
+                float el = sqrtf(ex * ex + ey * ey);
+                if (el < 1e-9f) continue;
+                float nx = -ey / el, ny = ex / el;   /* normal para dentro do oco */
+                unsigned w = (unsigned)vb.n;
+                vpush(&vb, (MeshVertex){ a0.x, a0.y,  cap_z, nx, ny, 0, 2 });
+                vpush(&vb, (MeshVertex){ a1.x, a1.y,  cap_z, nx, ny, 0, 2 });
+                vpush(&vb, (MeshVertex){ a1.x, a1.y, -cap_z, nx, ny, 0, 2 });
+                vpush(&vb, (MeshVertex){ a0.x, a0.y, -cap_z, nx, ny, 0, 2 });
+                quad(&ib, w + 0, w + 1, w + 2, w + 3);
+            }
+        }
+    }
+    if (inner) {
+        for (int i = 0; i < cs->count; ++i) free(inner[i]);
+        free(inner);
+    }
+    free(shell_ok);
 
     if (vb.n == 0 || ib.n == 0) { free(vb.v); free(ib.i); return 0; }
 

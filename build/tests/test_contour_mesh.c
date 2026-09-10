@@ -148,6 +148,36 @@ void run_contour_mesh_tests(void)
         cs_free(&cs);
     }
 
+    /* casca oca: quadrado grande -> anel + paredes internas */
+    {
+        ContourSet cs = cs_make(1);
+        float sq[] = { -4,-4,  4,-4,  4,4,  -4,4 };
+        cs_set(&cs, 0, sq, 4);
+        MeshData md;
+        MeshParams p = mp_plain(0.4f);
+        p.shell = 1;
+        p.wall_thickness = 0.8f;
+        EXPECT(contour_mesh_build(&cs, p, &md) == 1);
+        EXPECT(md.nidx % 3 == 0 && md.nverts > 0);
+        mesh_data_free(&md);
+        cs_free(&cs);
+    }
+
+    /* casca oca: quadrado pequeno com parede maior que a meia-largura -> shell pulado, sem crash */
+    {
+        ContourSet cs = cs_make(1);
+        float sq[] = { -0.3f,-0.3f,  0.3f,-0.3f,  0.3f,0.3f,  -0.3f,0.3f };
+        cs_set(&cs, 0, sq, 4);
+        MeshData md;
+        MeshParams p = mp_plain(0.4f);
+        p.shell = 1;
+        p.wall_thickness = 0.5f;
+        EXPECT(contour_mesh_build(&cs, p, &md) == 1);
+        EXPECT(md.nidx % 3 == 0);
+        mesh_data_free(&md);
+        cs_free(&cs);
+    }
+
     /* degenerado: 2 pontos => vazio, sem crash */
     {
         ContourSet cs = cs_make(1);

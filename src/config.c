@@ -51,6 +51,7 @@ static int reg_get_f(HKEY k, const wchar_t *name, float *out)
 {
     wchar_t buf[64];
     if (!reg_get_w(k, name, buf, 64)) return 0;
+    for (wchar_t *q = buf; *q; ++q) if (*q == L',') *q = L'.';   /* tolera locale pt-BR */
     wchar_t *end = NULL;
     double v = wcstod(buf, &end);
     if (end == buf) return 0;
