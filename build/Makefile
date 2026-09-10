@@ -66,7 +66,7 @@ config: debug
 	./$(OUT) /c
 
 TEST_SRC   := build/tests/test_main.c build/tests/test_cmdline.c build/tests/test_log.c
-TEST_UNITS := src/cmdline.c src/util/log.c
+TEST_UNITS := src/cmdline.c
 
 test:
 	@mkdir -p build/obj
