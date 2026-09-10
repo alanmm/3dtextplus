@@ -19,7 +19,7 @@ void run_config_tests(void)
     EXPECT(strcmp(d.text, "Modern 3D Text") == 0);
     EXPECT(wcscmp(d.font_family, L"Segoe UI") == 0);
     EXPECT(nearf(d.depth, 0.30f));
-    EXPECT(d.version == 1);
+    EXPECT(d.version == 2);
 
     /* round-trip */
     Config a;
@@ -48,6 +48,11 @@ void run_config_tests(void)
     a.bloom_threshold = 1.8f;
     a.bloom_intensity = 1.2f;
     a.bloom_radius = 0.3f;
+    a.fps_cap = 30;
+    a.vsync = 0;
+    a.msaa = 8;
+    a.render_scale = 0.75f;
+    a.auto_quality = 0;
     config_save_to(&a, TESTKEY);
 
     Config b;
@@ -75,6 +80,12 @@ void run_config_tests(void)
     EXPECT(nearf(b.bloom_threshold, 1.8f));
     EXPECT(nearf(b.bloom_intensity, 1.2f));
     EXPECT(nearf(b.bloom_radius, 0.3f));
+    EXPECT(b.fps_cap == 30);
+    EXPECT(b.vsync == 0);
+    EXPECT(b.msaa == 8);
+    EXPECT(nearf(b.render_scale, 0.75f));
+    EXPECT(b.auto_quality == 0);
+    EXPECT(b.version == 2);
 
     /* valor ausente -> default; fora de faixa -> clamp; lixo -> default */
     RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
@@ -105,6 +116,28 @@ void run_config_tests(void)
     EXPECT(c.bevel_size <= 0.2f);              /* 9 -> clamp */
     EXPECT(c.bloom_intensity >= 0.0f);         /* -1 -> clamp */
     EXPECT(c.bloom_radius <= 1.0f);            /* 5 -> clamp */
+
+    /* clamp perf: valores crus invalidos no registro */
+    RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
+    {
+        HKEY kp;
+        RegCreateKeyExW(HKEY_CURRENT_USER, TESTKEY, 0, NULL, 0, KEY_WRITE, NULL, &kp, NULL);
+        struct { const wchar_t *n, *v; } kv[] = {
+            { L"fps_cap", L"999" }, { L"msaa", L"7" }, { L"render_scale", L"3.0" },
+            { L"vsync", L"5" }, { L"auto_quality", L"0" },
+        };
+        for (int i = 0; i < 5; ++i)
+            RegSetValueExW(kp, kv[i].n, 0, REG_SZ, (const BYTE *)kv[i].v,
+                           (DWORD)((wcslen(kv[i].v) + 1) * sizeof(wchar_t)));
+        RegCloseKey(kp);
+    }
+    Config e;
+    config_load_from(&e, TESTKEY);
+    EXPECT(e.fps_cap == 120);                  /* 999 -> valido mais proximo */
+    EXPECT(e.msaa == 8);                       /* 7 -> 8 */
+    EXPECT(nearf(e.render_scale, 1.0f));       /* 3.0 -> clamp 1.0 */
+    EXPECT(e.vsync == 1);                      /* 5 -> 1 */
+    EXPECT(e.auto_quality == 0);
 
     RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
 }

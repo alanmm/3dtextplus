@@ -7,7 +7,8 @@
 #include <wchar.h>
 
 #define KEY_MAIN    L"Software\\Modern3DText"
-#define CFG_VERSION 1
+#define CFG_VERSION 2   /* v2: + campos perf (fps_cap/vsync/msaa/render_scale/auto_quality);
+                           v1 migra via defaults, sem bloco dedicado */
 
 void config_defaults(Config *c)
 {
@@ -38,9 +39,25 @@ void config_defaults(Config *c)
     c->bloom_threshold = 1.05f;
     c->bloom_intensity = 0.6f;
     c->bloom_radius = 0.55f;
+    c->fps_cap = 60;
+    c->vsync = 1;
+    c->msaa = 4;
+    c->render_scale = 1.0f;
+    c->auto_quality = 1;
 }
 
 static float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
+/* snap para o valor valido mais proximo; empate -> o maior (opts em ordem crescente) */
+static int snap_to(int v, const int *opts, int n)
+{
+    int best = opts[0], bd = 1 << 30;
+    for (int i = 0; i < n; ++i) {
+        int d = v > opts[i] ? v - opts[i] : opts[i] - v;
+        if (d <= bd) { bd = d; best = opts[i]; }
+    }
+    return best;
+}
 
 static int reg_get_w(HKEY k, const wchar_t *name, wchar_t *out, int cch)
 {
@@ -128,6 +145,12 @@ void config_load_from(Config *c, const wchar_t *subkey)
     if (reg_get_f(k, L"bloom_intensity", &f)) c->bloom_intensity = f;
     if (reg_get_f(k, L"bloom_radius", &f))    c->bloom_radius = f;
 
+    reg_get_i(k, L"fps_cap", &c->fps_cap);
+    reg_get_i(k, L"vsync", &c->vsync);
+    reg_get_i(k, L"msaa", &c->msaa);
+    reg_get_i(k, L"auto_quality", &c->auto_quality);
+    if (reg_get_f(k, L"render_scale", &f)) c->render_scale = f;
+
     wchar_t col[16];
     if (reg_get_w(k, L"base_color", col, 16) && col[0] == L'#' && wcslen(col) >= 7) {
         unsigned rgb = (unsigned)wcstoul(col + 1, NULL, 16);
@@ -162,6 +185,15 @@ void config_load_from(Config *c, const wchar_t *subkey)
     c->bloom_threshold = clampf(c->bloom_threshold, 0.2f, 3.0f);
     c->bloom_intensity = clampf(c->bloom_intensity, 0.0f, 2.0f);
     c->bloom_radius = clampf(c->bloom_radius, 0.0f, 1.0f);
+    {
+        static const int FPS_OPTS[4]  = { 0, 30, 60, 120 };
+        static const int MSAA_OPTS[4] = { 0, 2, 4, 8 };
+        c->fps_cap = snap_to(c->fps_cap, FPS_OPTS, 4);
+        c->msaa    = snap_to(c->msaa, MSAA_OPTS, 4);
+    }
+    c->vsync = c->vsync ? 1 : 0;
+    c->auto_quality = c->auto_quality ? 1 : 0;
+    c->render_scale = clampf(c->render_scale, 0.5f, 1.0f);
     if (c->text[0] == 0) strcpy(c->text, "Modern 3D Text");
     if (c->font_family[0] == 0) wcscpy(c->font_family, L"Segoe UI");
 }
@@ -203,6 +235,11 @@ void config_save_to(const Config *c, const wchar_t *subkey)
     set_f(k, L"bloom_threshold", c->bloom_threshold);
     set_f(k, L"bloom_intensity", c->bloom_intensity);
     set_f(k, L"bloom_radius", c->bloom_radius);
+    set_f(k, L"fps_cap", (float)c->fps_cap);
+    set_f(k, L"vsync", (float)c->vsync);
+    set_f(k, L"msaa", (float)c->msaa);
+    set_f(k, L"render_scale", c->render_scale);
+    set_f(k, L"auto_quality", (float)c->auto_quality);
 
     wchar_t col[16];
     unsigned r = (unsigned)(c->base_r * 255.0f + 0.5f);

@@ -31,6 +31,11 @@ typedef struct {
     float        bloom_threshold;      /* 0.2 .. 3.0 */
     float        bloom_intensity;      /* 0 .. 2.0 */
     float        bloom_radius;         /* 0 .. 1 */
+    int          fps_cap;              /* 0 (sem limite) | 30 | 60 | 120 */
+    int          vsync;                /* 0/1 */
+    int          msaa;                 /* 0 | 2 | 4 | 8 */
+    float        render_scale;         /* 0.5 .. 1.0 */
+    int          auto_quality;         /* 0/1 */
 } Config;
 
 void config_defaults(Config *c);
