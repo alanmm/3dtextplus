@@ -1,6 +1,7 @@
 #include "host_win32.h"
 #include "gl_core.h"
 #include "scene.h"
+#include "config.h"
 #include "util/log.h"
 
 #include <windowsx.h>
@@ -100,7 +101,7 @@ static void m3dt_wgl_bootstrap(HINSTANCE hInst)
 
 static int gl_window_create(HINSTANCE hInst, GlWindow *g, DWORD style, DWORD exstyle,
                             HWND parent, int x, int y, int w, int h,
-                            const wchar_t *cls, WNDPROC proc)
+                            const wchar_t *cls, WNDPROC proc, const Config *cfg)
 {
     memset(g, 0, sizeof *g);
 
@@ -189,7 +190,7 @@ static int gl_window_create(HINSTANCE hInst, GlWindow *g, DWORD style, DWORD exs
     RECT cr; GetClientRect(g->hwnd, &cr);
     g->w = cr.right; g->h = cr.bottom;
 
-    g->scene = scene_create();
+    g->scene = scene_create(cfg);
     if (!g->scene) log_errorf("scene_create falhou (%ls)", cls);
     return 1;
 }
@@ -279,6 +280,9 @@ int host_run_saver(HINSTANCE hInst)
 
     const bool selftest = env_flag("M3DT_SELFTEST");   /* dev/CI: janela + auto-saida */
 
+    Config cfg;
+    config_load(&cfg);
+
     MonitorList ml; ml.n = 0;
     if (!selftest)
         EnumDisplayMonitors(NULL, NULL, monitor_cb, (LPARAM)&ml);
@@ -298,7 +302,7 @@ int host_run_saver(HINSTANCE hInst)
         wchar_t cls[32]; wsprintfW(cls, L"M3DTSaver%d", i);
         if (gl_window_create(hInst, &win[nwin], style, exstyle, NULL,
                              r.left, r.top, r.right - r.left, r.bottom - r.top,
-                             cls, saver_wndproc)) {
+                             cls, saver_wndproc, &cfg)) {
             if (!selftest)
                 SetWindowPos(win[nwin].hwnd, HWND_TOPMOST, r.left, r.top,
                              r.right - r.left, r.bottom - r.top, SWP_SHOWWINDOW);
@@ -371,10 +375,13 @@ int host_run_preview(HINSTANCE hInst, HWND parent)
     m3dt_set_dpi_aware();
     m3dt_wgl_bootstrap(hInst);
 
+    Config cfg;
+    config_load(&cfg);
+
     RECT pr; GetClientRect(parent, &pr);
     GlWindow g;
     if (!gl_window_create(hInst, &g, WS_CHILD | WS_VISIBLE, 0, parent,
-                          0, 0, pr.right, pr.bottom, L"M3DTPreview", DefWindowProcW))
+                          0, 0, pr.right, pr.bottom, L"M3DTPreview", DefWindowProcW, &cfg))
         return 1;
 
     LARGE_INTEGER freq, start;
