@@ -545,7 +545,7 @@ static void select_tab(int sel)
        e onde bevel, metalizacao e reflexo de ambiente ficam visiveis no preview
        minusculo; as demais abas usam a vista ampla padrao. */
     if (g_preview)
-        gl_window_set_zoom(g_preview, (sel == 2 || sel == 3) ? 4.4f : 1.0f);
+        gl_window_set_zoom(g_preview, (sel == 2 || sel == 3) ? 4.4f : 2.0f);
 }
 
 static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
