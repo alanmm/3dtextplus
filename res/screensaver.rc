@@ -95,7 +95,7 @@ STYLE DS_SETFONT | DS_CONTROL | WS_CHILD
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     AUTOCHECKBOX "Bloom (glare)", IDC_BLOOM, 8, 8, 120, 12
-    LTEXT      "Limiar:", -1, 8, 24, 80, 9
+    LTEXT      "Limiar (bloom e streaks):", -1, 8, 24, 140, 9
     LTEXT      "", IDC_BTHRESH_VAL, 182, 24, 50, 9
     CONTROL    "", IDC_BTHRESH, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 33, 224, 14
     LTEXT      "Intensidade:", -1, 8, 49, 80, 9
@@ -113,8 +113,10 @@ BEGIN
     LTEXT      "Comprimento:", -1, 8, 149, 80, 9
     LTEXT      "", IDC_SLEN_VAL, 182, 149, 50, 9
     CONTROL    "", IDC_SLEN, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 158, 224, 14
-    LTEXT      "Bloom e streaks agem no render HDR, antes do tonemap.",
-               -1, 8, 178, 224, 9
+    LTEXT      "Bloom e streaks agem no render HDR, antes do tonemap, e "
+               "compartilham o mesmo Limiar (acima) - cada um pode ser "
+               "ligado/desligado independente do outro.",
+               -1, 8, 174, 224, 24
 END
 
 IDD_TAB_PERF DIALOGEX 0, 0, 240, 200
