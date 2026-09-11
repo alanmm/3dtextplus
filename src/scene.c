@@ -12,6 +12,9 @@
 #include <string.h>
 #include <wchar.h>
 #include <math.h>
+#include <windows.h>
+#include "stb_image.h"
+#include "embedded.h"
 
 #define SC_FLATTEN 0.004f
 
@@ -45,6 +48,18 @@ struct SceneRenderer {
     unsigned sdf_tex;
     int      has_sdf;
     float    sdf_min_x, sdf_min_y, sdf_size_x, sdf_size_y;
+
+    /* fundo */
+    unsigned bg_prog, bg_vao;
+    int      background_type;
+    v3       bg_color1, bg_color2;
+    float    bg_grad_angle;
+    wchar_t  bg_image_path[512];
+    unsigned bg_tex;
+    int      bg_tex_w, bg_tex_h;
+    int      bg_image_fit;
+    float    bg_pan_speed;
+    v3       bg_neb_color1, bg_neb_color2;
 };
 
 static void upload_sdf(SceneRenderer *s, const Sdf *sdf)
@@ -67,6 +82,31 @@ static void upload_sdf(SceneRenderer *s, const Sdf *sdf)
     s->has_sdf = 1;
     s->sdf_min_x = sdf->min_x;   s->sdf_min_y = sdf->min_y;
     s->sdf_size_x = sdf->size_x; s->sdf_size_y = sdf->size_y;
+}
+
+static unsigned bg_load_texture(const wchar_t *path, int *out_w, int *out_h)
+{
+    *out_w = *out_h = 0;
+    if (!path || !path[0]) return 0;
+
+    char u8[1024];
+    WideCharToMultiByte(CP_UTF8, 0, path, -1, u8, (int)sizeof u8, NULL, NULL);
+
+    int w = 0, h = 0, ch = 0;
+    unsigned char *px = stbi_load(u8, &w, &h, &ch, 3);
+    if (!px) {
+        log_errorf("scene: fundo nao carregou %s (%s)", u8, stbi_failure_reason());
+        return 0;
+    }
+
+    unsigned t = gl_texture_2d_rgb8(w, h, px, 1);
+    stbi_image_free(px);
+    glBindTexture(GL_TEXTURE_2D, t);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    *out_w = w; *out_h = h;
+    log_infof("scene: fundo %s (%dx%d) -> tex %u", u8, w, h, t);
+    return t;
 }
 
 static MeshParams scene_mesh_params(const SceneRenderer *s)
@@ -120,6 +160,14 @@ SceneRenderer *scene_create(const Config *cfg)
     if (!s) return NULL;
     s->zoom = 1.0f;
     if (!material_init(&s->mat)) { free(s); return NULL; }
+
+    s->bg_prog = gl_program((const char *)EMBED_fullscreen_vert,
+                             (const char *)EMBED_background_frag);
+    if (!s->bg_prog) {
+        material_destroy(&s->mat);
+        free(s);
+        return NULL;
+    }
 
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);   /* extrusao two-sided */
@@ -179,6 +227,22 @@ void scene_set_config(SceneRenderer *s, const Config *cfg)
         s->env_tex = env_load_texture(s->env_path);
     }
 
+    s->background_type = cfg->background_type;
+    s->bg_color1 = (v3){ cfg->bg_color1_r, cfg->bg_color1_g, cfg->bg_color1_b };
+    s->bg_color2 = (v3){ cfg->bg_color2_r, cfg->bg_color2_g, cfg->bg_color2_b };
+    s->bg_grad_angle = cfg->bg_grad_angle;
+    s->bg_image_fit = cfg->bg_image_fit;
+    s->bg_pan_speed = cfg->bg_pan_speed;
+    s->bg_neb_color1 = (v3){ cfg->bg_neb_color1_r, cfg->bg_neb_color1_g, cfg->bg_neb_color1_b };
+    s->bg_neb_color2 = (v3){ cfg->bg_neb_color2_r, cfg->bg_neb_color2_g, cfg->bg_neb_color2_b };
+
+    if (wcscmp(s->bg_image_path, cfg->bg_image_path) != 0) {
+        if (s->bg_tex) glDeleteTextures(1, &s->bg_tex);
+        wcsncpy(s->bg_image_path, cfg->bg_image_path, 511);
+        s->bg_image_path[511] = 0;
+        s->bg_tex = bg_load_texture(s->bg_image_path, &s->bg_tex_w, &s->bg_tex_h);
+    }
+
     if (mesh_dirty) {
         if (!rebuild_mesh(s))
             log_errorf("scene: rebuild_mesh falhou (text='%s' font='%ls')", s->text, s->font_family);
@@ -224,6 +288,41 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h)
     glViewport(0, 0, fb_w, fb_h);
     glClearColor(0.02f, 0.03f, 0.05f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glDepthMask(GL_FALSE);
+    glUseProgram(s->bg_prog);
+    glUniform1i(glGetUniformLocation(s->bg_prog, "uType"), s->background_type);
+    glUniform3f(glGetUniformLocation(s->bg_prog, "uColor1"), s->bg_color1.x, s->bg_color1.y, s->bg_color1.z);
+    glUniform3f(glGetUniformLocation(s->bg_prog, "uColor2"), s->bg_color2.x, s->bg_color2.y, s->bg_color2.z);
+    glUniform1f(glGetUniformLocation(s->bg_prog, "uGradAngle"), m3dt_radians(s->bg_grad_angle));
+    glUniform3f(glGetUniformLocation(s->bg_prog, "uNebColor1"), s->bg_neb_color1.x, s->bg_neb_color1.y, s->bg_neb_color1.z);
+    glUniform3f(glGetUniformLocation(s->bg_prog, "uNebColor2"), s->bg_neb_color2.x, s->bg_neb_color2.y, s->bg_neb_color2.z);
+    glUniform1f(glGetUniformLocation(s->bg_prog, "uTime"), (float)t);
+
+    int has_img = (s->background_type == 2 && s->bg_tex) ? 1 : 0;
+    glUniform1i(glGetUniformLocation(s->bg_prog, "uHasBgTex"), has_img);
+    if (has_img) {
+        float scaleX = 1.0f, scaleY = 1.0f, offX = 0.0f, offY = 0.0f;
+        float imgAspect = (float)s->bg_tex_w / (float)s->bg_tex_h;
+        float viewAspect = (float)fb_w / (float)fb_h;
+        if (s->bg_image_fit == 0) {          /* cobrir: recorta o excesso */
+            if (viewAspect > imgAspect) { scaleY = imgAspect / viewAspect; offY = (1.0f - scaleY) * 0.5f; }
+            else                        { scaleX = viewAspect / imgAspect; offX = (1.0f - scaleX) * 0.5f; }
+        } else if (s->bg_image_fit == 1) {   /* conter: faixas na cor 1 */
+            if (viewAspect > imgAspect) { scaleX = viewAspect / imgAspect; offX = (1.0f - scaleX) * 0.5f; }
+            else                        { scaleY = imgAspect / viewAspect; offY = (1.0f - scaleY) * 0.5f; }
+        }
+        glUniform2f(glGetUniformLocation(s->bg_prog, "uUvScale"), scaleX, scaleY);
+        glUniform2f(glGetUniformLocation(s->bg_prog, "uUvOffset"), offX, offY);
+        glUniform1i(glGetUniformLocation(s->bg_prog, "uBgFit"), s->bg_image_fit);
+        glUniform1f(glGetUniformLocation(s->bg_prog, "uPanSpeed"), s->bg_pan_speed);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, s->bg_tex);
+        glUniform1i(glGetUniformLocation(s->bg_prog, "uBgTex"), 0);
+    }
+    gl_fullscreen_draw(&s->bg_vao);
+    glDepthMask(GL_TRUE);
+
     if (!s->have_mesh) return;
 
     float aspect = (float)fb_w / (float)fb_h;
@@ -288,6 +387,8 @@ void scene_destroy(SceneRenderer *s)
     if (!s) return;
     if (s->have_mesh) gl_mesh_free(&s->mesh);
     if (s->sdf_tex) glDeleteTextures(1, &s->sdf_tex);
+    if (s->bg_tex) glDeleteTextures(1, &s->bg_tex);
+    if (s->bg_prog) glDeleteProgram(s->bg_prog);
     env_free(s->env_tex);
     material_destroy(&s->mat);
     free(s);
