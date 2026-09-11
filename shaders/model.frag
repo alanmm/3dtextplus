@@ -43,16 +43,54 @@ vec3 proc_env(vec3 d)
 
 vec3 sample_env(vec3 d, float rough)
 {
-    vec3 e;
     if (uHasEnv == 1) {
+        // uma imagem real ja fica mais macia via mip (LOD por rugosidade);
+        // nao mistura com o ambiente procedural, que tem tom proprio (azulado)
+        // e "lavava" a cor de mapas reais mesmo em rugosidade baixa.
         vec2 uv = vec2(atan(d.z, d.x) / (2.0 * PI) + 0.5,
                        acos(clamp(d.y, -1.0, 1.0)) / PI);
-        e = textureLod(uEnvTex, uv, rough * 6.0).rgb;
-    } else {
-        e = proc_env(d);
+        return textureLod(uEnvTex, uv, rough * 6.0).rgb;
     }
+    vec3 e = proc_env(d);
     vec3 ambient = proc_env(vec3(0.0, 1.0, 0.0)) * 0.6 + proc_env(vec3(0.0, -1.0, 0.0)) * 0.4;
     return mix(e, ambient, rough * 0.6);
+}
+
+float hash21(vec2 p)
+{
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
+}
+
+// ruido de valor suave (interpola cantos de grade) - um hash cru por fragmento
+// vira estatica; isto da manchas coerentes, do tamanho de uma celula da grade.
+float value_noise(vec2 p)
+{
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    float a = hash21(i);
+    float b = hash21(i + vec2(1.0, 0.0));
+    float c = hash21(i + vec2(0.0, 1.0));
+    float d = hash21(i + vec2(1.0, 1.0));
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+
+// perturba a direcao de reflexo com ruido suave e coerente no espaco do mundo -
+// sem isso, faces planas (a maioria de um texto extrudado) refletem um unico
+// ponto do ambiente na face inteira, ficando "chapadas". A variacao lembra uma
+// chapa martelada em vez de um espelho perfeito - efeito estilizado, nao fisico.
+vec3 jitter_reflection(vec3 R, vec3 worldPos, float amount)
+{
+    vec2 p = worldPos.xy * 0.55 + worldPos.z * 0.3;
+    float n1 = value_noise(p) - 0.5;
+    float n2 = value_noise(p + vec2(31.7, 11.3)) - 0.5;
+    vec2 j = vec2(n1, n2) * amount;
+    vec3 up = (abs(R.y) < 0.99) ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+    vec3 tx = normalize(cross(up, R));
+    vec3 ty = cross(R, tx);
+    return normalize(R + tx * j.x + ty * j.y);
 }
 
 void main()
@@ -96,10 +134,21 @@ void main()
     float fres = pow(1.0 - max(dot(N, V), 0.0), 5.0);
 
     if (uMode == 1) {                         // metalico
-        vec3 env  = sample_env(R, uRoughness);
+        vec3 Rj   = jitter_reflection(R, vWorld, 0.9 + 1.4 * uRoughness);
+        vec3 env  = sample_env(Rj, uRoughness);
         vec3 tint = mix(vec3(1.0), base, uMetalness);
         vec3 col  = env * tint;
-        col += vec3(1.0) * fres * (0.15 + 0.85 * (1.0 - uRoughness));
+        // fresnel e quase constante numa face plana (a normal nao varia sobre a
+        // face) - em vez de um "brilho de borda" ele vira um tingimento uniforme
+        // que depende so do angulo de visao do momento, afogando a riqueza do
+        // reflexo do ambiente (onde a variacao do material realmente mora).
+        // Mantido bem discreto por isso - so um toque, nao um teto de 30-40%.
+        float fresAmt = min(fres * (0.15 + 0.85 * (1.0 - uRoughness)), 0.10);
+        col = mix(col, vec3(1.0), fresAmt);
+        vec3 H     = normalize(-KEY_DIR + V);
+        vec3 Hj    = jitter_reflection(H, vWorld + vec3(41.0, 7.0, 23.0), 0.35 + 0.5 * uRoughness);
+        float spec = pow(max(dot(N, Hj), 0.0), mix(24.0, 220.0, 1.0 - uRoughness));
+        col += tint * spec * (0.35 + 0.35 * (1.0 - uRoughness));
         float kd = max(dot(N, -KEY_DIR), 0.0);
         col = mix(col, base * (0.2 + 0.8 * kd), (1.0 - uMetalness) * 0.5);
         if (vSurf > 1.5 && vSurf < 2.5) col *= 0.9;
