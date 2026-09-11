@@ -9,6 +9,7 @@
 #define IDD_TAB_EFFECTS   114
 #define IDD_TAB_PERF      115
 #define IDD_TAB_POST      116
+#define IDD_TAB_BG        117
 
 #define IDC_TABS          1000
 #define IDC_PREVIEW       1001
@@ -84,5 +85,20 @@
 #define IDC_VAMT          1704
 #define IDC_VAMT_VAL      1705
 #define IDC_FXAA          1706
+
+/* aba Fundo */
+#define IDC_BGTYPE        1800
+#define IDC_BGCOLOR1      1801
+#define IDC_BGCOLOR2      1802
+#define IDC_BGANGLE       1803
+#define IDC_BGANGLE_VAL   1804
+#define IDC_BGIMGPATH     1805
+#define IDC_BGIMGPICK     1806
+#define IDC_BGIMGCLEAR    1807
+#define IDC_BGFIT         1808
+#define IDC_BGPAN         1809
+#define IDC_BGPAN_VAL     1810
+#define IDC_BGNEBCOLOR1   1811
+#define IDC_BGNEBCOLOR2   1812
 
 #endif

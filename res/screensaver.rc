@@ -156,6 +156,38 @@ BEGIN
                -1, 8, 124, 224, 20
 END
 
+IDD_TAB_BG DIALOGEX 0, 0, 240, 200
+STYLE DS_SETFONT | DS_CONTROL | WS_CHILD
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    LTEXT      "Tipo de fundo:", -1, 8, 10, 90, 9
+    COMBOBOX   IDC_BGTYPE, 100, 8, 132, 80, CBS_DROPDOWNLIST | WS_TABSTOP
+
+    LTEXT      "Cor 1:", -1, 8, 30, 60, 9
+    PUSHBUTTON "Escolher cor...", IDC_BGCOLOR1, 100, 28, 100, 14
+    LTEXT      "Cor 2:", -1, 8, 48, 60, 9
+    PUSHBUTTON "Escolher cor...", IDC_BGCOLOR2, 100, 46, 100, 14
+
+    LTEXT      "Angulo do gradiente (graus):", -1, 8, 66, 140, 9
+    LTEXT      "", IDC_BGANGLE_VAL, 182, 66, 50, 9
+    CONTROL    "", IDC_BGANGLE, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 76, 224, 16
+
+    LTEXT      "Imagem de fundo:", -1, 8, 96, 200, 9
+    LTEXT      "(nenhuma)", IDC_BGIMGPATH, 8, 108, 224, 9, SS_PATHELLIPSIS
+    PUSHBUTTON "Escolher...", IDC_BGIMGPICK, 8, 120, 60, 14
+    PUSHBUTTON "Limpar",      IDC_BGIMGCLEAR, 72, 120, 50, 14
+    LTEXT      "Ajuste:", -1, 128, 122, 34, 9
+    COMBOBOX   IDC_BGFIT, 162, 120, 70, 60, CBS_DROPDOWNLIST | WS_TABSTOP
+
+    LTEXT      "Velocidade de pan:", -1, 8, 140, 110, 9
+    LTEXT      "", IDC_BGPAN_VAL, 182, 140, 50, 9
+    CONTROL    "", IDC_BGPAN, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 150, 224, 16
+
+    LTEXT      "Nebulosa:", -1, 8, 172, 50, 9
+    PUSHBUTTON "Cor 1...", IDC_BGNEBCOLOR1, 60, 170, 80, 14
+    PUSHBUTTON "Cor 2...", IDC_BGNEBCOLOR2, 144, 170, 80, 14
+END
+
 VS_VERSION_INFO VERSIONINFO
  FILEVERSION    0,4,3,0
  PRODUCTVERSION 0,4,3,0
