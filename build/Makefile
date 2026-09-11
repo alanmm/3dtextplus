@@ -47,7 +47,8 @@ RES     := build/obj/screensaver.res
 
 EMBED_INPUTS := shaders/model.vert shaders/model.frag shaders/fullscreen.vert \
                 shaders/post_bright.frag shaders/post_down.frag shaders/post_up.frag \
-                shaders/post_composite.frag shaders/post_streak.frag
+                shaders/post_combine.frag shaders/post_streak.frag \
+                shaders/post_finish.frag shaders/post_fxaa.frag
 EMBEDDED_H   := generated/embedded.h
 
 MAX_BYTES := 3145728

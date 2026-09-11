@@ -17,9 +17,13 @@ struct Post {
     GlFbo streak_src;             /* bright-pass em 1/4 res */
     GlFbo streak_a, streak_b;     /* ping-pong do blur, 1/4 res */
     GlFbo streaks_acc;            /* acumulador dos eixos, 1/4 res */
-    unsigned prog_bright, prog_down, prog_up, prog_comp;
+    GlFbo comp;                   /* HDR combinado (cena+bloom+streaks), out_w x out_h */
+    GlFbo ldr;                    /* pos-tonemap pre-FXAA, out_w x out_h */
+    unsigned prog_bright, prog_down, prog_up, prog_combine;
     unsigned prog_streak;
+    unsigned prog_finish, prog_fxaa;
     int in_w, in_h, samples, ms_on;
+    int out_w, out_h;
 };
 
 static unsigned prog(const unsigned char *fs)
@@ -31,12 +35,15 @@ Post *post_create(void)
 {
     Post *p = (Post *)calloc(1, sizeof *p);
     if (!p) return NULL;
-    p->prog_bright = prog(EMBED_post_bright_frag);
-    p->prog_down   = prog(EMBED_post_down_frag);
-    p->prog_up     = prog(EMBED_post_up_frag);
-    p->prog_comp   = prog(EMBED_post_composite_frag);
-    p->prog_streak = prog(EMBED_post_streak_frag);
-    if (!p->prog_bright || !p->prog_down || !p->prog_up || !p->prog_comp || !p->prog_streak) {
+    p->prog_bright  = prog(EMBED_post_bright_frag);
+    p->prog_down    = prog(EMBED_post_down_frag);
+    p->prog_up      = prog(EMBED_post_up_frag);
+    p->prog_combine = prog(EMBED_post_combine_frag);
+    p->prog_streak  = prog(EMBED_post_streak_frag);
+    p->prog_finish  = prog(EMBED_post_finish_frag);
+    p->prog_fxaa    = prog(EMBED_post_fxaa_frag);
+    if (!p->prog_bright || !p->prog_down || !p->prog_up || !p->prog_combine ||
+        !p->prog_streak || !p->prog_finish || !p->prog_fxaa) {
         post_destroy(p);
         return NULL;
     }
@@ -44,10 +51,14 @@ Post *post_create(void)
     glUseProgram(p->prog_down);   glUniform1i(glGetUniformLocation(p->prog_down, "uTex"), 0);
     glUseProgram(p->prog_up);     glUniform1i(glGetUniformLocation(p->prog_up, "uTex"), 0);
     glUseProgram(p->prog_streak); glUniform1i(glGetUniformLocation(p->prog_streak, "uTex"), 0);
-    glUseProgram(p->prog_comp);
-    glUniform1i(glGetUniformLocation(p->prog_comp, "uScene"), 0);
-    glUniform1i(glGetUniformLocation(p->prog_comp, "uBloom"), 1);
-    glUniform1i(glGetUniformLocation(p->prog_comp, "uStreaks"), 2);
+    glUseProgram(p->prog_combine);
+    glUniform1i(glGetUniformLocation(p->prog_combine, "uScene"), 0);
+    glUniform1i(glGetUniformLocation(p->prog_combine, "uBloom"), 1);
+    glUniform1i(glGetUniformLocation(p->prog_combine, "uStreaks"), 2);
+    glUseProgram(p->prog_finish);
+    glUniform1i(glGetUniformLocation(p->prog_finish, "uTex"), 0);
+    glUseProgram(p->prog_fxaa);
+    glUniform1i(glGetUniformLocation(p->prog_fxaa, "uTex"), 0);
 
     return p;
 }
@@ -85,6 +96,17 @@ static void ensure_size(Post *p, int w, int h, int samples)
     if (!p->hdr.fbo || (ms_on && !p->hdr_ms.fbo)) log_errorf("post: FBO HDR incompleto");
 }
 
+static void ensure_output_size(Post *p, int w, int h)
+{
+    if (p->out_w == w && p->out_h == h && p->comp.fbo) return;
+    p->out_w = w; p->out_h = h;
+    gl_fbo_free(&p->comp);
+    gl_fbo_free(&p->ldr);
+    p->comp = gl_fbo_color16f(w, h, 0);
+    p->ldr  = gl_fbo_color16f(w, h, 0);
+    if (!p->comp.fbo || !p->ldr.fbo) log_errorf("post: FBO combine/ldr incompleto");
+}
+
 void post_begin(Post *p, int in_w, int in_h, int samples)
 {
     if (in_w < 1) in_w = 1;
@@ -108,6 +130,7 @@ void post_present(Post *p, int out_w, int out_h, PostParams pr)
 {
     if (out_w < 1) out_w = 1;
     if (out_h < 1) out_h = 1;
+    ensure_output_size(p, out_w, out_h);
 
     if (p->ms_on) gl_blit_resolve(&p->hdr_ms, &p->hdr);   /* -> p->hdr (single-sample) */
 
@@ -212,20 +235,50 @@ void post_present(Post *p, int out_w, int out_h, PostParams pr)
         glDisable(GL_BLEND);
     }
 
-    /* composicao -> framebuffer padrao (faz upscale se in < out) */
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glViewport(0, 0, out_w, out_h);
-    glUseProgram(p->prog_comp);
-    glUniform1i(glGetUniformLocation(p->prog_comp, "uHasBloom"), has_bloom);
-    glUniform1f(glGetUniformLocation(p->prog_comp, "uBloomIntensity"), pr.intensity);
-    glUniform1i(glGetUniformLocation(p->prog_comp, "uHasStreaks"), has_streaks);
-    glUniform1f(glGetUniformLocation(p->prog_comp, "uStreaksIntensity"), pr.streaks_intensity);
+    /* combinar -> p->comp (HDR, out_w x out_h; faz upscale se interno < saida) */
+    gl_fbo_bind(&p->comp);
+    glUseProgram(p->prog_combine);
+    glUniform1i(glGetUniformLocation(p->prog_combine, "uHasBloom"), has_bloom);
+    glUniform1f(glGetUniformLocation(p->prog_combine, "uBloomIntensity"), pr.intensity);
+    glUniform1i(glGetUniformLocation(p->prog_combine, "uHasStreaks"), has_streaks);
+    glUniform1f(glGetUniformLocation(p->prog_combine, "uStreaksIntensity"), pr.streaks_intensity);
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, p->hdr.color);
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, has_bloom ? p->bloom[0].color : p->hdr.color);
     glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, has_streaks ? p->streaks_acc.color : p->hdr.color);
     gl_fullscreen_draw();
-    glActiveTexture(GL_TEXTURE0);
 
+    /* finalizar: CA + vinheta + tonemap ACES + gamma. Sem FXAA -> escreve
+       direto no framebuffer padrao; com FXAA -> escreve em p->ldr, o FXAA
+       resolve pro framebuffer padrao depois. */
+    int has_chroma   = (pr.chroma_on   && pr.chroma_strength  > 1e-4f) ? 1 : 0;
+    int has_vignette = (pr.vignette_on && pr.vignette_amount  > 1e-4f) ? 1 : 0;
+    int has_fxaa     = pr.fxaa_on ? 1 : 0;
+
+    if (has_fxaa) {
+        gl_fbo_bind(&p->ldr);
+    } else {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glViewport(0, 0, out_w, out_h);
+    }
+    glUseProgram(p->prog_finish);
+    glUniform1i(glGetUniformLocation(p->prog_finish, "uHasChroma"), has_chroma);
+    glUniform1f(glGetUniformLocation(p->prog_finish, "uChromaStrength"), pr.chroma_strength);
+    glUniform1i(glGetUniformLocation(p->prog_finish, "uHasVignette"), has_vignette);
+    glUniform1f(glGetUniformLocation(p->prog_finish, "uVignetteAmount"), pr.vignette_amount);
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, p->comp.color);
+    gl_fullscreen_draw();
+
+    /* FXAA opcional: p->ldr -> framebuffer padrao */
+    if (has_fxaa) {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glViewport(0, 0, out_w, out_h);
+        glUseProgram(p->prog_fxaa);
+        set_texel(p->prog_fxaa, &p->ldr);
+        glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, p->ldr.color);
+        gl_fullscreen_draw();
+    }
+
+    glActiveTexture(GL_TEXTURE0);
     glEnable(GL_DEPTH_TEST);
 }
 
@@ -239,10 +292,14 @@ void post_destroy(Post *p)
     gl_fbo_free(&p->streak_a);
     gl_fbo_free(&p->streak_b);
     gl_fbo_free(&p->streaks_acc);
-    if (p->prog_bright) glDeleteProgram(p->prog_bright);
-    if (p->prog_down)   glDeleteProgram(p->prog_down);
-    if (p->prog_up)     glDeleteProgram(p->prog_up);
-    if (p->prog_comp)   glDeleteProgram(p->prog_comp);
-    if (p->prog_streak) glDeleteProgram(p->prog_streak);
+    gl_fbo_free(&p->comp);
+    gl_fbo_free(&p->ldr);
+    if (p->prog_bright)  glDeleteProgram(p->prog_bright);
+    if (p->prog_down)    glDeleteProgram(p->prog_down);
+    if (p->prog_up)      glDeleteProgram(p->prog_up);
+    if (p->prog_combine) glDeleteProgram(p->prog_combine);
+    if (p->prog_streak)  glDeleteProgram(p->prog_streak);
+    if (p->prog_finish)  glDeleteProgram(p->prog_finish);
+    if (p->prog_fxaa)    glDeleteProgram(p->prog_fxaa);
     free(p);
 }

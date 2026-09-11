@@ -7,6 +7,11 @@ typedef struct {
     int   streaks_mode;          /* 0 off | 1 starburst | 2 anamorfico */
     float streaks_intensity;     /* 0 .. 2 */
     float streaks_length;        /* 0 .. 1 */
+    int   chroma_on;
+    float chroma_strength;       /* 0 .. 1 */
+    int   vignette_on;
+    float vignette_amount;       /* 0 .. 1 */
+    int   fxaa_on;
 } PostParams;
 
 typedef struct Post Post;
