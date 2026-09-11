@@ -229,7 +229,7 @@ GlWindow *gl_window_create(HINSTANCE hInst, DWORD style, DWORD exstyle, HWND par
     if (cfg) gl_window_set_config(g, cfg);
     else { g->post_params.bloom = 1; g->post_params.threshold = 1.05f;
            g->post_params.intensity = 0.6f; g->post_params.radius = 0.55f;
-           g->post_params.streaks_mode = 0; }
+           g->post_params.streaks_mode = 0; g->post_params.fxaa_on = 1; }
 
     g->scene = scene_create(cfg);
     if (!g->scene) log_errorf("scene_create falhou (%ls)", cls);
@@ -263,6 +263,10 @@ static void render_into_post(GlWindow *g, double t, int measure)
     pr.bloom = frame_bloom(g);
     pr.streaks_mode = (!g->preview && g->quality.streaks && g->post_params.streaks_mode)
                       ? g->post_params.streaks_mode : 0;
+    int post_fx_ok = !g->preview && g->tier != M3DT_TIER_REDUCED;
+    pr.chroma_on   = (post_fx_ok && g->post_params.chroma_on)   ? 1 : 0;
+    pr.vignette_on = (post_fx_ok && g->post_params.vignette_on) ? 1 : 0;
+    pr.fxaa_on     = (post_fx_ok && g->post_params.fxaa_on)     ? 1 : 0;
     post_present(g->post, g->w, g->h, pr);
 
     if (measure) {
@@ -299,6 +303,12 @@ void gl_window_set_config(GlWindow *g, const Config *cfg)
     g->post_params.streaks_mode      = cfg->streaks_mode;
     g->post_params.streaks_intensity = cfg->streaks_intensity;
     g->post_params.streaks_length    = cfg->streaks_length;
+
+    g->post_params.chroma_on        = cfg->chroma_on;
+    g->post_params.chroma_strength  = cfg->chroma_strength;
+    g->post_params.vignette_on      = cfg->vignette_on;
+    g->post_params.vignette_amount  = cfg->vignette_amount;
+    g->post_params.fxaa_on          = cfg->fxaa_on;
 
     if (g->rc) wglMakeCurrent(g->dc, g->rc);
 
