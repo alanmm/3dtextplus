@@ -131,6 +131,25 @@ static void finalize_contour(ConList *cl, PtBuf *cur, float sc)
     cur->n = 0;
 }
 
+#define KERN_SAMPLES 20
+
+/* Registra x num "perfil de altura" (min/max por faixa vertical), usado
+   para kerning otico: a folga visual real entre os contornos ja extraidos
+   de um glifo e do proximo, em vez dos metadados de kerning da fonte -
+   muitas fontes modernas (ex.: Segoe UI) guardam kerning em GPOS, que esta
+   biblioteca (stb_truetype) nao le; so a tabela legada 'kern' e lida, e
+   costuma estar vazia ou ausente, entao o kerning por tabela nunca
+   ajustava nada na pratica. */
+static void profile_update(float *minX, float *maxX, float y, float x, float descent, float span)
+{
+    if (span < 1e-6f) return;
+    int b = (int)((y - descent) / span * (float)(KERN_SAMPLES - 1) + 0.5f);
+    if (b < 0) b = 0;
+    if (b >= KERN_SAMPLES) b = KERN_SAMPLES - 1;
+    if (x < minX[b]) minX[b] = x;
+    if (x > maxX[b]) maxX[b] = x;
+}
+
 static int utf8_next(const unsigned char **s)
 {
     int cp = **s;
@@ -173,58 +192,118 @@ int font_build_contours(const char *utf8, const wchar_t *family, int bold, int i
     float bminx = 1e30f, bminy = 1e30f, bmaxx = -1e30f, bmaxy = -1e30f;
     int have_bounds = 0;
 
+    const float target_gap = 0.045f * unitsPerEm;   /* folga otica minima entre glifos */
+    float prevMaxX[KERN_SAMPLES];
+    float prev_glyph_penx = 0.0f;
+    int have_prev_profile = 0;
+
     const unsigned char *s = (const unsigned char *)utf8;
-    int prev_cp = 0;
     for (;;) {
         int cp = utf8_next(&s);
         if (cp == 0) break;
 
-        if (cp == '\n') { penx = 0.0f; peny -= line_step; prev_cp = 0; continue; }
+        if (cp == '\n') { penx = 0.0f; peny -= line_step; have_prev_profile = 0; continue; }
 
-        if (prev_cp) penx += (float)stbtt_GetCodepointKernAdvance(&fi, prev_cp, cp);
-
+        /* extrai o glifo em espaco LOCAL (x cru, sem penx ainda) para poder
+           decidir a posicao final antes de fixa-la */
         stbtt_vertex *verts = NULL;
         int nv = stbtt_GetCodepointShape(&fi, cp, &verts);
 
+        ConList localCl = { 0, 0, 0 };
         PtBuf cur = { 0, 0, 0 };
         float px = 0.0f, py = 0.0f;
+        int glyph_has_ink = 0;
         for (int i = 0; i < nv; ++i) {
             stbtt_vertex *v = &verts[i];
-            float vx = penx + (float)v->x, vy = peny + (float)v->y;
+            float vx = (float)v->x, vy = peny + (float)v->y;
             switch (v->type) {
                 case STBTT_vmove:
-                    finalize_contour(&cl, &cur, sc);
+                    finalize_contour(&localCl, &cur, 1.0f);
                     pb_push(&cur, vx, vy);
                     break;
                 case STBTT_vline:
                     pb_push(&cur, vx, vy);
                     break;
                 case STBTT_vcurve:
-                    flat_quad(&cur, px, py, penx + (float)v->cx, peny + (float)v->cy,
+                    flat_quad(&cur, px, py, (float)v->cx, peny + (float)v->cy,
                               vx, vy, tol_units, 0);
                     break;
                 case STBTT_vcubic:
-                    flat_cubic(&cur, px, py, penx + (float)v->cx, peny + (float)v->cy,
-                               penx + (float)v->cx1, peny + (float)v->cy1, vx, vy, tol_units, 0);
+                    flat_cubic(&cur, px, py, (float)v->cx, peny + (float)v->cy,
+                               (float)v->cx1, peny + (float)v->cy1, vx, vy, tol_units, 0);
                     break;
                 default:
                     break;
             }
             px = vx; py = vy;
-            if (vx < bminx) bminx = vx;
-            if (vx > bmaxx) bmaxx = vx;
-            if (vy < bminy) bminy = vy;
-            if (vy > bmaxy) bmaxy = vy;
-            have_bounds = 1;
+            glyph_has_ink = 1;
         }
-        finalize_contour(&cl, &cur, sc);
+        finalize_contour(&localCl, &cur, 1.0f);
         free(cur.p);
         if (verts) stbtt_FreeShape(&fi, verts);
 
+        /* perfil de altura deste glifo (min/max x por faixa vertical) a
+           partir dos pontos ja achatados */
+        float curMinX[KERN_SAMPLES], curMaxX[KERN_SAMPLES];
+        for (int i = 0; i < KERN_SAMPLES; ++i) { curMinX[i] = 1e30f; curMaxX[i] = -1e30f; }
+        for (int ci = 0; ci < localCl.n; ++ci)
+            for (int k = 0; k < localCl.c[ci].count; ++k) {
+                v2 p = localCl.c[ci].pts[k];
+                profile_update(curMinX, curMaxX, p.y, p.x, (float)descent, unitsPerEm);
+            }
+
+        /* aproxima ate a folga otica minima entre o glifo anterior e este,
+           sem nunca deixar o avanco mais largo que o padrao da fonte */
+        float final_penx = penx;
+        if (have_prev_profile && glyph_has_ink) {
+            float need = -1e30f;
+            int any = 0;
+            for (int b = 0; b < KERN_SAMPLES; ++b) {
+                if (prevMaxX[b] <= -1e29f || curMinX[b] >= 1e29f) continue;
+                float req = prev_glyph_penx + prevMaxX[b] - curMinX[b] + target_gap;
+                if (req > need) need = req;
+                any = 1;
+            }
+            if (any && need < final_penx) final_penx = need;
+        }
+
+        /* emite os contornos deste glifo na lista global, deslocados pela
+           posicao final e escalados */
+        for (int ci = 0; ci < localCl.n; ++ci) {
+            Contour *lc = &localCl.c[ci];
+            if (cl.n == cl.cap) {
+                cl.cap = cl.cap ? cl.cap * 2 : 8;
+                cl.c = (Contour *)realloc(cl.c, (size_t)cl.cap * sizeof *cl.c);
+            }
+            Contour *co = &cl.c[cl.n++];
+            co->count = lc->count;
+            co->pts = (v2 *)malloc((size_t)lc->count * sizeof(v2));
+            for (int k = 0; k < lc->count; ++k) {
+                float gx = final_penx + lc->pts[k].x;
+                float gy = lc->pts[k].y;
+                co->pts[k].x = gx * sc;
+                co->pts[k].y = gy * sc;
+                if (gx < bminx) bminx = gx;
+                if (gx > bmaxx) bmaxx = gx;
+                if (gy < bminy) bminy = gy;
+                if (gy > bmaxy) bmaxy = gy;
+                have_bounds = 1;
+            }
+            free(lc->pts);
+        }
+        free(localCl.c);
+
         int aw = 0, lsb = 0;
         stbtt_GetCodepointHMetrics(&fi, cp, &aw, &lsb);
-        penx += (float)aw;
-        prev_cp = cp;
+        penx = final_penx + (float)aw;
+
+        if (glyph_has_ink) {
+            memcpy(prevMaxX, curMaxX, sizeof curMaxX);
+            prev_glyph_penx = final_penx;
+            have_prev_profile = 1;
+        } else {
+            have_prev_profile = 0;   /* espaco: nao ha contra o que otimizar o proximo */
+        }
     }
     free(fbytes);
 
