@@ -48,7 +48,9 @@ static bool env_selftest(void)
 
 static void preview_dirty(HWND child)
 {
-    PostMessageW(GetParent(GetParent(child)), WM_PREVIEW_DIRTY, 0, 0);
+    /* child = janela do sub-dialogo da aba (o "h" recebido em cada *_proc);
+       seu pai direto e o dialogo principal, que trata WM_PREVIEW_DIRTY. */
+    PostMessageW(GetParent(child), WM_PREVIEW_DIRTY, 0, 0);
 }
 
 /* ---------------- aba Conteudo ---------------- */
