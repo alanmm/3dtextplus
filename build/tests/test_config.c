@@ -20,6 +20,8 @@ void run_config_tests(void)
     EXPECT(wcscmp(d.font_family, L"Segoe UI") == 0);
     EXPECT(nearf(d.depth, 0.30f));
     EXPECT(d.version == 2);
+    EXPECT(d.background_type == 0);
+    EXPECT(nearf(d.bg_color1_r, 0.02f) && nearf(d.bg_color1_g, 0.03f) && nearf(d.bg_color1_b, 0.05f));
 
     /* round-trip */
     Config a;
@@ -61,6 +63,15 @@ void run_config_tests(void)
     a.vignette_on = 1;
     a.vignette_amount = 0.5f;
     a.fxaa_on = 0;
+    a.background_type = 3;
+    a.bg_color1_r = 0.11f; a.bg_color1_g = 0.22f; a.bg_color1_b = 0.33f;
+    a.bg_color2_r = 0.44f; a.bg_color2_g = 0.55f; a.bg_color2_b = 0.66f;
+    a.bg_grad_angle = 135.0f;
+    wcscpy(a.bg_image_path, L"C:\\img\\fundo.jpg");
+    a.bg_image_fit = 2;
+    a.bg_pan_speed = 0.35f;
+    a.bg_neb_color1_r = 0.05f; a.bg_neb_color1_g = 0.05f; a.bg_neb_color1_b = 0.20f;
+    a.bg_neb_color2_r = 0.80f; a.bg_neb_color2_g = 0.30f; a.bg_neb_color2_b = 0.10f;
     config_save_to(&a, TESTKEY);
 
     Config b;
@@ -102,6 +113,15 @@ void run_config_tests(void)
     EXPECT(nearf(b.vignette_amount, 0.5f));
     EXPECT(b.fxaa_on == 0);
     EXPECT(b.version == 2);
+    EXPECT(b.background_type == 3);
+    EXPECT(nearf(b.bg_color1_r, 0.11f) && nearf(b.bg_color1_g, 0.22f) && nearf(b.bg_color1_b, 0.33f));
+    EXPECT(nearf(b.bg_color2_r, 0.44f) && nearf(b.bg_color2_g, 0.55f) && nearf(b.bg_color2_b, 0.66f));
+    EXPECT(nearf(b.bg_grad_angle, 135.0f));
+    EXPECT(wcscmp(b.bg_image_path, L"C:\\img\\fundo.jpg") == 0);
+    EXPECT(b.bg_image_fit == 2);
+    EXPECT(nearf(b.bg_pan_speed, 0.35f));
+    EXPECT(nearf(b.bg_neb_color1_b, 0.20f));
+    EXPECT(nearf(b.bg_neb_color2_r, 0.80f));
 
     /* valor ausente -> default; fora de faixa -> clamp; lixo -> default */
     RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
@@ -145,8 +165,10 @@ void run_config_tests(void)
             { L"streaks_length", L"5" },
             { L"chroma_on", L"7" }, { L"chroma_strength", L"9" },
             { L"vignette_amount", L"-3" }, { L"fxaa_on", L"5" },
+            { L"background_type", L"9" }, { L"bg_grad_angle", L"999" },
+            { L"bg_image_fit", L"9" }, { L"bg_pan_speed", L"-1" },
         };
-        for (int i = 0; i < 12; ++i)
+        for (int i = 0; i < 16; ++i)
             RegSetValueExW(kp, kv[i].n, 0, REG_SZ, (const BYTE *)kv[i].v,
                            (DWORD)((wcslen(kv[i].v) + 1) * sizeof(wchar_t)));
         RegCloseKey(kp);
@@ -165,6 +187,10 @@ void run_config_tests(void)
     EXPECT(e.chroma_strength <= 1.0f);           /* 9 -> clamp */
     EXPECT(e.vignette_amount >= 0.0f);           /* -3 -> clamp */
     EXPECT(e.fxaa_on == 1);                      /* 5 -> !=0 -> 1 */
+    EXPECT(e.background_type == 0);              /* 9 -> fora de 0..3 -> 0 */
+    EXPECT(e.bg_grad_angle <= 360.0f);           /* 999 -> clamp */
+    EXPECT(e.bg_image_fit == 0);                 /* 9 -> fora de 0..2 -> 0 */
+    EXPECT(e.bg_pan_speed >= 0.0f);              /* -1 -> clamp */
 
     RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
 }

@@ -52,6 +52,15 @@ void config_defaults(Config *c)
     c->vignette_on = 0;
     c->vignette_amount = 0.35f;
     c->fxaa_on = 1;
+    c->background_type = 0;
+    c->bg_color1_r = 0.02f; c->bg_color1_g = 0.03f; c->bg_color1_b = 0.05f;
+    c->bg_color2_r = 0.05f; c->bg_color2_g = 0.08f; c->bg_color2_b = 0.14f;
+    c->bg_grad_angle = 90.0f;
+    c->bg_image_path[0] = 0;
+    c->bg_image_fit = 0;
+    c->bg_pan_speed = 0.02f;
+    c->bg_neb_color1_r = 0.03f; c->bg_neb_color1_g = 0.02f; c->bg_neb_color1_b = 0.08f;
+    c->bg_neb_color2_r = 0.25f; c->bg_neb_color2_g = 0.10f; c->bg_neb_color2_b = 0.35f;
 }
 
 static float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
@@ -167,6 +176,24 @@ void config_load_from(Config *c, const wchar_t *subkey)
     if (reg_get_f(k, L"vignette_amount", &f)) c->vignette_amount = f;
     reg_get_i(k, L"fxaa_on", &c->fxaa_on);
 
+    reg_get_i(k, L"background_type", &c->background_type);
+    reg_get_w(k, L"bg_image_path", c->bg_image_path, 512);
+    reg_get_i(k, L"bg_image_fit", &c->bg_image_fit);
+    if (reg_get_f(k, L"bg_color1_r", &f)) c->bg_color1_r = f;
+    if (reg_get_f(k, L"bg_color1_g", &f)) c->bg_color1_g = f;
+    if (reg_get_f(k, L"bg_color1_b", &f)) c->bg_color1_b = f;
+    if (reg_get_f(k, L"bg_color2_r", &f)) c->bg_color2_r = f;
+    if (reg_get_f(k, L"bg_color2_g", &f)) c->bg_color2_g = f;
+    if (reg_get_f(k, L"bg_color2_b", &f)) c->bg_color2_b = f;
+    if (reg_get_f(k, L"bg_grad_angle", &f)) c->bg_grad_angle = f;
+    if (reg_get_f(k, L"bg_pan_speed", &f)) c->bg_pan_speed = f;
+    if (reg_get_f(k, L"bg_neb_color1_r", &f)) c->bg_neb_color1_r = f;
+    if (reg_get_f(k, L"bg_neb_color1_g", &f)) c->bg_neb_color1_g = f;
+    if (reg_get_f(k, L"bg_neb_color1_b", &f)) c->bg_neb_color1_b = f;
+    if (reg_get_f(k, L"bg_neb_color2_r", &f)) c->bg_neb_color2_r = f;
+    if (reg_get_f(k, L"bg_neb_color2_g", &f)) c->bg_neb_color2_g = f;
+    if (reg_get_f(k, L"bg_neb_color2_b", &f)) c->bg_neb_color2_b = f;
+
     wchar_t col[16];
     if (reg_get_w(k, L"base_color", col, 16) && col[0] == L'#' && wcslen(col) >= 7) {
         unsigned rgb = (unsigned)wcstoul(col + 1, NULL, 16);
@@ -218,6 +245,22 @@ void config_load_from(Config *c, const wchar_t *subkey)
     c->vignette_on = c->vignette_on ? 1 : 0;
     c->vignette_amount = clampf(c->vignette_amount, 0.0f, 1.0f);
     c->fxaa_on = c->fxaa_on ? 1 : 0;
+    if (c->background_type < 0 || c->background_type > 3) c->background_type = 0;
+    c->bg_color1_r = clampf(c->bg_color1_r, 0.0f, 1.0f);
+    c->bg_color1_g = clampf(c->bg_color1_g, 0.0f, 1.0f);
+    c->bg_color1_b = clampf(c->bg_color1_b, 0.0f, 1.0f);
+    c->bg_color2_r = clampf(c->bg_color2_r, 0.0f, 1.0f);
+    c->bg_color2_g = clampf(c->bg_color2_g, 0.0f, 1.0f);
+    c->bg_color2_b = clampf(c->bg_color2_b, 0.0f, 1.0f);
+    c->bg_grad_angle = clampf(c->bg_grad_angle, 0.0f, 360.0f);
+    if (c->bg_image_fit < 0 || c->bg_image_fit > 2) c->bg_image_fit = 0;
+    c->bg_pan_speed = clampf(c->bg_pan_speed, 0.0f, 1.0f);
+    c->bg_neb_color1_r = clampf(c->bg_neb_color1_r, 0.0f, 1.0f);
+    c->bg_neb_color1_g = clampf(c->bg_neb_color1_g, 0.0f, 1.0f);
+    c->bg_neb_color1_b = clampf(c->bg_neb_color1_b, 0.0f, 1.0f);
+    c->bg_neb_color2_r = clampf(c->bg_neb_color2_r, 0.0f, 1.0f);
+    c->bg_neb_color2_g = clampf(c->bg_neb_color2_g, 0.0f, 1.0f);
+    c->bg_neb_color2_b = clampf(c->bg_neb_color2_b, 0.0f, 1.0f);
     if (c->text[0] == 0) strcpy(c->text, "Modern 3D Text");
     if (c->font_family[0] == 0) wcscpy(c->font_family, L"Segoe UI");
 }
@@ -272,6 +315,24 @@ void config_save_to(const Config *c, const wchar_t *subkey)
     set_f(k, L"vignette_on", (float)c->vignette_on);
     set_f(k, L"vignette_amount", c->vignette_amount);
     set_f(k, L"fxaa_on", (float)c->fxaa_on);
+
+    set_f(k, L"background_type", (float)c->background_type);
+    set_f(k, L"bg_color1_r", c->bg_color1_r);
+    set_f(k, L"bg_color1_g", c->bg_color1_g);
+    set_f(k, L"bg_color1_b", c->bg_color1_b);
+    set_f(k, L"bg_color2_r", c->bg_color2_r);
+    set_f(k, L"bg_color2_g", c->bg_color2_g);
+    set_f(k, L"bg_color2_b", c->bg_color2_b);
+    set_f(k, L"bg_grad_angle", c->bg_grad_angle);
+    set_w(k, L"bg_image_path", c->bg_image_path);
+    set_f(k, L"bg_image_fit", (float)c->bg_image_fit);
+    set_f(k, L"bg_pan_speed", c->bg_pan_speed);
+    set_f(k, L"bg_neb_color1_r", c->bg_neb_color1_r);
+    set_f(k, L"bg_neb_color1_g", c->bg_neb_color1_g);
+    set_f(k, L"bg_neb_color1_b", c->bg_neb_color1_b);
+    set_f(k, L"bg_neb_color2_r", c->bg_neb_color2_r);
+    set_f(k, L"bg_neb_color2_g", c->bg_neb_color2_g);
+    set_f(k, L"bg_neb_color2_b", c->bg_neb_color2_b);
 
     wchar_t col[16];
     unsigned r = (unsigned)(c->base_r * 255.0f + 0.5f);

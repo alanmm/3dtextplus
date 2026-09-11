@@ -44,6 +44,15 @@ typedef struct {
     int          vignette_on;          /* 0/1 */
     float        vignette_amount;      /* 0 .. 1 */
     int          fxaa_on;              /* 0/1 */
+    int          background_type;      /* 0 solido, 1 gradiente, 2 imagem, 3 nebulosa */
+    float        bg_color1_r, bg_color1_g, bg_color1_b;
+    float        bg_color2_r, bg_color2_g, bg_color2_b;
+    float        bg_grad_angle;        /* graus, 0..360 */
+    wchar_t      bg_image_path[512];
+    int          bg_image_fit;         /* 0 cobrir, 1 conter, 2 repetir */
+    float        bg_pan_speed;         /* 0..1 (UV/seg), so' com type=imagem */
+    float        bg_neb_color1_r, bg_neb_color1_g, bg_neb_color1_b;
+    float        bg_neb_color2_r, bg_neb_color2_g, bg_neb_color2_b;
 } Config;
 
 void config_defaults(Config *c);
