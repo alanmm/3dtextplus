@@ -8,6 +8,7 @@
 #define IDD_TAB_GEOMETRY  113
 #define IDD_TAB_EFFECTS   114
 #define IDD_TAB_PERF      115
+#define IDD_TAB_POST      116
 
 #define IDC_TABS          1000
 #define IDC_PREVIEW       1001
@@ -74,5 +75,14 @@
 #define IDC_RSCALE        1603
 #define IDC_RSCALE_VAL    1604
 #define IDC_AUTOQ         1605
+
+/* aba Pos */
+#define IDC_CHROMA        1700
+#define IDC_CSTR          1701
+#define IDC_CSTR_VAL      1702
+#define IDC_VIGNETTE      1703
+#define IDC_VAMT          1704
+#define IDC_VAMT_VAL      1705
+#define IDC_FXAA          1706
 
 #endif

@@ -24,6 +24,7 @@ static HWND       g_material;    /* sub-dialogo da aba Material */
 static HWND       g_geometry;    /* sub-dialogo da aba Geometria */
 static HWND       g_effects;     /* sub-dialogo da aba Efeitos */
 static HWND       g_perf;        /* sub-dialogo da aba Desempenho */
+static HWND       g_post;        /* sub-dialogo da aba Pos */
 static bool       g_selftest;
 static GlWindow  *g_preview;
 static bool       g_dirty;
@@ -455,6 +456,62 @@ static INT_PTR CALLBACK perf_proc(HWND h, UINT m, WPARAM w, LPARAM l)
     return FALSE;
 }
 
+/* ---------------- aba Pos ---------------- */
+
+static void post_labels(HWND h)
+{
+    wchar_t b[32];
+    swprintf(b, 32, L"%.2f", (double)g_work.chroma_strength);  SetDlgItemTextW(h, IDC_CSTR_VAL, b);
+    swprintf(b, 32, L"%.2f", (double)g_work.vignette_amount);  SetDlgItemTextW(h, IDC_VAMT_VAL, b);
+}
+
+static void post_enable(HWND h)
+{
+    EnableWindow(GetDlgItem(h, IDC_CSTR), g_work.chroma_on ? TRUE : FALSE);
+    EnableWindow(GetDlgItem(h, IDC_VAMT), g_work.vignette_on ? TRUE : FALSE);
+}
+
+static INT_PTR CALLBACK post_proc(HWND h, UINT m, WPARAM w, LPARAM l)
+{
+    (void)l;
+    switch (m) {
+        case WM_INITDIALOG:
+            CheckDlgButton(h, IDC_CHROMA, g_work.chroma_on ? BST_CHECKED : BST_UNCHECKED);
+            CheckDlgButton(h, IDC_VIGNETTE, g_work.vignette_on ? BST_CHECKED : BST_UNCHECKED);
+            CheckDlgButton(h, IDC_FXAA, g_work.fxaa_on ? BST_CHECKED : BST_UNCHECKED);
+            set_slider(h, IDC_CSTR, 0, 100, (int)(g_work.chroma_strength * 100.0f + 0.5f));
+            set_slider(h, IDC_VAMT, 0, 100, (int)(g_work.vignette_amount * 100.0f + 0.5f));
+            post_labels(h);
+            post_enable(h);
+            return TRUE;
+        case WM_HSCROLL:
+            g_work.chroma_strength = (float)SendDlgItemMessageW(h, IDC_CSTR, TBM_GETPOS, 0, 0) / 100.0f;
+            g_work.vignette_amount = (float)SendDlgItemMessageW(h, IDC_VAMT, TBM_GETPOS, 0, 0) / 100.0f;
+            post_labels(h);
+            preview_dirty(h);
+            return TRUE;
+        case WM_COMMAND:
+            switch (LOWORD(w)) {
+                case IDC_CHROMA:
+                    g_work.chroma_on = (IsDlgButtonChecked(h, IDC_CHROMA) == BST_CHECKED);
+                    post_enable(h);
+                    preview_dirty(h);
+                    break;
+                case IDC_VIGNETTE:
+                    g_work.vignette_on = (IsDlgButtonChecked(h, IDC_VIGNETTE) == BST_CHECKED);
+                    post_enable(h);
+                    preview_dirty(h);
+                    break;
+                case IDC_FXAA:
+                    g_work.fxaa_on = (IsDlgButtonChecked(h, IDC_FXAA) == BST_CHECKED);
+                    preview_dirty(h);
+                    break;
+            }
+            return TRUE;
+    }
+    return FALSE;
+}
+
 /* ---------------- dialogo principal ---------------- */
 
 static void place_tab_child(HWND dlg, HWND tabs, HWND child)
@@ -474,6 +531,7 @@ static void select_tab(int sel)
     ShowWindow(g_geometry, sel == 3 ? SW_SHOW : SW_HIDE);
     ShowWindow(g_effects,  sel == 4 ? SW_SHOW : SW_HIDE);
     ShowWindow(g_perf,     sel == 5 ? SW_SHOW : SW_HIDE);
+    ShowWindow(g_post,     sel == 6 ? SW_SHOW : SW_HIDE);
 }
 
 static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
@@ -496,6 +554,8 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             TabCtrl_InsertItem(tabs, 4, &ti);
             ti.pszText = L"Desempenho";
             TabCtrl_InsertItem(tabs, 5, &ti);
+            ti.pszText = L"Pos";
+            TabCtrl_InsertItem(tabs, 6, &ti);
 
             g_content = CreateDialogW(GetModuleHandleW(NULL),
                                       MAKEINTRESOURCEW(IDD_TAB_CONTENT), h, content_proc);
@@ -509,12 +569,15 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                                       MAKEINTRESOURCEW(IDD_TAB_EFFECTS), h, effects_proc);
             g_perf = CreateDialogW(GetModuleHandleW(NULL),
                                    MAKEINTRESOURCEW(IDD_TAB_PERF), h, perf_proc);
+            g_post = CreateDialogW(GetModuleHandleW(NULL),
+                                   MAKEINTRESOURCEW(IDD_TAB_POST), h, post_proc);
             place_tab_child(h, tabs, g_content);
             place_tab_child(h, tabs, g_motion);
             place_tab_child(h, tabs, g_material);
             place_tab_child(h, tabs, g_geometry);
             place_tab_child(h, tabs, g_effects);
             place_tab_child(h, tabs, g_perf);
+            place_tab_child(h, tabs, g_post);
             select_tab(0);
 
             /* mini-preview 3D ao vivo */
@@ -536,7 +599,7 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                 if (GetEnvironmentVariableA("M3DT_TAB", tb, sizeof tb) > 0) {
                     int sel = atoi(tb);
                     if (sel < 0) sel = 0;
-                    if (sel > 5) sel = 5;
+                    if (sel > 6) sel = 6;
                     TabCtrl_SetCurSel(tabs, sel);
                     select_tab(sel);
                 }

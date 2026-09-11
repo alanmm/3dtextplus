@@ -134,6 +134,26 @@ BEGIN
                -1, 8, 124, 224, 32
 END
 
+IDD_TAB_POST DIALOGEX 0, 0, 240, 200
+STYLE DS_SETFONT | DS_CONTROL | WS_CHILD
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    AUTOCHECKBOX "Aberracao cromatica", IDC_CHROMA, 8, 8, 160, 12
+    LTEXT      "Intensidade:", -1, 8, 24, 80, 9
+    LTEXT      "", IDC_CSTR_VAL, 182, 24, 50, 9
+    CONTROL    "", IDC_CSTR, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 33, 224, 14
+
+    AUTOCHECKBOX "Vinheta", IDC_VIGNETTE, 8, 55, 160, 12
+    LTEXT      "Intensidade:", -1, 8, 71, 80, 9
+    LTEXT      "", IDC_VAMT_VAL, 182, 71, 50, 9
+    CONTROL    "", IDC_VAMT, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 80, 224, 14
+
+    AUTOCHECKBOX "FXAA (anti-serrilhado)", IDC_FXAA, 8, 102, 200, 12
+
+    LTEXT      "Aberracao cromatica e vinheta agem antes do tonemap; o FXAA e o ultimo passe, depois do tonemap.",
+               -1, 8, 124, 224, 20
+END
+
 VS_VERSION_INFO VERSIONINFO
  FILEVERSION    0,4,2,0
  PRODUCTVERSION 0,4,2,0
