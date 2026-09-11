@@ -29,7 +29,7 @@ Buildar (shell do w64devkit, na raiz): `mingw32-make -f build/Makefile`
   - **starburst** (`streaks_mode=1`): estrela limpa de **6 pontas** (3 eixos a
     0°/60°/120°) saindo dos realces; ACES segura o brilho, sem estouro de branco;
   - **anamorphic** (`streaks_mode=2`): faixa **horizontal** contínua e macia com
-    tinta azulada saturada; sem raios verticais/diagonais.
+    tinta azulada suave; sem raios verticais/diagonais.
 - [x] `phase4c-effects-tab.png`: aba **Efeitos** (a mais cheia agora) com Bloom +
       3 sliders **e** a seção Streaks (combo `Starburst` + Intensidade +
       Comprimento) numa única aba, nada cortado.
@@ -46,7 +46,8 @@ Buildar (shell do w64devkit, na raiz): `mingw32-make -f build/Makefile`
       degradação; passo 2 seguinte desliga bloom.
 - [x] Cadeia de streak (`post.c`): bright-pass da cena → 1/4 de resolução
       (`gl_fbo_r11f`) → por eixo, 3 iterações de blur direcional exponencial
-      (passos 1, 4, 16; anamórfico usa passo base 2.5× e comprimento 1.6×) →
+      (passos 1, 3, 9; anamórfico usa passo base 1.7× — o comprimento não é
+      reescalado) →
       último blur escreve aditivo no `streaks_acc` → composição
       `+ streaks * streaks_intensity` antes do tonemap. 4 FBOs de 1/4 res por
       janela (`streak_src` / `streak_a` / `streak_b` / `streaks_acc`), criados em
@@ -75,10 +76,19 @@ Buildar (shell do w64devkit, na raiz): `mingw32-make -f build/Makefile`
 
 ## Notas conhecidas
 
-- O **anamórfico** usa tinta azulada saturada aplicada em **toda** iteração de
+- O **anamórfico** usa tinta azulada suave aplicada em **toda** iteração de
   blur — é o look pretendido (lente anamórfica clássica), não um bug de cor.
 - Os streaks vêm de um bright-pass em **1/4 de resolução** — como são borrados
   por definição, 1/4 basta e mantém o custo baixo.
+- O **comprimento do streak é absoluto em texels do buffer de 1/4 de
+  resolução**, não relativo à tela — o mesmo `streaks_length` produz um rastro
+  proporcionalmente mais curto em 4K e mais longo em 720p, e **diminuir a
+  Escala de Render alonga os streaks** (o buffer de streak encolhe junto com o
+  alvo interno). O bloom não tem esse problema (mips em contagem fixa). Corrigir
+  exigiria um 4º passe de blur ou mais amostras em resolução alta — fica pra
+  Fase 4d; não tentar um reescalonamento ingênuo de `base_step` por
+  resolução, pois isso reintroduz o banding que as 3 correções desta fase
+  removeram.
 - O nº de pontas do starburst é **fixo em 6** (3 eixos a 0°/60°/120°). O controle
   de pontas configuráveis do spec §10.1 **não foi exposto** (decisão do usuário:
   só modo + intensidade + comprimento).

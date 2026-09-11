@@ -31,9 +31,11 @@ typedef struct {
     int   step;          /* posicao no ladder; 0 = topo (melhor) */
 } RenderQuality;
 
-/* Pura. step 0 = (bloom=1, msaa=cfg.msaa, scale=cfg.render_scale).
-   Cada passo piora um item (ver o ladder no plano da Fase 4b).
-   Em REDUCED o step 0 ja vem degradado (bloom 0, msaa<=2, scale<=0.75). */
+/* Pura. step 0 = (streaks=1, bloom=1, msaa=cfg.msaa, scale=cfg.render_scale).
+   Cada passo piora um item, na ordem: streaks off -> bloom off -> MSAA
+   4->2->0 -> render_scale 1->0.75->0.5 (8 passos no total; ver o ladder nos
+   planos das Fases 4b/4c). Em REDUCED o step 0 ja vem degradado (streaks 0,
+   bloom 0, msaa<=2, scale<=0.75). */
 RenderQuality render_quality_for_step(const Config *cfg, M3dtTier tier, int step);
 
 /* Numero de passos validos (>= 1). step e clampado a [0, len-1]. */

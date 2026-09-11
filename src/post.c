@@ -173,8 +173,10 @@ void post_present(Post *p, int out_w, int out_h, PostParams pr)
         static const float TINT_ANAMO[3] = { 0.55f, 0.72f, 1.0f };
         int          naxes     = (pr.streaks_mode == 1) ? 3 : 1;
         float        base_step = (pr.streaks_mode == 2) ? 1.7f : 1.0f;
-        float        len       = (pr.streaks_mode == 2) ? pr.streaks_length * 1.0f
-                                                        : pr.streaks_length;
+        /* len: sem reescala por modo — o alcance do anamorfico ja e controlado
+           por base_step (acima); um reescalonamento aqui reintroduziria o
+           banding que as correcoes desta fase eliminaram (ver post_streak.frag). */
+        float        len       = pr.streaks_length;
         const float *tint      = (pr.streaks_mode == 2) ? TINT_ANAMO : TINT_WHITE;
 
         glUseProgram(p->prog_streak);

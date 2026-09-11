@@ -10,6 +10,15 @@ out vec3 o;
 
 const int TAPS = 10;
 
+/* Invariante anti-banding: a razao entre passos consecutivos de uStep (3x,
+   ver post.c) deve ficar <= a faixa de t (0..3 acima), senao o passe N+1
+   amostra pontos que o passe N nao deixou suaves -> raios com degraus
+   visiveis. O primeiro passe (o unico cuja entrada nao e borrada) tambem
+   precisa que o espacamento entre amostras fique perto de 1 texel:
+   spacing/TAPS ~= uStep*(1+3*uLength)/TAPS. Se aumentar o alcance do
+   anamorfico (base_step ou uLength), aumente TAPS na mesma proporcao ou
+   volte a aparecer o banding que 3 commits desta fase corrigiram. */
+
 void main()
 {
     vec3  c = vec3(0.0);

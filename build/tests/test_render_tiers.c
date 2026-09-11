@@ -32,8 +32,12 @@ void run_render_tiers_tests(void)
     EXPECT(q1.streaks == 0 && q1.bloom == 1);
     RenderQuality q2 = render_quality_for_step(&cfg, M3DT_TIER_FULL, 2);
     EXPECT(q2.streaks == 0 && q2.bloom == 0 && q2.msaa == 4);
+    RenderQuality q4 = render_quality_for_step(&cfg, M3DT_TIER_FULL, 4);
+    EXPECT(q4.msaa == 2);
     RenderQuality q5 = render_quality_for_step(&cfg, M3DT_TIER_FULL, 5);
     EXPECT(q5.msaa == 0);
+    RenderQuality q6 = render_quality_for_step(&cfg, M3DT_TIER_FULL, 6);
+    EXPECT(q6.render_scale <= 0.75f + 1e-4f);
     RenderQuality q7 = render_quality_for_step(&cfg, M3DT_TIER_FULL, 7);
     EXPECT(q7.render_scale <= 0.5f + 1e-4f);
     RenderQuality qhi = render_quality_for_step(&cfg, M3DT_TIER_FULL, 99);   /* clamp */

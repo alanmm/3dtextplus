@@ -285,7 +285,7 @@ Cores por peça: `material.baseColor` global, **exceto** quando `content.svgColo
 10. FXAA (só se effects.fxaa)                          → framebuffer default do monitor
 ```
 
-- **Modo preview** (`/p` e mini-preview do diálogo): só passos 1 (sem MSAA ou MSAA 2) + 9. Sem bloom/streaks/CA/partículas/vidro-WBOIT (vidro cai para alpha simples).
+- **Modo preview** (`/p`): só passos 1 (sem MSAA ou MSAA 2) + 9. Sem bloom/streaks/CA/partículas/vidro-WBOIT (vidro cai para alpha simples). O **mini-preview do diálogo** roda a cadeia completa (bloom, streaks etc.) para dar feedback ao vivo dos controles — só `/p` (a caixinha de Proteção de Tela do Windows) usa o caminho reduzido.
 - **Modo reduzido** (fallback, §11): igual ao preview; pode subir para incluir bloom se a medição de desempenho permitir.
 - `perf.renderScale` (0.5–1.0): a cena e o pós rodam nessa fração da resolução do monitor; o passo final faz upscale.
 
