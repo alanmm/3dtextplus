@@ -150,6 +150,51 @@ static void profile_update(float *minX, float *maxX, float y, float x, float des
     if (x > maxX[b]) maxX[b] = x;
 }
 
+/* Achata os vertices crus de um glifo (stb_truetype) em contornos LOCAIS
+   (x cru, sem penx - so peny, para multi-linha), com a tolerancia dada.
+   Usado duas vezes por glifo: uma na tolerancia de qualidade do usuario
+   (a geometria final) e outra numa tolerancia fixa e fina (so para medir
+   o perfil de kerning otico) - ver o comentario acima de profile_update
+   sobre por que precisam ser independentes. */
+static void flatten_glyph_local(const stbtt_vertex *verts, int nv, float peny,
+                                float tol, ConList *outCl)
+{
+    PtBuf cur = { 0, 0, 0 };
+    float px = 0.0f, py = 0.0f;
+    for (int i = 0; i < nv; ++i) {
+        const stbtt_vertex *v = &verts[i];
+        float vx = (float)v->x, vy = peny + (float)v->y;
+        switch (v->type) {
+            case STBTT_vmove:
+                finalize_contour(outCl, &cur, 1.0f);
+                pb_push(&cur, vx, vy);
+                break;
+            case STBTT_vline:
+                pb_push(&cur, vx, vy);
+                break;
+            case STBTT_vcurve:
+                flat_quad(&cur, px, py, (float)v->cx, peny + (float)v->cy,
+                          vx, vy, tol, 0);
+                break;
+            case STBTT_vcubic:
+                flat_cubic(&cur, px, py, (float)v->cx, peny + (float)v->cy,
+                           (float)v->cx1, peny + (float)v->cy1, vx, vy, tol, 0);
+                break;
+            default:
+                break;
+        }
+        px = vx; py = vy;
+    }
+    finalize_contour(outCl, &cur, 1.0f);
+    free(cur.p);
+}
+
+static void conlist_free_pts(ConList *cl)
+{
+    for (int i = 0; i < cl->n; ++i) free(cl->c[i].pts);
+    free(cl->c);
+}
+
 static int utf8_next(const unsigned char **s)
 {
     int cp = **s;
@@ -192,7 +237,16 @@ int font_build_contours(const char *utf8, const wchar_t *family, int bold, int i
     float bminx = 1e30f, bminy = 1e30f, bmaxx = -1e30f, bmaxy = -1e30f;
     int have_bounds = 0;
 
-    const float target_gap = 0.045f * unitsPerEm;   /* folga otica minima entre glifos */
+    const float target_gap = 0.09f * unitsPerEm;   /* folga otica minima entre glifos */
+    /* o perfil de kerning precisa de uma tolerancia de achatamento FIXA e
+       fina, independente da qualidade de render escolhida pelo usuario:
+       com uma tolerancia grosseira (qualidade Baixa/Media), os pontos ja
+       achatados passam longe do verdadeiro extremo de uma curva, entao o
+       perfil "acha" que ha mais folga do que realmente existe e o texto
+       fica apertado demais (ou ate sobreposto) so em qualidades mais
+       baixas - a precisao do kerning nao pode depender da qualidade da
+       malha final. */
+    const float kern_tol = fminf(tol_units, 0.0012f * unitsPerEm);
     float prevMaxX[KERN_SAMPLES];
     float prev_glyph_penx = 0.0f;
     int have_prev_profile = 0;
@@ -205,52 +259,29 @@ int font_build_contours(const char *utf8, const wchar_t *family, int bold, int i
         if (cp == '\n') { penx = 0.0f; peny -= line_step; have_prev_profile = 0; continue; }
 
         /* extrai o glifo em espaco LOCAL (x cru, sem penx ainda) para poder
-           decidir a posicao final antes de fixa-la */
+           decidir a posicao final antes de fixa-la - uma vez na qualidade
+           do usuario (geometria final) e, se houver tinta, outra vez fina
+           so para medir o perfil de kerning (ver kern_tol acima) */
         stbtt_vertex *verts = NULL;
         int nv = stbtt_GetCodepointShape(&fi, cp, &verts);
+        int glyph_has_ink = (nv > 0);
 
         ConList localCl = { 0, 0, 0 };
-        PtBuf cur = { 0, 0, 0 };
-        float px = 0.0f, py = 0.0f;
-        int glyph_has_ink = 0;
-        for (int i = 0; i < nv; ++i) {
-            stbtt_vertex *v = &verts[i];
-            float vx = (float)v->x, vy = peny + (float)v->y;
-            switch (v->type) {
-                case STBTT_vmove:
-                    finalize_contour(&localCl, &cur, 1.0f);
-                    pb_push(&cur, vx, vy);
-                    break;
-                case STBTT_vline:
-                    pb_push(&cur, vx, vy);
-                    break;
-                case STBTT_vcurve:
-                    flat_quad(&cur, px, py, (float)v->cx, peny + (float)v->cy,
-                              vx, vy, tol_units, 0);
-                    break;
-                case STBTT_vcubic:
-                    flat_cubic(&cur, px, py, (float)v->cx, peny + (float)v->cy,
-                               (float)v->cx1, peny + (float)v->cy1, vx, vy, tol_units, 0);
-                    break;
-                default:
-                    break;
-            }
-            px = vx; py = vy;
-            glyph_has_ink = 1;
-        }
-        finalize_contour(&localCl, &cur, 1.0f);
-        free(cur.p);
-        if (verts) stbtt_FreeShape(&fi, verts);
+        flatten_glyph_local(verts, nv, peny, tol_units, &localCl);
 
-        /* perfil de altura deste glifo (min/max x por faixa vertical) a
-           partir dos pontos ja achatados */
         float curMinX[KERN_SAMPLES], curMaxX[KERN_SAMPLES];
         for (int i = 0; i < KERN_SAMPLES; ++i) { curMinX[i] = 1e30f; curMaxX[i] = -1e30f; }
-        for (int ci = 0; ci < localCl.n; ++ci)
-            for (int k = 0; k < localCl.c[ci].count; ++k) {
-                v2 p = localCl.c[ci].pts[k];
-                profile_update(curMinX, curMaxX, p.y, p.x, (float)descent, unitsPerEm);
-            }
+        if (glyph_has_ink) {
+            ConList profCl = { 0, 0, 0 };
+            flatten_glyph_local(verts, nv, peny, kern_tol, &profCl);
+            for (int ci = 0; ci < profCl.n; ++ci)
+                for (int k = 0; k < profCl.c[ci].count; ++k) {
+                    v2 p = profCl.c[ci].pts[k];
+                    profile_update(curMinX, curMaxX, p.y, p.x, (float)descent, unitsPerEm);
+                }
+            conlist_free_pts(&profCl);
+        }
+        if (verts) stbtt_FreeShape(&fi, verts);
 
         /* aproxima ate a folga otica minima entre o glifo anterior e este,
            sem nunca deixar o avanco mais largo que o padrao da fonte */
