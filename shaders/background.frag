@@ -67,9 +67,17 @@ vec3 image_bg(void)
         uv.x += uPanSpeed * uTime;
         return texture(uBgTex, uv).rgb;
     }
+    if (uBgFit == 0) {
+        /* cobrir: uUvScale/uUvOffset recortam uma janela <= 1 da textura */
+        uv = uv * uUvScale + uUvOffset;
+        uv.x += uPanSpeed * uTime;
+        return texture(uBgTex, uv).rgb;
+    }
+    /* conter: uUvScale/uUvOffset descrevem onde a imagem cabe na tela;
+       fora dessa janela mostra a cor 1 (faixas) */
     uv = (uv - uUvOffset) / uUvScale;
     uv.x += uPanSpeed * uTime;
-    if (uBgFit == 1 && (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0))
+    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0)
         return uColor1;
     return texture(uBgTex, uv).rgb;
 }

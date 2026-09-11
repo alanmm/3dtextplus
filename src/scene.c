@@ -309,8 +309,8 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h)
             if (viewAspect > imgAspect) { scaleY = imgAspect / viewAspect; offY = (1.0f - scaleY) * 0.5f; }
             else                        { scaleX = viewAspect / imgAspect; offX = (1.0f - scaleX) * 0.5f; }
         } else if (s->bg_image_fit == 1) {   /* conter: faixas na cor 1 */
-            if (viewAspect > imgAspect) { scaleX = viewAspect / imgAspect; offX = (1.0f - scaleX) * 0.5f; }
-            else                        { scaleY = imgAspect / viewAspect; offY = (1.0f - scaleY) * 0.5f; }
+            if (viewAspect > imgAspect) { scaleX = imgAspect / viewAspect; offX = (1.0f - scaleX) * 0.5f; }
+            else                        { scaleY = viewAspect / imgAspect; offY = (1.0f - scaleY) * 0.5f; }
         }
         glUniform2f(glGetUniformLocation(s->bg_prog, "uUvScale"), scaleX, scaleY);
         glUniform2f(glGetUniformLocation(s->bg_prog, "uUvOffset"), offX, offY);
