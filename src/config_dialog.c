@@ -602,6 +602,7 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                 g_preview = gl_window_create(GetModuleHandleW(NULL), WS_CHILD | WS_VISIBLE, 0, ph,
                                              0, 0, pr.right, pr.bottom, L"M3DTCfgPreview",
                                              DefWindowProcW, &g_work, 0);
+                if (g_preview) gl_window_set_auto_spin(g_preview, 1);
             }
             QueryPerformanceFrequency(&g_pfreq);
             QueryPerformanceCounter(&g_pstart);
@@ -643,7 +644,11 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                 static int ticks = 0;
                 char shot[MAX_PATH];
                 if (++ticks == 20 && GetEnvironmentVariableA("M3DT_SHOT", shot, sizeof shot) > 0) {
-                    gl_window_render_scene_at(g_preview, 2.25);
+                    double shot_t = 2.25;
+                    char stbuf[16];
+                    if (GetEnvironmentVariableA("M3DT_SHOT_T", stbuf, sizeof stbuf) > 0)
+                        shot_t = atof(stbuf);
+                    gl_window_render_scene_at(g_preview, shot_t);
                     int W = 0, H = 0;
                     gl_window_size(g_preview, &W, &H);
                     unsigned char *px = (unsigned char *)malloc((size_t)W * H * 3);

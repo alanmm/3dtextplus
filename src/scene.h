@@ -8,6 +8,7 @@ typedef struct SceneRenderer SceneRenderer;
 SceneRenderer *scene_create(const Config *cfg);
 void scene_set_config(SceneRenderer *s, const Config *cfg);   /* reconstroi a malha so se preciso */
 void scene_set_zoom(SceneRenderer *s, float zoom);   /* 1.0 = enquadramento padrao; >1 aproxima a camera */
+void scene_set_auto_spin(SceneRenderer *s, int enabled);   /* giro continuo, ignora o pendulo configurado */
 void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h);
 void scene_destroy(SceneRenderer *s);
 

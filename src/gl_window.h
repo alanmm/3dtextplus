@@ -18,6 +18,7 @@ GlWindow *gl_window_create(HINSTANCE hInst, DWORD style, DWORD exstyle, HWND par
 void  gl_window_frame(GlWindow *g, double t);          /* render 1 frame + SwapBuffers */
 void  gl_window_set_config(GlWindow *g, const Config *cfg);
 void  gl_window_set_zoom(GlWindow *g, float zoom);     /* 1.0 = enquadramento padrao; >1 aproxima a camera */
+void  gl_window_set_auto_spin(GlWindow *g, int enabled);  /* giro continuo, ignora o pendulo configurado */
 int   gl_window_vsync(const GlWindow *g);              /* 0/1 efetivo */
 void  gl_window_size(const GlWindow *g, int *w, int *h);
 HWND  gl_window_hwnd(const GlWindow *g);

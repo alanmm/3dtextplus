@@ -21,6 +21,7 @@ struct SceneRenderer {
     int      have_mesh;
     float    hx, hy, hz;
     float    zoom;
+    int      auto_spin;
 
     /* snapshot da config corrente */
     char     text[512];
@@ -186,6 +187,11 @@ void scene_set_zoom(SceneRenderer *s, float zoom)
     s->zoom = zoom;
 }
 
+void scene_set_auto_spin(SceneRenderer *s, int enabled)
+{
+    s->auto_spin = enabled;
+}
+
 void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h)
 {
     if (fb_w < 1) fb_w = 1;
@@ -209,8 +215,20 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h)
     m4 view = m4_look_at(eye, (v3){ 0, 0, 0 }, (v3){ 0, 1, 0 });
     m4 proj = m4_perspective(fovy, aspect, 0.05f, dist * 3.0f + 20.0f);
 
-    float ay = pendulum_angle((float)t, s->period, s->max_angle_y);
-    float ax = pendulum_angle((float)t + s->period * 0.25f, s->period, s->tilt_x);
+    float ay, ax;
+    if (s->auto_spin) {
+        /* preview do dialogo: giro continuo de 360 graus, independente do
+           pendulo configurado - deixa ver todos os lados do objeto sem
+           precisar que "Angulo max." esteja alto. Inclinacao fixa e suave
+           so para dar leitura de profundidade, tambem independente do
+           tilt_x configurado. */
+        const float SPIN_DEG_PER_SEC = 24.0f;
+        ay = fmodf((float)t * SPIN_DEG_PER_SEC, 360.0f);
+        ax = 12.0f;
+    } else {
+        ay = pendulum_angle((float)t, s->period, s->max_angle_y);
+        ax = pendulum_angle((float)t + s->period * 0.25f, s->period, s->tilt_x);
+    }
     m4 model = m4_mul(m4_rotate_y(m3dt_radians(ay)), m4_rotate_x(m3dt_radians(ax)));
 
     material_begin(&s->mat, view, proj, eye, s->base_color);
