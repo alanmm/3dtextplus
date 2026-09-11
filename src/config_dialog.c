@@ -27,6 +27,7 @@ static HWND       g_geometry;    /* sub-dialogo da aba Geometria */
 static HWND       g_effects;     /* sub-dialogo da aba Efeitos */
 static HWND       g_perf;        /* sub-dialogo da aba Desempenho */
 static HWND       g_post;        /* sub-dialogo da aba Pos */
+static HWND       g_bg;          /* sub-dialogo da aba Fundo */
 static bool       g_selftest;
 static GlWindow  *g_preview;
 static bool       g_dirty;
@@ -595,6 +596,175 @@ static INT_PTR CALLBACK post_proc(HWND h, UINT m, WPARAM w, LPARAM l)
     return FALSE;
 }
 
+/* ---------------- aba Fundo ---------------- */
+
+static void bg_labels(HWND h)
+{
+    wchar_t b[32];
+    swprintf(b, 32, L"%.0f", (double)g_work.bg_grad_angle); SetDlgItemTextW(h, IDC_BGANGLE_VAL, b);
+    swprintf(b, 32, L"%.2f", (double)g_work.bg_pan_speed);  SetDlgItemTextW(h, IDC_BGPAN_VAL, b);
+    SetDlgItemTextW(h, IDC_BGIMGPATH, g_work.bg_image_path[0] ? g_work.bg_image_path : L"(nenhuma)");
+}
+
+static void bg_enable(HWND h)
+{
+    int t = g_work.background_type;
+    EnableWindow(GetDlgItem(h, IDC_BGCOLOR1), t == 0 || t == 1);
+    EnableWindow(GetDlgItem(h, IDC_BGCOLOR2), t == 1);
+    EnableWindow(GetDlgItem(h, IDC_BGANGLE), t == 1);
+    EnableWindow(GetDlgItem(h, IDC_BGIMGPICK), t == 2);
+    EnableWindow(GetDlgItem(h, IDC_BGIMGCLEAR), t == 2);
+    EnableWindow(GetDlgItem(h, IDC_BGFIT), t == 2);
+    EnableWindow(GetDlgItem(h, IDC_BGPAN), t == 2);
+    EnableWindow(GetDlgItem(h, IDC_BGNEBCOLOR1), t == 3);
+    EnableWindow(GetDlgItem(h, IDC_BGNEBCOLOR2), t == 3);
+}
+
+static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
+{
+    (void)l;
+    switch (m) {
+        case WM_INITDIALOG: {
+            static const wchar_t *types[] = { L"Solido", L"Gradiente", L"Imagem", L"Nebulosa" };
+            static const wchar_t *fits[]  = { L"Cobrir", L"Conter", L"Repetir" };
+            for (int i = 0; i < 4; ++i)
+                SendDlgItemMessageW(h, IDC_BGTYPE, CB_ADDSTRING, 0, (LPARAM)types[i]);
+            for (int i = 0; i < 3; ++i)
+                SendDlgItemMessageW(h, IDC_BGFIT, CB_ADDSTRING, 0, (LPARAM)fits[i]);
+            SendDlgItemMessageW(h, IDC_BGTYPE, CB_SETCURSEL, g_work.background_type, 0);
+            SendDlgItemMessageW(h, IDC_BGFIT, CB_SETCURSEL, g_work.bg_image_fit, 0);
+            set_slider(h, IDC_BGANGLE, 0, 360, (int)(g_work.bg_grad_angle + 0.5f));
+            set_slider(h, IDC_BGPAN, 0, 100, (int)(g_work.bg_pan_speed * 100.0f + 0.5f));
+            bg_labels(h);
+            bg_enable(h);
+            return TRUE;
+        }
+        case WM_HSCROLL:
+            g_work.bg_grad_angle = (float)SendDlgItemMessageW(h, IDC_BGANGLE, TBM_GETPOS, 0, 0);
+            g_work.bg_pan_speed  = (float)SendDlgItemMessageW(h, IDC_BGPAN, TBM_GETPOS, 0, 0) / 100.0f;
+            bg_labels(h);
+            preview_dirty(h);
+            return TRUE;
+        case WM_COMMAND:
+            switch (LOWORD(w)) {
+                case IDC_BGTYPE:
+                    if (HIWORD(w) == CBN_SELCHANGE) {
+                        g_work.background_type = (int)SendDlgItemMessageW(h, IDC_BGTYPE, CB_GETCURSEL, 0, 0);
+                        bg_enable(h);
+                        preview_dirty(h);
+                    }
+                    break;
+                case IDC_BGFIT:
+                    if (HIWORD(w) == CBN_SELCHANGE) {
+                        g_work.bg_image_fit = (int)SendDlgItemMessageW(h, IDC_BGFIT, CB_GETCURSEL, 0, 0);
+                        preview_dirty(h);
+                    }
+                    break;
+                case IDC_BGCOLOR1: {
+                    static COLORREF custom[16];
+                    CHOOSECOLORW cc;
+                    memset(&cc, 0, sizeof cc);
+                    cc.lStructSize = sizeof cc;
+                    cc.hwndOwner = h;
+                    cc.lpCustColors = custom;
+                    cc.rgbResult = RGB((int)(g_work.bg_color1_r * 255.0f),
+                                       (int)(g_work.bg_color1_g * 255.0f),
+                                       (int)(g_work.bg_color1_b * 255.0f));
+                    cc.Flags = CC_FULLOPEN | CC_RGBINIT;
+                    if (ChooseColorW(&cc)) {
+                        g_work.bg_color1_r = GetRValue(cc.rgbResult) / 255.0f;
+                        g_work.bg_color1_g = GetGValue(cc.rgbResult) / 255.0f;
+                        g_work.bg_color1_b = GetBValue(cc.rgbResult) / 255.0f;
+                        preview_dirty(h);
+                    }
+                    break;
+                }
+                case IDC_BGCOLOR2: {
+                    static COLORREF custom[16];
+                    CHOOSECOLORW cc;
+                    memset(&cc, 0, sizeof cc);
+                    cc.lStructSize = sizeof cc;
+                    cc.hwndOwner = h;
+                    cc.lpCustColors = custom;
+                    cc.rgbResult = RGB((int)(g_work.bg_color2_r * 255.0f),
+                                       (int)(g_work.bg_color2_g * 255.0f),
+                                       (int)(g_work.bg_color2_b * 255.0f));
+                    cc.Flags = CC_FULLOPEN | CC_RGBINIT;
+                    if (ChooseColorW(&cc)) {
+                        g_work.bg_color2_r = GetRValue(cc.rgbResult) / 255.0f;
+                        g_work.bg_color2_g = GetGValue(cc.rgbResult) / 255.0f;
+                        g_work.bg_color2_b = GetBValue(cc.rgbResult) / 255.0f;
+                        preview_dirty(h);
+                    }
+                    break;
+                }
+                case IDC_BGNEBCOLOR1: {
+                    static COLORREF custom[16];
+                    CHOOSECOLORW cc;
+                    memset(&cc, 0, sizeof cc);
+                    cc.lStructSize = sizeof cc;
+                    cc.hwndOwner = h;
+                    cc.lpCustColors = custom;
+                    cc.rgbResult = RGB((int)(g_work.bg_neb_color1_r * 255.0f),
+                                       (int)(g_work.bg_neb_color1_g * 255.0f),
+                                       (int)(g_work.bg_neb_color1_b * 255.0f));
+                    cc.Flags = CC_FULLOPEN | CC_RGBINIT;
+                    if (ChooseColorW(&cc)) {
+                        g_work.bg_neb_color1_r = GetRValue(cc.rgbResult) / 255.0f;
+                        g_work.bg_neb_color1_g = GetGValue(cc.rgbResult) / 255.0f;
+                        g_work.bg_neb_color1_b = GetBValue(cc.rgbResult) / 255.0f;
+                        preview_dirty(h);
+                    }
+                    break;
+                }
+                case IDC_BGNEBCOLOR2: {
+                    static COLORREF custom[16];
+                    CHOOSECOLORW cc;
+                    memset(&cc, 0, sizeof cc);
+                    cc.lStructSize = sizeof cc;
+                    cc.hwndOwner = h;
+                    cc.lpCustColors = custom;
+                    cc.rgbResult = RGB((int)(g_work.bg_neb_color2_r * 255.0f),
+                                       (int)(g_work.bg_neb_color2_g * 255.0f),
+                                       (int)(g_work.bg_neb_color2_b * 255.0f));
+                    cc.Flags = CC_FULLOPEN | CC_RGBINIT;
+                    if (ChooseColorW(&cc)) {
+                        g_work.bg_neb_color2_r = GetRValue(cc.rgbResult) / 255.0f;
+                        g_work.bg_neb_color2_g = GetGValue(cc.rgbResult) / 255.0f;
+                        g_work.bg_neb_color2_b = GetBValue(cc.rgbResult) / 255.0f;
+                        preview_dirty(h);
+                    }
+                    break;
+                }
+                case IDC_BGIMGPICK: {
+                    wchar_t file[512] = L"";
+                    OPENFILENAMEW ofn;
+                    memset(&ofn, 0, sizeof ofn);
+                    ofn.lStructSize = sizeof ofn;
+                    ofn.hwndOwner = h;
+                    ofn.lpstrFilter = L"Imagens\0*.jpg;*.jpeg;*.png;*.bmp;*.tga\0Todos\0*.*\0";
+                    ofn.lpstrFile = file;
+                    ofn.nMaxFile = 512;
+                    ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+                    if (GetOpenFileNameW(&ofn)) {
+                        wcsncpy(g_work.bg_image_path, file, 511);
+                        g_work.bg_image_path[511] = 0;
+                        bg_labels(h);
+                        preview_dirty(h);
+                    }
+                    break;
+                }
+                case IDC_BGIMGCLEAR:
+                    g_work.bg_image_path[0] = 0;
+                    bg_labels(h);
+                    preview_dirty(h);
+                    break;
+            }
+            return TRUE;
+    }
+    return FALSE;
+}
+
 /* ---------------- dialogo principal ---------------- */
 
 static void place_tab_child(HWND dlg, HWND tabs, HWND child)
@@ -615,6 +785,7 @@ static void select_tab(int sel)
     ShowWindow(g_effects,  sel == 4 ? SW_SHOW : SW_HIDE);
     ShowWindow(g_perf,     sel == 5 ? SW_SHOW : SW_HIDE);
     ShowWindow(g_post,     sel == 6 ? SW_SHOW : SW_HIDE);
+    ShowWindow(g_bg,       sel == 7 ? SW_SHOW : SW_HIDE);
 
     /* Material e Geometria se beneficiam de um enquadramento mais proximo -
        e onde bevel, metalizacao e reflexo de ambiente ficam visiveis no preview
@@ -649,6 +820,8 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             TabCtrl_InsertItem(tabs, 5, &ti);
             ti.pszText = L"Pos";
             TabCtrl_InsertItem(tabs, 6, &ti);
+            ti.pszText = L"Fundo";
+            TabCtrl_InsertItem(tabs, 7, &ti);
 
             g_content = CreateDialogW(GetModuleHandleW(NULL),
                                       MAKEINTRESOURCEW(IDD_TAB_CONTENT), h, content_proc);
@@ -664,6 +837,8 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                                    MAKEINTRESOURCEW(IDD_TAB_PERF), h, perf_proc);
             g_post = CreateDialogW(GetModuleHandleW(NULL),
                                    MAKEINTRESOURCEW(IDD_TAB_POST), h, post_proc);
+            g_bg = CreateDialogW(GetModuleHandleW(NULL),
+                                 MAKEINTRESOURCEW(IDD_TAB_BG), h, bg_proc);
             place_tab_child(h, tabs, g_content);
             place_tab_child(h, tabs, g_motion);
             place_tab_child(h, tabs, g_material);
@@ -671,6 +846,7 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             place_tab_child(h, tabs, g_effects);
             place_tab_child(h, tabs, g_perf);
             place_tab_child(h, tabs, g_post);
+            place_tab_child(h, tabs, g_bg);
             select_tab(0);
 
             /* mini-preview 3D ao vivo */
@@ -698,7 +874,7 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                 if (GetEnvironmentVariableA("M3DT_TAB", tb, sizeof tb) > 0) {
                     int sel = atoi(tb);
                     if (sel < 0) sel = 0;
-                    if (sel > 6) sel = 6;
+                    if (sel > 7) sel = 7;
                     TabCtrl_SetCurSel(tabs, sel);
                     select_tab(sel);
                 }
