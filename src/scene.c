@@ -20,6 +20,7 @@ struct SceneRenderer {
     GlMesh   mesh;
     int      have_mesh;
     float    hx, hy, hz;
+    float    zoom;
 
     /* snapshot da config corrente */
     char     text[512];
@@ -113,6 +114,7 @@ SceneRenderer *scene_create(const Config *cfg)
 {
     SceneRenderer *s = (SceneRenderer *)calloc(1, sizeof *s);
     if (!s) return NULL;
+    s->zoom = 1.0f;
     if (!material_init(&s->mat)) { free(s); return NULL; }
 
     glEnable(GL_DEPTH_TEST);
@@ -179,6 +181,11 @@ void scene_set_config(SceneRenderer *s, const Config *cfg)
     }
 }
 
+void scene_set_zoom(SceneRenderer *s, float zoom)
+{
+    s->zoom = zoom;
+}
+
 void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h)
 {
     if (fb_w < 1) fb_w = 1;
@@ -193,7 +200,7 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h)
     float tanY = tanf(fovy * 0.5f);
     float tanX = tanY * aspect;
 
-    const float fill = 0.60f;
+    const float fill = 0.60f * s->zoom;
     float distX = s->hx / (tanX * fill);
     float distY = s->hy / (tanY * fill);
     float dist = fmaxf(distX, distY) + s->hz + 0.5f;

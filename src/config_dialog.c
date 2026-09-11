@@ -540,6 +540,12 @@ static void select_tab(int sel)
     ShowWindow(g_effects,  sel == 4 ? SW_SHOW : SW_HIDE);
     ShowWindow(g_perf,     sel == 5 ? SW_SHOW : SW_HIDE);
     ShowWindow(g_post,     sel == 6 ? SW_SHOW : SW_HIDE);
+
+    /* Material e Geometria se beneficiam de um enquadramento mais proximo -
+       e onde bevel, metalizacao e reflexo de ambiente ficam visiveis no preview
+       minusculo; as demais abas usam a vista ampla padrao. */
+    if (g_preview)
+        gl_window_set_zoom(g_preview, (sel == 2 || sel == 3) ? 2.2f : 1.0f);
 }
 
 static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)

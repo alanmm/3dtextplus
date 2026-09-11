@@ -326,6 +326,12 @@ void gl_window_set_config(GlWindow *g, const Config *cfg)
     scene_set_config(g->scene, cfg);
 }
 
+void gl_window_set_zoom(GlWindow *g, float zoom)
+{
+    if (!g->scene) return;
+    scene_set_zoom(g->scene, zoom);
+}
+
 void gl_window_size(const GlWindow *g, int *w, int *h) { if (w) *w = g->w; if (h) *h = g->h; }
 HWND  gl_window_hwnd(const GlWindow *g) { return g->hwnd; }
 HDC   gl_window_dc(const GlWindow *g)   { return g->dc; }
