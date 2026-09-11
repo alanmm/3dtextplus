@@ -18,6 +18,7 @@
 #define TIMER_PREVIEW  2
 
 static Config     g_work;        /* config sendo editada */
+static Config     g_preview_cfg; /* copia de g_work p/ o preview, com texto fixo curto */
 static HWND       g_content;     /* sub-dialogo da aba Conteudo */
 static HWND       g_motion;      /* sub-dialogo da aba Movimento */
 static HWND       g_material;    /* sub-dialogo da aba Material */
@@ -51,6 +52,15 @@ static void preview_dirty(HWND child)
     /* child = janela do sub-dialogo da aba (o "h" recebido em cada *_proc);
        seu pai direto e o dialogo principal, que trata WM_PREVIEW_DIRTY. */
     PostMessageW(GetParent(child), WM_PREVIEW_DIRTY, 0, 0);
+}
+
+/* copia g_work para o preview com o texto fixo em "3D" - um texto configurado
+   longo nao cabe no enquadramento aproximado do preview; a tela cheia real
+   (/s, /p, /c) sempre usa g_work sem essa substituicao. */
+static void preview_config_sync(void)
+{
+    g_preview_cfg = g_work;
+    strcpy(g_preview_cfg.text, "3D");
 }
 
 /* ---------------- aba Conteudo ---------------- */
@@ -599,9 +609,10 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             {
                 HWND ph = GetDlgItem(h, IDC_PREVIEW);
                 RECT pr; GetClientRect(ph, &pr);
+                preview_config_sync();
                 g_preview = gl_window_create(GetModuleHandleW(NULL), WS_CHILD | WS_VISIBLE, 0, ph,
                                              0, 0, pr.right, pr.bottom, L"M3DTCfgPreview",
-                                             DefWindowProcW, &g_work, 0);
+                                             DefWindowProcW, &g_preview_cfg, 0);
                 if (g_preview) gl_window_set_auto_spin(g_preview, 1);
             }
             QueryPerformanceFrequency(&g_pfreq);
@@ -636,7 +647,7 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                 return TRUE;
             }
             if (w == TIMER_PREVIEW && g_preview) {
-                if (g_dirty) { gl_window_set_config(g_preview, &g_work); g_dirty = false; }
+                if (g_dirty) { preview_config_sync(); gl_window_set_config(g_preview, &g_preview_cfg); g_dirty = false; }
                 LARGE_INTEGER now; QueryPerformanceCounter(&now);
                 double t = (double)(now.QuadPart - g_pstart.QuadPart) / (double)g_pfreq.QuadPart;
                 gl_window_frame(g_preview, t);
