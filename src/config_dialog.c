@@ -156,7 +156,6 @@ static void set_slider(HWND h, int id, int lo, int hi, int pos)
 static void motion_labels(HWND h)
 {
     wchar_t b[32];
-    swprintf(b, 32, L"%.2f", (double)g_work.depth);       SetDlgItemTextW(h, IDC_DEPTH_VAL, b);
     swprintf(b, 32, L"%.0f", (double)g_work.max_angle_y); SetDlgItemTextW(h, IDC_ANGLE_VAL, b);
     swprintf(b, 32, L"%.0f", (double)g_work.tilt_x);      SetDlgItemTextW(h, IDC_TILT_VAL, b);
     swprintf(b, 32, L"%.1f", (double)g_work.period);      SetDlgItemTextW(h, IDC_PERIOD_VAL, b);
@@ -167,14 +166,12 @@ static INT_PTR CALLBACK motion_proc(HWND h, UINT m, WPARAM w, LPARAM l)
     (void)w; (void)l;
     switch (m) {
         case WM_INITDIALOG:
-            set_slider(h, IDC_DEPTH,  2, 200, (int)(g_work.depth * 100.0f + 0.5f));
             set_slider(h, IDC_ANGLE,  5, 170, (int)(g_work.max_angle_y + 0.5f));
             set_slider(h, IDC_TILT,   0, 30,  (int)(g_work.tilt_x + 0.5f));
             set_slider(h, IDC_PERIOD, 20, 300, (int)(g_work.period * 10.0f + 0.5f));
             motion_labels(h);
             return TRUE;
         case WM_HSCROLL:
-            g_work.depth       = (float)SendDlgItemMessageW(h, IDC_DEPTH, TBM_GETPOS, 0, 0) / 100.0f;
             g_work.max_angle_y = (float)SendDlgItemMessageW(h, IDC_ANGLE, TBM_GETPOS, 0, 0);
             g_work.tilt_x      = (float)SendDlgItemMessageW(h, IDC_TILT, TBM_GETPOS, 0, 0);
             g_work.period      = (float)SendDlgItemMessageW(h, IDC_PERIOD, TBM_GETPOS, 0, 0) / 10.0f;
@@ -258,6 +255,7 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
 static void geometry_labels(HWND h)
 {
     wchar_t b[32];
+    swprintf(b, 32, L"%.2f", (double)g_work.depth);             SetDlgItemTextW(h, IDC_DEPTH_VAL, b);
     swprintf(b, 32, L"%.03f", (double)g_work.bevel_size);      SetDlgItemTextW(h, IDC_BSIZE_VAL, b);
     swprintf(b, 32, L"%.03f", (double)g_work.bevel_depth);     SetDlgItemTextW(h, IDC_BDEPTH_VAL, b);
     swprintf(b, 32, L"%d", g_work.bevel_segments);             SetDlgItemTextW(h, IDC_BSEG_VAL, b);
@@ -283,6 +281,7 @@ static INT_PTR CALLBACK geometry_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                 SendDlgItemMessageW(h, IDC_QUALITY, CB_ADDSTRING, 0, (LPARAM)qual[i]);
             SendDlgItemMessageW(h, IDC_BEVELMODE, CB_SETCURSEL, g_work.bevel_mode, 0);
             SendDlgItemMessageW(h, IDC_QUALITY, CB_SETCURSEL, g_work.quality, 0);
+            set_slider(h, IDC_DEPTH,  2, 200, (int)(g_work.depth * 100.0f + 0.5f));
             set_slider(h, IDC_BSIZE,  0, 200, (int)(g_work.bevel_size * 1000.0f + 0.5f));
             set_slider(h, IDC_BDEPTH, 0, 200, (int)(g_work.bevel_depth * 1000.0f + 0.5f));
             set_slider(h, IDC_BSEG,   2, 8,   g_work.bevel_segments);
@@ -293,6 +292,7 @@ static INT_PTR CALLBACK geometry_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             return TRUE;
         }
         case WM_HSCROLL:
+            g_work.depth          = (float)SendDlgItemMessageW(h, IDC_DEPTH, TBM_GETPOS, 0, 0) / 100.0f;
             g_work.bevel_size     = (float)SendDlgItemMessageW(h, IDC_BSIZE, TBM_GETPOS, 0, 0) / 1000.0f;
             g_work.bevel_depth    = (float)SendDlgItemMessageW(h, IDC_BDEPTH, TBM_GETPOS, 0, 0) / 1000.0f;
             g_work.bevel_segments = (int)SendDlgItemMessageW(h, IDC_BSEG, TBM_GETPOS, 0, 0);
