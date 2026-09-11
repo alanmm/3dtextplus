@@ -22,6 +22,9 @@ void  gl_fbo_bind(const GlFbo *f);                       /* bind + glViewport(0,
 void  gl_fbo_resize(GlFbo *f, int w, int h);             /* recria se o tamanho mudou */
 void  gl_fbo_free(GlFbo *f);
 void  gl_blit_resolve(const GlFbo *src_ms, const GlFbo *dst);
-void  gl_fullscreen_draw(void);
+/* *vao_cache deve comecar em 0 e pertencer ao chamador (ex.: um campo de
+   struct por-janela) - VAOs sao por-contexto GL, entao um cache estatico
+   compartilhado quebra ao alternar entre contextos (varios monitores). */
+void  gl_fullscreen_draw(unsigned *vao_cache);
 
 #endif

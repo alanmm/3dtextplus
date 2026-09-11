@@ -8,6 +8,7 @@
 #include <glad/gl.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "stb_image_write.h"
 
@@ -146,17 +147,30 @@ int host_run_saver(HINSTANCE hInst)
             char stbuf[16];
             if (GetEnvironmentVariableA("M3DT_SHOT_T", stbuf, sizeof stbuf) > 0)
                 shot_t = atof(stbuf);
-            gl_window_render_scene_at(win[0], shot_t);
-            int W = 0, H = 0;
-            gl_window_size(win[0], &W, &H);
-            unsigned char *px = (unsigned char *)malloc((size_t)W * H * 3);
-            if (px) {
-                glPixelStorei(GL_PACK_ALIGNMENT, 1);
-                glReadPixels(0, 0, W, H, GL_RGB, GL_UNSIGNED_BYTE, px);
-                stbi_flip_vertically_on_write(1);
-                stbi_write_png(shot, W, H, 3, px, W * 3);
-                free(px);
-                log_infof("shot salvo em %s (%dx%d, t=%.2f)", shot, W, H, shot_t);
+
+            /* M3DT_SHOT so captura a janela do monitor 0; M3DT_SHOT2..M3DT_SHOT16
+               capturam as demais (diagnostico multi-monitor - nao usado no dia a dia). */
+            for (int wi = 0; wi < nwin; ++wi) {
+                char path[MAX_PATH];
+                if (wi == 0) {
+                    snprintf(path, sizeof path, "%s", shot);
+                } else {
+                    char envname[24];
+                    snprintf(envname, sizeof envname, "M3DT_SHOT%d", wi + 1);
+                    if (GetEnvironmentVariableA(envname, path, sizeof path) == 0) continue;
+                }
+                gl_window_render_scene_at(win[wi], shot_t);
+                int W = 0, H = 0;
+                gl_window_size(win[wi], &W, &H);
+                unsigned char *px = (unsigned char *)malloc((size_t)W * H * 3);
+                if (px) {
+                    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+                    glReadPixels(0, 0, W, H, GL_RGB, GL_UNSIGNED_BYTE, px);
+                    stbi_flip_vertically_on_write(1);
+                    stbi_write_png(path, W, H, 3, px, W * 3);
+                    free(px);
+                    log_infof("shot salvo em %s (%dx%d, t=%.2f, monitor %d)", path, W, H, shot_t, wi);
+                }
             }
             request_quit();
         }

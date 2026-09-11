@@ -270,11 +270,10 @@ void gl_blit_resolve(const GlFbo *src_ms, const GlFbo *dst)
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void gl_fullscreen_draw(void)
+void gl_fullscreen_draw(unsigned *vao_cache)
 {
-    static unsigned vao = 0;
-    if (!vao) glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
+    if (!*vao_cache) glGenVertexArrays(1, vao_cache);
+    glBindVertexArray(*vao_cache);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
 }

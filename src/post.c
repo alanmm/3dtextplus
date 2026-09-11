@@ -22,6 +22,7 @@ struct Post {
     unsigned prog_bright, prog_down, prog_up, prog_combine;
     unsigned prog_streak;
     unsigned prog_finish, prog_fxaa;
+    unsigned fs_vao;               /* VAO do quad fullscreen - por-contexto, ver gl_fullscreen_draw */
     int in_w, in_h, samples, ms_on;
     int out_w, out_h;
 };
@@ -147,7 +148,7 @@ void post_present(Post *p, int out_w, int out_h, PostParams pr)
         glUniform1f(glGetUniformLocation(p->prog_bright, "uThreshold"), pr.threshold);
         glUniform1f(glGetUniformLocation(p->prog_bright, "uKnee"), 0.5f * pr.threshold);
         glBindTexture(GL_TEXTURE_2D, p->hdr.color);
-        gl_fullscreen_draw();
+        gl_fullscreen_draw(&p->fs_vao);
 
         /* downsample */
         glUseProgram(p->prog_down);
@@ -155,7 +156,7 @@ void post_present(Post *p, int out_w, int out_h, PostParams pr)
             gl_fbo_bind(&p->bloom[i]);
             set_texel(p->prog_down, &p->bloom[i - 1]);
             glBindTexture(GL_TEXTURE_2D, p->bloom[i - 1].color);
-            gl_fullscreen_draw();
+            gl_fullscreen_draw(&p->fs_vao);
         }
 
         /* upsample aditivo */
@@ -167,7 +168,7 @@ void post_present(Post *p, int out_w, int out_h, PostParams pr)
             gl_fbo_bind(&p->bloom[i]);
             set_texel(p->prog_up, &p->bloom[i + 1]);
             glBindTexture(GL_TEXTURE_2D, p->bloom[i + 1].color);
-            gl_fullscreen_draw();
+            gl_fullscreen_draw(&p->fs_vao);
         }
         glDisable(GL_BLEND);
     }
@@ -180,7 +181,7 @@ void post_present(Post *p, int out_w, int out_h, PostParams pr)
         glUniform1f(glGetUniformLocation(p->prog_bright, "uKnee"), 0.5f * pr.threshold);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, p->hdr.color);
-        gl_fullscreen_draw();
+        gl_fullscreen_draw(&p->fs_vao);
 
         /* limpa o acumulador */
         gl_fbo_bind(&p->streaks_acc);
@@ -228,7 +229,7 @@ void post_present(Post *p, int out_w, int out_h, PostParams pr)
                 glUniform1f(glGetUniformLocation(p->prog_streak, "uStep"), steps[it]);
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, in->color);
-                gl_fullscreen_draw();
+                gl_fullscreen_draw(&p->fs_vao);
                 in = last ? &p->streaks_acc : ping[it & 1];
             }
         }
@@ -245,7 +246,7 @@ void post_present(Post *p, int out_w, int out_h, PostParams pr)
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, p->hdr.color);
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, has_bloom ? p->bloom[0].color : p->hdr.color);
     glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, has_streaks ? p->streaks_acc.color : p->hdr.color);
-    gl_fullscreen_draw();
+    gl_fullscreen_draw(&p->fs_vao);
 
     /* finalizar: CA + vinheta + tonemap ACES + gamma. Sem FXAA -> escreve
        direto no framebuffer padrao; com FXAA -> escreve em p->ldr, o FXAA
@@ -266,7 +267,7 @@ void post_present(Post *p, int out_w, int out_h, PostParams pr)
     glUniform1i(glGetUniformLocation(p->prog_finish, "uHasVignette"), has_vignette);
     glUniform1f(glGetUniformLocation(p->prog_finish, "uVignetteAmount"), pr.vignette_amount);
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, p->comp.color);
-    gl_fullscreen_draw();
+    gl_fullscreen_draw(&p->fs_vao);
 
     /* FXAA opcional: p->ldr -> framebuffer padrao */
     if (has_fxaa) {
@@ -275,7 +276,7 @@ void post_present(Post *p, int out_w, int out_h, PostParams pr)
         glUseProgram(p->prog_fxaa);
         set_texel(p->prog_fxaa, &p->ldr);
         glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, p->ldr.color);
-        gl_fullscreen_draw();
+        gl_fullscreen_draw(&p->fs_vao);
     }
 
     glActiveTexture(GL_TEXTURE0);
