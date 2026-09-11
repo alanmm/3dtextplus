@@ -36,7 +36,7 @@ void config_defaults(Config *c)
     c->wall_thickness = 0.06f;
     c->quality = 1;
     c->bloom_on = 1;
-    c->bloom_threshold = 1.05f;
+    c->bloom_threshold = 0.75f;
     c->bloom_intensity = 0.6f;
     c->bloom_radius = 0.55f;
     c->fps_cap = 60;
