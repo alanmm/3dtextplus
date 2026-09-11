@@ -59,6 +59,55 @@ static v2 edge_outN(v2 a, v2 b, int ccw)
     return ccw ? (v2){ ey, -ex } : (v2){ -ey, ex };
 }
 
+/* Normais de parede suavizadas por vertice, com limiar de angulo (igual ao
+   "shade smooth com angulo" do Blender): perto de curvas continuas (letras
+   redondas como O/D/3), as normais das duas arestas que se encontram num
+   vertice sao quase iguais -> media-se, e a parede deixa de aparecer
+   facetada. Perto de uma quina de verdade (serifa, juncao de traços retos),
+   o angulo e grande -> cada aresta mantem sua propria normal, preservando
+   a aresta viva. */
+#define WALL_SMOOTH_COS 0.7071f  /* cos(45 graus): abaixo disso e quina viva */
+
+typedef struct { v2 *edgeN, *smoothN; int *smooth; int n; } WallNormals;
+
+static void wall_normals_build(const v2 *pts, int n, int ccw, WallNormals *wn)
+{
+    wn->n = n;
+    wn->edgeN   = (v2 *)malloc((size_t)n * sizeof(v2));
+    wn->smoothN = (v2 *)malloc((size_t)n * sizeof(v2));
+    wn->smooth  = (int *)malloc((size_t)n * sizeof(int));
+    for (int i = 0; i < n; ++i) {
+        int j = (i + 1) % n;
+        wn->edgeN[i] = edge_outN(pts[i], pts[j], ccw);
+    }
+    for (int i = 0; i < n; ++i) {
+        int prev = (i - 1 + n) % n;
+        v2 a = wn->edgeN[prev], b = wn->edgeN[i];
+        int valid = (a.x != 0.0f || a.y != 0.0f) && (b.x != 0.0f || b.y != 0.0f);
+        float cosang = a.x * b.x + a.y * b.y;
+        wn->smooth[i] = valid && cosang >= WALL_SMOOTH_COS;
+        if (wn->smooth[i]) {
+            v2 s = { a.x + b.x, a.y + b.y };
+            float l = sqrtf(s.x * s.x + s.y * s.y);
+            wn->smoothN[i] = (l > 1e-6f) ? (v2){ s.x / l, s.y / l } : b;
+        } else {
+            wn->smoothN[i] = b;   /* nao usado (smooth[i]==0), so evita lixo */
+        }
+    }
+}
+
+static void wall_normals_free(WallNormals *wn)
+{
+    free(wn->edgeN); free(wn->smoothN); free(wn->smooth);
+}
+
+/* normal a usar no vertice `vertIdx` quando ele e um dos dois extremos da
+   aresta `edgeIdx` (a normal "propria" dessa aresta, para o caso de quina). */
+static v2 wall_normal_at(const WallNormals *wn, int vertIdx, int edgeIdx)
+{
+    return wn->smooth[vertIdx] ? wn->smoothN[vertIdx] : wn->edgeN[edgeIdx];
+}
+
 /* offset de `c` para o interior por `d`. `inward_left` = 1 se o interior fica a
    esquerda das arestas (contorno CCW). Fallback ao ponto original quando o miter
    estoura. Escreve `c->count` pontos em `out`. */
@@ -210,20 +259,24 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
                 for (int i = 0; i < co->count; ++i) os[i] = co->pts[i];
                 clamped++;
             }
+            WallNormals wn;
+            wall_normals_build(os, co->count, ccw, &wn);
 
             for (int i = 0; i < co->count; ++i) {
                 int j = (i + 1) % co->count;
                 v2 o0 = os[i], o1 = os[j];
                 v2 c0 = co->pts[i], c1 = co->pts[j];
-                v2 on = edge_outN(o0, o1, ccw);
+                v2 on = wn.edgeN[i];
                 if (on.x == 0.0f && on.y == 0.0f) continue;
                 float nx = on.x, ny = on.y;
+                v2 n0 = wall_normal_at(&wn, i, i);
+                v2 n1 = wall_normal_at(&wn, j, i);
 
                 unsigned w = (unsigned)vb.n;
-                vpush(&vb, (MeshVertex){ o0.x, o0.y,  wall_z, nx, ny, 0, 2 });
-                vpush(&vb, (MeshVertex){ o1.x, o1.y,  wall_z, nx, ny, 0, 2 });
-                vpush(&vb, (MeshVertex){ o1.x, o1.y, -wall_z, nx, ny, 0, 2 });
-                vpush(&vb, (MeshVertex){ o0.x, o0.y, -wall_z, nx, ny, 0, 2 });
+                vpush(&vb, (MeshVertex){ o0.x, o0.y,  wall_z, n0.x, n0.y, 0, 2 });
+                vpush(&vb, (MeshVertex){ o1.x, o1.y,  wall_z, n1.x, n1.y, 0, 2 });
+                vpush(&vb, (MeshVertex){ o1.x, o1.y, -wall_z, n1.x, n1.y, 0, 2 });
+                vpush(&vb, (MeshVertex){ o0.x, o0.y, -wall_z, n0.x, n0.y, 0, 2 });
                 quad(&ib, w + 0, w + 1, w + 2, w + 3);
 
                 /* faceta plana (corte 45 graus): de (c @ hz) a (outset @ hz-bd).
@@ -255,6 +308,7 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
                 }
             }
             free(os);
+            wall_normals_free(&wn);
         }
         if (clamped) log_infof("bevel geom: %d contornos clampados", clamped);
     }
@@ -270,20 +324,25 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
             inset = (v2 *)malloc((size_t)co->count * sizeof(v2));
             inset_contour(co, mb, ccw, inset);
         }
+        WallNormals wn;
+        wall_normals_build(co->pts, co->count, ccw, &wn);
 
         for (int i = 0; i < co->count; ++i) {
             int j = (i + 1) % co->count;
             v2 a0 = co->pts[i], a1 = co->pts[j];
-            v2 on = edge_outN(a0, a1, ccw);
+            v2 on = wn.edgeN[i];
             if (on.x == 0.0f && on.y == 0.0f) continue;
             float nx = on.x, ny = on.y;
+            v2 n0 = wall_normal_at(&wn, i, i);
+            v2 n1 = wall_normal_at(&wn, j, i);
 
-            /* parede: a0/a1 de +cap_z a -cap_z */
+            /* parede: a0/a1 de +cap_z a -cap_z; normal suavizada por vertice
+               (n0/n1) em vez da normal fixa da aresta, para curvas continuas. */
             unsigned w = (unsigned)vb.n;
-            vpush(&vb, (MeshVertex){ a0.x, a0.y,  cap_z, nx, ny, 0, 2 });
-            vpush(&vb, (MeshVertex){ a1.x, a1.y,  cap_z, nx, ny, 0, 2 });
-            vpush(&vb, (MeshVertex){ a1.x, a1.y, -cap_z, nx, ny, 0, 2 });
-            vpush(&vb, (MeshVertex){ a0.x, a0.y, -cap_z, nx, ny, 0, 2 });
+            vpush(&vb, (MeshVertex){ a0.x, a0.y,  cap_z, n0.x, n0.y, 0, 2 });
+            vpush(&vb, (MeshVertex){ a1.x, a1.y,  cap_z, n1.x, n1.y, 0, 2 });
+            vpush(&vb, (MeshVertex){ a1.x, a1.y, -cap_z, n1.x, n1.y, 0, 2 });
+            vpush(&vb, (MeshVertex){ a0.x, a0.y, -cap_z, n0.x, n0.y, 0, 2 });
             quad(&ib, w + 0, w + 1, w + 2, w + 3);
 
             if (mb > 0.0f) {
@@ -307,6 +366,7 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
             }
         }
         free(inset);
+        wall_normals_free(&wn);
     }
 
     /* paredes internas da casca oca */
