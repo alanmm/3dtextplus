@@ -58,8 +58,14 @@ static void preview_dirty(HWND child)
 static int CALLBACK enum_fonts_cb(const LOGFONTW *lf, const TEXTMETRICW *tm, DWORD type, LPARAM lp)
 {
     (void)tm; (void)type;
-    if (lf->lfFaceName[0] != L'@')   /* pula as fontes verticais @Font */
-        SendMessageW((HWND)lp, CB_ADDSTRING, 0, (LPARAM)lf->lfFaceName);
+    HWND cb = (HWND)lp;
+    /* EnumFontFamiliesExW chama o callback uma vez por charset/instancia de peso
+       (familias variaveis como "Playfair Display" reportam Black/ExtraBold/
+       Medium/SemiBold separadamente, todas com o mesmo lfFaceName) -> deduplica
+       antes de adicionar, senao a combo fica cheia de repetidos. */
+    if (lf->lfFaceName[0] != L'@' &&   /* pula as fontes verticais @Font */
+        SendMessageW(cb, CB_FINDSTRINGEXACT, (WPARAM)-1, (LPARAM)lf->lfFaceName) == CB_ERR)
+        SendMessageW(cb, CB_ADDSTRING, 0, (LPARAM)lf->lfFaceName);
     return 1;
 }
 
