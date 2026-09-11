@@ -56,6 +56,11 @@ void run_config_tests(void)
     a.streaks_mode = 2;
     a.streaks_intensity = 1.4f;
     a.streaks_length = 0.8f;
+    a.chroma_on = 1;
+    a.chroma_strength = 0.65f;
+    a.vignette_on = 1;
+    a.vignette_amount = 0.5f;
+    a.fxaa_on = 0;
     config_save_to(&a, TESTKEY);
 
     Config b;
@@ -91,6 +96,11 @@ void run_config_tests(void)
     EXPECT(b.streaks_mode == 2);
     EXPECT(nearf(b.streaks_intensity, 1.4f));
     EXPECT(nearf(b.streaks_length, 0.8f));
+    EXPECT(b.chroma_on == 1);
+    EXPECT(nearf(b.chroma_strength, 0.65f));
+    EXPECT(b.vignette_on == 1);
+    EXPECT(nearf(b.vignette_amount, 0.5f));
+    EXPECT(b.fxaa_on == 0);
     EXPECT(b.version == 2);
 
     /* valor ausente -> default; fora de faixa -> clamp; lixo -> default */
@@ -133,8 +143,10 @@ void run_config_tests(void)
             { L"vsync", L"5" }, { L"auto_quality", L"0" },
             { L"streaks_mode", L"9" }, { L"streaks_intensity", L"-1" },
             { L"streaks_length", L"5" },
+            { L"chroma_on", L"7" }, { L"chroma_strength", L"9" },
+            { L"vignette_amount", L"-3" }, { L"fxaa_on", L"5" },
         };
-        for (int i = 0; i < 8; ++i)
+        for (int i = 0; i < 12; ++i)
             RegSetValueExW(kp, kv[i].n, 0, REG_SZ, (const BYTE *)kv[i].v,
                            (DWORD)((wcslen(kv[i].v) + 1) * sizeof(wchar_t)));
         RegCloseKey(kp);
@@ -149,6 +161,10 @@ void run_config_tests(void)
     EXPECT(e.streaks_mode == 0);                /* 9 -> fora de 0..2 -> 0 */
     EXPECT(e.streaks_intensity >= 0.0f);        /* -1 -> clamp */
     EXPECT(e.streaks_length <= 1.0f);           /* 5 -> clamp */
+    EXPECT(e.chroma_on == 1);                    /* 7 -> !=0 -> 1 */
+    EXPECT(e.chroma_strength <= 1.0f);           /* 9 -> clamp */
+    EXPECT(e.vignette_amount >= 0.0f);           /* -3 -> clamp */
+    EXPECT(e.fxaa_on == 1);                      /* 5 -> !=0 -> 1 */
 
     RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
 }

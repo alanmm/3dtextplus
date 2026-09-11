@@ -39,6 +39,11 @@ typedef struct {
     int          streaks_mode;         /* 0 desligado | 1 starburst | 2 anamorfico */
     float        streaks_intensity;    /* 0 .. 2.0 */
     float        streaks_length;       /* 0 .. 1 (escala o passo do blur) */
+    int          chroma_on;            /* 0/1 */
+    float        chroma_strength;      /* 0 .. 1 */
+    int          vignette_on;          /* 0/1 */
+    float        vignette_amount;      /* 0 .. 1 */
+    int          fxaa_on;              /* 0/1 */
 } Config;
 
 void config_defaults(Config *c);

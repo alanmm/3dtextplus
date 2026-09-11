@@ -47,6 +47,11 @@ void config_defaults(Config *c)
     c->streaks_mode = 0;
     c->streaks_intensity = 0.5f;
     c->streaks_length = 0.5f;
+    c->chroma_on = 0;
+    c->chroma_strength = 0.4f;
+    c->vignette_on = 0;
+    c->vignette_amount = 0.35f;
+    c->fxaa_on = 1;
 }
 
 static float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
@@ -156,6 +161,11 @@ void config_load_from(Config *c, const wchar_t *subkey)
     reg_get_i(k, L"streaks_mode", &c->streaks_mode);
     if (reg_get_f(k, L"streaks_intensity", &f)) c->streaks_intensity = f;
     if (reg_get_f(k, L"streaks_length", &f))    c->streaks_length = f;
+    reg_get_i(k, L"chroma_on", &c->chroma_on);
+    if (reg_get_f(k, L"chroma_strength", &f)) c->chroma_strength = f;
+    reg_get_i(k, L"vignette_on", &c->vignette_on);
+    if (reg_get_f(k, L"vignette_amount", &f)) c->vignette_amount = f;
+    reg_get_i(k, L"fxaa_on", &c->fxaa_on);
 
     wchar_t col[16];
     if (reg_get_w(k, L"base_color", col, 16) && col[0] == L'#' && wcslen(col) >= 7) {
@@ -203,6 +213,11 @@ void config_load_from(Config *c, const wchar_t *subkey)
     if (c->streaks_mode < 0 || c->streaks_mode > 2) c->streaks_mode = 0;
     c->streaks_intensity = clampf(c->streaks_intensity, 0.0f, 2.0f);
     c->streaks_length = clampf(c->streaks_length, 0.0f, 1.0f);
+    c->chroma_on = c->chroma_on ? 1 : 0;
+    c->chroma_strength = clampf(c->chroma_strength, 0.0f, 1.0f);
+    c->vignette_on = c->vignette_on ? 1 : 0;
+    c->vignette_amount = clampf(c->vignette_amount, 0.0f, 1.0f);
+    c->fxaa_on = c->fxaa_on ? 1 : 0;
     if (c->text[0] == 0) strcpy(c->text, "Modern 3D Text");
     if (c->font_family[0] == 0) wcscpy(c->font_family, L"Segoe UI");
 }
@@ -252,6 +267,11 @@ void config_save_to(const Config *c, const wchar_t *subkey)
     set_f(k, L"streaks_mode", (float)c->streaks_mode);
     set_f(k, L"streaks_intensity", c->streaks_intensity);
     set_f(k, L"streaks_length", c->streaks_length);
+    set_f(k, L"chroma_on", (float)c->chroma_on);
+    set_f(k, L"chroma_strength", c->chroma_strength);
+    set_f(k, L"vignette_on", (float)c->vignette_on);
+    set_f(k, L"vignette_amount", c->vignette_amount);
+    set_f(k, L"fxaa_on", (float)c->fxaa_on);
 
     wchar_t col[16];
     unsigned r = (unsigned)(c->base_r * 255.0f + 0.5f);
