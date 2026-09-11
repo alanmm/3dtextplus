@@ -338,6 +338,18 @@ void gl_window_set_auto_spin(GlWindow *g, int enabled)
     scene_set_auto_spin(g->scene, enabled);
 }
 
+void gl_window_orbit(GlWindow *g, float dyaw_deg, float dpitch_deg)
+{
+    if (!g->scene) return;
+    scene_orbit(g->scene, dyaw_deg, dpitch_deg);
+}
+
+void gl_window_pan(GlWindow *g, float dx, float dy)
+{
+    if (!g->scene) return;
+    scene_pan(g->scene, dx, dy);
+}
+
 void gl_window_size(const GlWindow *g, int *w, int *h) { if (w) *w = g->w; if (h) *h = g->h; }
 HWND  gl_window_hwnd(const GlWindow *g) { return g->hwnd; }
 HDC   gl_window_dc(const GlWindow *g)   { return g->dc; }

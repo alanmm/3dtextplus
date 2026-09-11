@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "stb_image_write.h"
 
@@ -31,6 +32,21 @@ static GlWindow  *g_preview;
 static bool       g_dirty;
 static LARGE_INTEGER g_pstart, g_pfreq;
 
+/* navegacao manual do preview (arrastar p/ girar, botao do meio p/ pan,
+   wheel p/ zoom) - assim que o usuario interage de qualquer uma dessas
+   formas, g_pv_manual liga e o zoom automatico por aba (select_tab) e o
+   giro automatico (scene_set_auto_spin) param de valer ate a caixa ser
+   reaberta. */
+static bool  g_pv_manual;
+static bool  g_pv_drag_rot, g_pv_drag_pan;
+static POINT g_pv_last;
+static float g_pv_zoom = 1.0f;   /* espelha o zoom efetivo atual, automatico ou manual */
+
+#define PV_ROT_SENS  0.4f    /* graus por pixel arrastado */
+#define PV_PAN_SENS  0.02f   /* unidades de mundo por pixel arrastado */
+#define PV_ZOOM_MIN  0.3f
+#define PV_ZOOM_MAX  15.0f
+
 static void preview_teardown(HWND h)
 {
     if (g_preview) {
@@ -38,6 +54,55 @@ static void preview_teardown(HWND h)
         gl_window_destroy(g_preview);
         g_preview = NULL;
     }
+}
+
+/* WNDPROC da janela do preview 3D: arrastar com o botao esquerdo gira,
+   arrastar com o botao do meio faz pan, ambos via mouse capture (funciona
+   mesmo se o cursor sair da janela durante o arrasto). O wheel (zoom) e
+   tratado no dialogo principal (WM_MOUSEWHEEL so chega a janela com foco,
+   e este filho nunca recebe foco por tab - ver dlg_proc). */
+static LRESULT CALLBACK preview_wndproc(HWND h, UINT m, WPARAM w, LPARAM l)
+{
+    switch (m) {
+        case WM_LBUTTONDOWN:
+            g_pv_drag_rot = true;
+            g_pv_manual = true;
+            g_pv_last.x = (short)LOWORD(l);
+            g_pv_last.y = (short)HIWORD(l);
+            SetCapture(h);
+            return 0;
+        case WM_LBUTTONUP:
+            g_pv_drag_rot = false;
+            if (!g_pv_drag_pan) ReleaseCapture();
+            return 0;
+        case WM_MBUTTONDOWN:
+            g_pv_drag_pan = true;
+            g_pv_manual = true;
+            g_pv_last.x = (short)LOWORD(l);
+            g_pv_last.y = (short)HIWORD(l);
+            SetCapture(h);
+            return 0;
+        case WM_MBUTTONUP:
+            g_pv_drag_pan = false;
+            if (!g_pv_drag_rot) ReleaseCapture();
+            return 0;
+        case WM_CAPTURECHANGED:
+            g_pv_drag_rot = false;
+            g_pv_drag_pan = false;
+            return 0;
+        case WM_MOUSEMOVE: {
+            if (!g_preview || (!g_pv_drag_rot && !g_pv_drag_pan)) break;
+            int x = (short)LOWORD(l), y = (short)HIWORD(l);
+            int dx = x - g_pv_last.x, dy = y - g_pv_last.y;
+            if (g_pv_drag_rot)
+                gl_window_orbit(g_preview, (float)dx * PV_ROT_SENS, (float)-dy * PV_ROT_SENS);
+            if (g_pv_drag_pan)
+                gl_window_pan(g_preview, (float)-dx * PV_PAN_SENS, (float)dy * PV_PAN_SENS);
+            g_pv_last.x = x; g_pv_last.y = y;
+            return 0;
+        }
+    }
+    return DefWindowProcW(h, m, w, l);
 }
 
 static bool env_selftest(void)
@@ -553,9 +618,13 @@ static void select_tab(int sel)
 
     /* Material e Geometria se beneficiam de um enquadramento mais proximo -
        e onde bevel, metalizacao e reflexo de ambiente ficam visiveis no preview
-       minusculo; as demais abas usam a vista ampla padrao. */
-    if (g_preview)
-        gl_window_set_zoom(g_preview, (sel == 2 || sel == 3) ? 4.4f : 2.0f);
+       minusculo; as demais abas usam a vista ampla padrao. Uma vez que o
+       usuario assume controle manual do zoom (wheel), isso para de valer -
+       trocar de aba nao deve mais "puxar" o zoom de volta. */
+    if (g_preview && !g_pv_manual) {
+        g_pv_zoom = (sel == 2 || sel == 3) ? 4.4f : 2.0f;
+        gl_window_set_zoom(g_preview, g_pv_zoom);
+    }
 }
 
 static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
@@ -606,13 +675,17 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
 
             /* mini-preview 3D ao vivo */
             gl_window_global_init(GetModuleHandleW(NULL));
+            g_pv_manual = false;
+            g_pv_drag_rot = false;
+            g_pv_drag_pan = false;
+            g_pv_zoom = 1.0f;
             {
                 HWND ph = GetDlgItem(h, IDC_PREVIEW);
                 RECT pr; GetClientRect(ph, &pr);
                 preview_config_sync();
                 g_preview = gl_window_create(GetModuleHandleW(NULL), WS_CHILD | WS_VISIBLE, 0, ph,
                                              0, 0, pr.right, pr.bottom, L"M3DTCfgPreview",
-                                             DefWindowProcW, &g_preview_cfg, 0);
+                                             preview_wndproc, &g_preview_cfg, 0);
                 if (g_preview) gl_window_set_auto_spin(g_preview, 1);
             }
             QueryPerformanceFrequency(&g_pfreq);
@@ -684,6 +757,23 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
         case WM_PREVIEW_DIRTY:
             g_dirty = true;   /* aplicado no proximo tick do preview (debounce natural) */
             return TRUE;
+        case WM_MOUSEWHEEL: {
+            /* WM_MOUSEWHEEL so chega a janela com foco - a do preview nunca
+               tem foco (nao e tabstop), entao tratamos aqui checando se o
+               cursor esta sobre o preview no momento do evento. */
+            if (!g_preview) break;
+            POINT pt = { (short)LOWORD(l), (short)HIWORD(l) };   /* coordenadas de tela */
+            RECT pr;
+            GetWindowRect(GetDlgItem(h, IDC_PREVIEW), &pr);
+            if (!PtInRect(&pr, pt)) break;
+            int delta = (short)HIWORD(w);
+            g_pv_manual = true;
+            g_pv_zoom = g_pv_zoom * powf(1.0015f, (float)delta);
+            if (g_pv_zoom < PV_ZOOM_MIN) g_pv_zoom = PV_ZOOM_MIN;
+            if (g_pv_zoom > PV_ZOOM_MAX) g_pv_zoom = PV_ZOOM_MAX;
+            gl_window_set_zoom(g_preview, g_pv_zoom);
+            return 0;
+        }
         case WM_COMMAND:
             switch (LOWORD(w)) {
                 case IDOK:      config_save(&g_work); preview_teardown(h); EndDialog(h, IDOK); return TRUE;

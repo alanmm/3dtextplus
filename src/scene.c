@@ -22,6 +22,9 @@ struct SceneRenderer {
     float    hx, hy, hz;
     float    zoom;
     int      auto_spin;
+    int      manual_cam;             /* usuario assumiu o controle (arrastar/pan) - desliga auto_spin e pendulo */
+    float    man_yaw, man_pitch;     /* graus, acumulado por arrastar com o botao esquerdo */
+    float    man_pan_x, man_pan_y;   /* unidades de mundo, acumulado por arrastar com o botao do meio */
 
     /* snapshot da config corrente */
     char     text[512];
@@ -192,6 +195,28 @@ void scene_set_auto_spin(SceneRenderer *s, int enabled)
     s->auto_spin = enabled;
 }
 
+void scene_orbit(SceneRenderer *s, float dyaw_deg, float dpitch_deg)
+{
+    if (!s->manual_cam) {
+        s->manual_cam = 1;
+        s->man_yaw = 0.0f;
+        s->man_pitch = 12.0f;   /* mesma inclinacao inicial agradavel do auto-spin */
+    }
+    s->man_yaw = fmodf(s->man_yaw + dyaw_deg, 360.0f);
+    s->man_pitch = fminf(85.0f, fmaxf(-85.0f, s->man_pitch + dpitch_deg));
+}
+
+void scene_pan(SceneRenderer *s, float dx, float dy)
+{
+    if (!s->manual_cam) {
+        s->manual_cam = 1;
+        s->man_yaw = 0.0f;
+        s->man_pitch = 12.0f;
+    }
+    s->man_pan_x += dx;
+    s->man_pan_y += dy;
+}
+
 void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h)
 {
     if (fb_w < 1) fb_w = 1;
@@ -211,12 +236,19 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h)
     float distY = s->hy / (tanY * fill);
     float dist = fmaxf(distX, distY) + s->hz + 0.5f;
 
-    v3 eye = { 0.0f, 0.0f, dist };
-    m4 view = m4_look_at(eye, (v3){ 0, 0, 0 }, (v3){ 0, 1, 0 });
+    /* pan desloca o olho e o alvo juntos no plano XY - a camera nunca gira
+       (so o objeto gira via model), entao seus eixos direita/cima sao fixos
+       e um deslocamento simples em XY funciona como pan de tela. */
+    v3 panv = { s->man_pan_x, s->man_pan_y, 0.0f };
+    v3 eye = { panv.x, panv.y, dist };
+    m4 view = m4_look_at(eye, panv, (v3){ 0, 1, 0 });
     m4 proj = m4_perspective(fovy, aspect, 0.05f, dist * 3.0f + 20.0f);
 
     float ay, ax;
-    if (s->auto_spin) {
+    if (s->manual_cam) {
+        ay = s->man_yaw;
+        ax = s->man_pitch;
+    } else if (s->auto_spin) {
         /* preview do dialogo: giro continuo de 360 graus, independente do
            pendulo configurado - deixa ver todos os lados do objeto sem
            precisar que "Angulo max." esteja alto. Inclinacao fixa e suave
