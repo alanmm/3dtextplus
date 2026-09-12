@@ -20,8 +20,10 @@ void particles_set_config(ParticleSystem *p, const Config *cfg,
    mundo). dt em segundos, ja com clamp feito pelo chamador. */
 void particles_update(ParticleSystem *p, float dt, m4 model);
 
-/* view/proj identicas as usadas pelo modelo 3D no mesmo frame. */
-void particles_render(ParticleSystem *p, m4 view, m4 proj);
+/* view/proj identicas as usadas pelo modelo 3D no mesmo frame; fb_h = altura
+   do framebuffer em pixels, usada para o tamanho do point sprite ficar
+   consistente entre o mini-preview e a tela cheia (ver particles_render). */
+void particles_render(ParticleSystem *p, m4 view, m4 proj, int fb_h);
 
 void particles_destroy(ParticleSystem *p);
 

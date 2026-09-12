@@ -425,7 +425,7 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h, int particles_
 
     if (particles_active) {
         particles_update(s->particles, dt, model);
-        particles_render(s->particles, view, proj);
+        particles_render(s->particles, view, proj, fb_h);
     }
 }
 

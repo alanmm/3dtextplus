@@ -241,7 +241,7 @@ static void update_sparks(ParticleSystem *p, float dt, m4 model)
         pt->vz = wn.z * sp;
         pt->age = 0.0f;
         pt->life = 0.5f + hashf(&p->seed) * 1.0f;
-        pt->size = 0.02f;
+        pt->size = 0.045f;
         pt->r = 1.0f; pt->g = 0.55f; pt->b = 0.12f;
     }
 }
@@ -260,7 +260,13 @@ void particles_update(ParticleSystem *p, float dt, m4 model)
     }
 }
 
-void particles_render(ParticleSystem *p, m4 view, m4 proj)
+/* faisca: comeca branco-azulada (metal incandescente) e esfria pra laranja
+   na primeira metade da vida; a segunda metade so' encolhe/apaga (alpha e
+   tamanho, calculados abaixo). */
+static const v3 SPARK_HOT  = { 0.85f, 0.92f, 1.00f };
+static const v3 SPARK_COOL = { 1.00f, 0.45f, 0.08f };
+
+void particles_render(ParticleSystem *p, m4 view, m4 proj, int fb_h)
 {
     if (p->count <= 0 || !p->prog) return;
 
@@ -275,14 +281,19 @@ void particles_render(ParticleSystem *p, m4 view, m4 proj)
         gv->size = pt->size * p->size_scale;
 
         float alpha = 1.0f;
+        v3 col = { pt->r, pt->g, pt->b };
         if (p->kind == 2) {
             float u = pt->life > 0.0f ? pt->age / pt->life : 1.0f;
             alpha = 1.0f - u;
             gv->size *= (1.0f - 0.5f * u);
+            float cool_t = fminf(u * 2.0f, 1.0f);   /* esfria na 1a metade da vida */
+            col.x = SPARK_HOT.x + (SPARK_COOL.x - SPARK_HOT.x) * cool_t;
+            col.y = SPARK_HOT.y + (SPARK_COOL.y - SPARK_HOT.y) * cool_t;
+            col.z = SPARK_HOT.z + (SPARK_COOL.z - SPARK_HOT.z) * cool_t;
         } else if (p->kind == 3) {
             alpha = 0.4f + 0.6f * (0.5f + 0.5f * sinf(p->time * 2.0f + pt->age));
         }
-        gv->r = pt->r; gv->g = pt->g; gv->b = pt->b; gv->a = alpha;
+        gv->r = col.x; gv->g = col.y; gv->b = col.z; gv->a = alpha;
     }
 
     glBindBuffer(GL_ARRAY_BUFFER, p->vbo);
@@ -295,6 +306,12 @@ void particles_render(ParticleSystem *p, m4 view, m4 proj)
     glUseProgram(p->prog);
     glUniformMatrix4fv(glGetUniformLocation(p->prog, "uView"), 1, GL_FALSE, view.m);
     glUniformMatrix4fv(glGetUniformLocation(p->prog, "uProj"), 1, GL_FALSE, proj.m);
+    /* tamanho do point sprite em pixels precisa escalar com a altura real do
+       framebuffer, senao o mesmo tamanho em unidades de mundo fica gigante
+       no preview (janela pequena) e minusculo em tela cheia (resolucao
+       grande) - proj.m[5] e' 1/tan(fovy/2) (m4_perspective). */
+    float pixel_scale = (float)fb_h * proj.m[5] * 0.5f;
+    glUniform1f(glGetUniformLocation(p->prog, "uPixelScale"), pixel_scale);
     glUniform1i(glGetUniformLocation(p->prog, "uRing"), p->kind == 1 ? 1 : 0);
 
     glBindVertexArray(p->vao);
