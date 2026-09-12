@@ -53,6 +53,11 @@ typedef struct {
     float        bg_pan_speed;         /* 0..1 (UV/seg), so' com type=imagem */
     float        bg_neb_color1_r, bg_neb_color1_g, bg_neb_color1_b;
     float        bg_neb_color2_r, bg_neb_color2_g, bg_neb_color2_b;
+    int          particles_on;          /* 0/1 */
+    int          particles_kind;        /* 0 dust, 1 bokeh, 2 sparks, 3 stars */
+    float        particles_density;     /* 0..1 */
+    float        particles_speed;       /* 0..2 */
+    float        particles_size_scale;  /* 0..2 */
 } Config;
 
 void config_defaults(Config *c);

@@ -22,6 +22,8 @@ void run_config_tests(void)
     EXPECT(d.version == 2);
     EXPECT(d.background_type == 0);
     EXPECT(nearf(d.bg_color1_r, 0.02f) && nearf(d.bg_color1_g, 0.03f) && nearf(d.bg_color1_b, 0.05f));
+    EXPECT(d.particles_on == 0);
+    EXPECT(nearf(d.particles_density, 0.5f));
 
     /* round-trip */
     Config a;
@@ -72,6 +74,11 @@ void run_config_tests(void)
     a.bg_pan_speed = 0.35f;
     a.bg_neb_color1_r = 0.05f; a.bg_neb_color1_g = 0.05f; a.bg_neb_color1_b = 0.20f;
     a.bg_neb_color2_r = 0.80f; a.bg_neb_color2_g = 0.30f; a.bg_neb_color2_b = 0.10f;
+    a.particles_on = 1;
+    a.particles_kind = 2;
+    a.particles_density = 0.75f;
+    a.particles_speed = 1.6f;
+    a.particles_size_scale = 0.4f;
     config_save_to(&a, TESTKEY);
 
     Config b;
@@ -122,6 +129,11 @@ void run_config_tests(void)
     EXPECT(nearf(b.bg_pan_speed, 0.35f));
     EXPECT(nearf(b.bg_neb_color1_b, 0.20f));
     EXPECT(nearf(b.bg_neb_color2_r, 0.80f));
+    EXPECT(b.particles_on == 1);
+    EXPECT(b.particles_kind == 2);
+    EXPECT(nearf(b.particles_density, 0.75f));
+    EXPECT(nearf(b.particles_speed, 1.6f));
+    EXPECT(nearf(b.particles_size_scale, 0.4f));
 
     /* valor ausente -> default; fora de faixa -> clamp; lixo -> default */
     RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
@@ -167,8 +179,10 @@ void run_config_tests(void)
             { L"vignette_amount", L"-3" }, { L"fxaa_on", L"5" },
             { L"background_type", L"9" }, { L"bg_grad_angle", L"999" },
             { L"bg_image_fit", L"9" }, { L"bg_pan_speed", L"-1" },
+            { L"particles_kind", L"9" }, { L"particles_density", L"-1" },
+            { L"particles_speed", L"9" }, { L"particles_size_scale", L"-1" },
         };
-        for (int i = 0; i < 16; ++i)
+        for (int i = 0; i < 20; ++i)
             RegSetValueExW(kp, kv[i].n, 0, REG_SZ, (const BYTE *)kv[i].v,
                            (DWORD)((wcslen(kv[i].v) + 1) * sizeof(wchar_t)));
         RegCloseKey(kp);
@@ -191,6 +205,10 @@ void run_config_tests(void)
     EXPECT(e.bg_grad_angle <= 360.0f);           /* 999 -> clamp */
     EXPECT(e.bg_image_fit == 0);                 /* 9 -> fora de 0..2 -> 0 */
     EXPECT(e.bg_pan_speed >= 0.0f);              /* -1 -> clamp */
+    EXPECT(e.particles_kind == 0);                /* 9 -> fora de 0..3 -> 0 */
+    EXPECT(e.particles_density >= 0.0f);           /* -1 -> clamp */
+    EXPECT(e.particles_speed <= 2.0f);             /* 9 -> clamp */
+    EXPECT(e.particles_size_scale >= 0.0f);        /* -1 -> clamp */
 
     RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
 }
