@@ -10,6 +10,7 @@
 #define IDD_TAB_PERF      115
 #define IDD_TAB_POST      116
 #define IDD_TAB_BG        117
+#define IDD_TAB_PARTICLES 118
 
 #define IDC_TABS          1000
 #define IDC_PREVIEW       1001
@@ -100,5 +101,15 @@
 #define IDC_BGPAN_VAL     1810
 #define IDC_BGNEBCOLOR1   1811
 #define IDC_BGNEBCOLOR2   1812
+
+/* aba Particulas */
+#define IDC_PARTON        1900
+#define IDC_PARTKIND      1901
+#define IDC_PARTDENS      1902
+#define IDC_PARTDENS_VAL  1903
+#define IDC_PARTSPEED     1904
+#define IDC_PARTSPEED_VAL 1905
+#define IDC_PARTSIZE      1906
+#define IDC_PARTSIZE_VAL  1907
 
 #endif
