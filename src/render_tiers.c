@@ -76,7 +76,7 @@ static int   mini(int a, int b)     { return a < b ? a : b; }
 
 int render_quality_ladder_len(M3dtTier tier)
 {
-    return tier == M3DT_TIER_REDUCED ? 1 : 8;
+    return tier == M3DT_TIER_REDUCED ? 1 : 9;
 }
 
 RenderQuality render_quality_for_step(const Config *cfg, M3dtTier tier, int step)
@@ -89,6 +89,7 @@ RenderQuality render_quality_for_step(const Config *cfg, M3dtTier tier, int step
     q.step = step;
 
     if (tier == M3DT_TIER_REDUCED) {
+        q.particles = 0;
         q.streaks = 0;
         q.bloom = 0;
         q.msaa = mini(cfg->msaa, 2);
@@ -96,18 +97,19 @@ RenderQuality render_quality_for_step(const Config *cfg, M3dtTier tier, int step
         return q;
     }
 
-    /* FULL: ladder de 8 passos.
-       0: topo  1: streaks off  2: bloom off  3: msaa<=4  4: msaa<=2
-       5: msaa 0  6: scale<=0.75  7: scale 0.5 */
-    q.streaks = (step >= 1) ? 0 : 1;
-    q.bloom   = (step >= 2) ? 0 : 1;
+    /* FULL: ladder de 9 passos.
+       0: topo  1: particulas off  2: streaks off  3: bloom off
+       4: msaa<=4  5: msaa<=2  6: msaa 0  7: scale<=0.75  8: scale 0.5 */
+    q.particles = (step >= 1) ? 0 : 1;
+    q.streaks   = (step >= 2) ? 0 : 1;
+    q.bloom     = (step >= 3) ? 0 : 1;
     q.msaa = cfg->msaa;
-    if (step >= 3) q.msaa = mini(q.msaa, 4);
-    if (step >= 4) q.msaa = mini(q.msaa, 2);
-    if (step >= 5) q.msaa = 0;
+    if (step >= 4) q.msaa = mini(q.msaa, 4);
+    if (step >= 5) q.msaa = mini(q.msaa, 2);
+    if (step >= 6) q.msaa = 0;
     q.render_scale = cfg->render_scale;
-    if (step >= 6) q.render_scale = minf(q.render_scale, 0.75f);
-    if (step >= 7) q.render_scale = 0.5f;
+    if (step >= 7) q.render_scale = minf(q.render_scale, 0.75f);
+    if (step >= 8) q.render_scale = 0.5f;
     return q;
 }
 

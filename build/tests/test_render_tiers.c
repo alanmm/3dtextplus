@@ -27,25 +27,27 @@ void run_render_tiers_tests(void)
     config_defaults(&cfg);      /* msaa 4, render_scale 1.0 */
 
     RenderQuality q0 = render_quality_for_step(&cfg, M3DT_TIER_FULL, 0);
-    EXPECT(q0.streaks == 1 && q0.bloom == 1 && q0.msaa == 4 && q0.render_scale > 0.99f);
+    EXPECT(q0.particles == 1 && q0.streaks == 1 && q0.bloom == 1 && q0.msaa == 4 && q0.render_scale > 0.99f);
     RenderQuality q1 = render_quality_for_step(&cfg, M3DT_TIER_FULL, 1);
-    EXPECT(q1.streaks == 0 && q1.bloom == 1);
+    EXPECT(q1.particles == 0 && q1.streaks == 1);
     RenderQuality q2 = render_quality_for_step(&cfg, M3DT_TIER_FULL, 2);
-    EXPECT(q2.streaks == 0 && q2.bloom == 0 && q2.msaa == 4);
-    RenderQuality q4 = render_quality_for_step(&cfg, M3DT_TIER_FULL, 4);
-    EXPECT(q4.msaa == 2);
+    EXPECT(q2.streaks == 0 && q2.bloom == 1);
+    RenderQuality q3 = render_quality_for_step(&cfg, M3DT_TIER_FULL, 3);
+    EXPECT(q3.bloom == 0 && q3.msaa == 4);
     RenderQuality q5 = render_quality_for_step(&cfg, M3DT_TIER_FULL, 5);
-    EXPECT(q5.msaa == 0);
+    EXPECT(q5.msaa == 2);
     RenderQuality q6 = render_quality_for_step(&cfg, M3DT_TIER_FULL, 6);
-    EXPECT(q6.render_scale <= 0.75f + 1e-4f);
+    EXPECT(q6.msaa == 0);
     RenderQuality q7 = render_quality_for_step(&cfg, M3DT_TIER_FULL, 7);
-    EXPECT(q7.render_scale <= 0.5f + 1e-4f);
+    EXPECT(q7.render_scale <= 0.75f + 1e-4f);
+    RenderQuality q8 = render_quality_for_step(&cfg, M3DT_TIER_FULL, 8);
+    EXPECT(q8.render_scale <= 0.5f + 1e-4f);
     RenderQuality qhi = render_quality_for_step(&cfg, M3DT_TIER_FULL, 99);   /* clamp */
-    EXPECT(qhi.step == 7);
-    EXPECT(render_quality_ladder_len(M3DT_TIER_FULL) == 8);
+    EXPECT(qhi.step == 8);
+    EXPECT(render_quality_ladder_len(M3DT_TIER_FULL) == 9);
 
     RenderQuality qr = render_quality_for_step(&cfg, M3DT_TIER_REDUCED, 0);
-    EXPECT(qr.streaks == 0 && qr.bloom == 0 && qr.msaa <= 2 && qr.render_scale <= 0.75f + 1e-4f);
+    EXPECT(qr.particles == 0 && qr.streaks == 0 && qr.bloom == 0 && qr.msaa <= 2 && qr.render_scale <= 0.75f + 1e-4f);
     EXPECT(render_quality_ladder_len(M3DT_TIER_REDUCED) == 1);
 
     /* --- aq_decide: ladder + histerese + zona morta --- */

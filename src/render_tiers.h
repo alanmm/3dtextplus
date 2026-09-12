@@ -24,6 +24,7 @@ M3dtTier    m3dt_tier_resolve(const char *gl_renderer);
 /* ---------------- qualidade efetiva ---------------- */
 
 typedef struct {
+    int   particles;     /* 0/1: gate de qualidade (o gl_window faz AND com cfg.particles_on) */
     int   streaks;       /* 0/1: gate de qualidade (o gl_window faz AND com cfg.streaks_mode) */
     int   bloom;         /* 0/1: gate de qualidade (o gl_window faz AND com cfg.bloom_on) */
     int   msaa;          /* 0 | 2 | 4 | 8 efetivo */
