@@ -19,16 +19,21 @@ IDD_TAB_CONTENT DIALOGEX 0, 0, 240, 200
 STYLE DS_SETFONT | DS_CONTROL | WS_CHILD
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
-    LTEXT           "Texto:", -1, 8, 10, 60, 9
-    EDITTEXT        IDC_TEXT, 8, 22, 224, 40,
+    LTEXT           "Modo:", -1, 8, 10, 60, 9
+    COMBOBOX        IDC_CONTMODE, 68, 8, 100, 60, CBS_DROPDOWNLIST | WS_TABSTOP
+
+    LTEXT           "Texto:", -1, 8, 30, 60, 9
+    EDITTEXT        IDC_TEXT, 8, 42, 224, 40,
                     ES_MULTILINE | ES_WANTRETURN | ES_AUTOVSCROLL | WS_VSCROLL | WS_TABSTOP
-    LTEXT           "Fonte:", -1, 8, 72, 60, 9
-    COMBOBOX        IDC_FONT, 8, 84, 224, 160,
+    LTEXT           "Fonte:", -1, 8, 92, 60, 9
+    COMBOBOX        IDC_FONT, 8, 104, 224, 160,
                     CBS_DROPDOWNLIST | CBS_SORT | WS_VSCROLL | WS_TABSTOP
-    AUTOCHECKBOX     "Negrito", IDC_BOLD,   8, 108, 60, 12
-    AUTOCHECKBOX     "Italico", IDC_ITALIC, 76, 108, 60, 12
-    LTEXT           "Cor:", -1, 8, 130, 60, 9
-    PUSHBUTTON      "Escolher cor...", IDC_COLOR, 8, 142, 90, 14
+    AUTOCHECKBOX     "Negrito", IDC_BOLD,   8, 128, 60, 12
+    AUTOCHECKBOX     "Italico", IDC_ITALIC, 76, 128, 60, 12
+    AUTOCHECKBOX     "Mostrar data", IDC_CLOCKDATE, 130, 128, 100, 12
+    LTEXT           "Cor:", -1, 8, 150, 60, 9
+    PUSHBUTTON      "Escolher cor...", IDC_COLOR, 8, 162, 90, 14
+    AUTOCHECKBOX     "Mostrar segundos", IDC_CLOCKSEC, 130, 144, 110, 12
 END
 
 IDD_TAB_MOTION DIALOGEX 0, 0, 240, 200

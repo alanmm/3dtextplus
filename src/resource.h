@@ -22,6 +22,9 @@
 #define IDC_BOLD          1102
 #define IDC_ITALIC        1103
 #define IDC_COLOR         1104
+#define IDC_CONTMODE      1105
+#define IDC_CLOCKDATE     1106
+#define IDC_CLOCKSEC      1107
 
 /* aba Movimento */
 #define IDC_DEPTH         1200
