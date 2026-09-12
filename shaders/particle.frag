@@ -1,6 +1,7 @@
 #version 330 core
 in vec4  vColor;
 in float vBlur;
+in float vRot;
 out vec4 fragColor;
 
 uniform int uRing;   /* 0 disco cheio (dust/sparks/stars), 1 hexagono translucido (bokeh) */
@@ -34,7 +35,12 @@ void main()
            distantes. A variacao de opacidade entre particulas vem do
            passe de profundidade (vColor.a, calculado no vertex shader) e
            do valor aleatorio proprio de cada uma (particles.c), nao daqui. */
-        float h = hex_shape(uv);
+        /* rotaciona a amostra antes de medir a forma - sem isso todo
+           hexagono sai com os mesmos 3 eixos, ficando simetrico entre
+           particulas diferentes */
+        float c = cos(vRot), s = sin(vRot);
+        vec2 ruv = vec2(c * uv.x - s * uv.y, s * uv.x + c * uv.y);
+        float h = hex_shape(ruv);
         float edgeStart = mix(0.88, 0.45, clamp(vBlur, 0.0, 1.0));
         alpha = 1.0 - smoothstep(edgeStart, 1.0, h);
     } else {

@@ -18,9 +18,11 @@ typedef struct {
     float size;
     float r, g, b;
     float alpha_rand;  /* opacidade base aleatoria por particula (dust/bokeh), 1%..80% */
+    float rot;         /* angulo do hexagono (bokeh), aleatorio por particula */
+    float blur_seed;   /* 0..1, aleatorio por particula - ver BLUR_RAND_SPREAD em particle.vert */
 } Particle;
 
-typedef struct { float x, y, z, size, r, g, b, a; } ParticleVertex;
+typedef struct { float x, y, z, size, r, g, b, a, rot, blur_seed; } ParticleVertex;
 
 struct ParticleSystem {
     unsigned prog, vao, vbo;
@@ -100,6 +102,10 @@ ParticleSystem *particles_create(void)
     glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), (void *)(3 * sizeof(float)));
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), (void *)(4 * sizeof(float)));
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), (void *)(8 * sizeof(float)));
+    glEnableVertexAttribArray(4);
+    glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), (void *)(9 * sizeof(float)));
     glBindVertexArray(0);
 
     p->kind = -1;
@@ -130,7 +136,10 @@ static void spawn_ambient(ParticleSystem *p)
         pt->life = 0.0f;
         pt->alpha_rand = 0.01f + hashf(&p->seed) * 0.79f;   /* 1%..80%, aleatoria por particula */
         if (p->kind == 1) {
-            /* bokeh: tamanho e cor pastel aleatorios por particula */
+            /* bokeh: tamanho, cor pastel, rotacao do hexagono e semente de
+               blur aleatorios por particula - sem isso todas saem com a
+               mesma rotacao (fica simetrico) e o mesmo blur numa dada
+               profundidade (fica homogeneo demais). */
             pt->size = size * (0.5f + hashf(&p->seed) * 1.0f);
             /* tons pasteis discretos (mais escuros/dessaturados que um
                pastel "vivo") pra nao brigar com o fundo escuro */
@@ -138,9 +147,13 @@ static void spawn_ambient(ParticleSystem *p)
             pt->r = 0.42f + 0.16f * cosf(hue);
             pt->g = 0.42f + 0.16f * cosf(hue - 2.094395f);
             pt->b = 0.42f + 0.16f * cosf(hue - 4.188790f);
+            pt->rot = hashf(&p->seed) * 6.2831853f;
+            pt->blur_seed = hashf(&p->seed);
         } else {
             pt->size = size;
             pt->r = r; pt->g = g; pt->b = b;
+            pt->rot = 0.0f;
+            pt->blur_seed = 0.0f;
         }
     }
 }
@@ -313,6 +326,8 @@ void particles_render(ParticleSystem *p, m4 view, m4 proj, int fb_h)
             alpha = 0.4f + 0.6f * (0.5f + 0.5f * sinf(p->time * 2.0f + pt->age));
         }
         gv->r = col.x; gv->g = col.y; gv->b = col.z; gv->a = alpha;
+        gv->rot = pt->rot;
+        gv->blur_seed = pt->blur_seed;
     }
 
     glBindBuffer(GL_ARRAY_BUFFER, p->vbo);
