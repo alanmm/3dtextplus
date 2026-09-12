@@ -193,6 +193,7 @@ static void update_stars(ParticleSystem *p, float dt)
 
 #define SPARK_RATE_MAX  50.0f   /* particulas/seg em density=1 */
 #define SPARK_GRAVITY    1.2f
+#define SPARK_DRAG       3.0f   /* 1/seg, freia vx/vz - ver comentario em update_sparks */
 
 static void update_sparks(ParticleSystem *p, float dt, m4 model)
 {
@@ -205,6 +206,14 @@ static void update_sparks(ParticleSystem *p, float dt, m4 model)
             continue;
         }
         pt->vy -= SPARK_GRAVITY * dt;
+        /* arrasto: sem isso a faisca viaja em linha reta indefinidamente e,
+           num objeto pequeno com a camera perto, pode atravessar a camera
+           antes de morrer e sumir de vista. Tambem deixa o movimento mais
+           parecido com fagulha de solda de verdade (explode e freia, nao
+           dispara como projetil). */
+        float drag = 1.0f - fminf(SPARK_DRAG * dt, 0.9f);
+        pt->vx *= drag;
+        pt->vz *= drag;
         pt->x += pt->vx * dt;
         pt->y += pt->vy * dt;
         pt->z += pt->vz * dt;
