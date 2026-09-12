@@ -247,7 +247,7 @@ int font_build_contours(const char *utf8, const wchar_t *family, int bold, int i
        descent+linegap); >1.0 afasta as linhas verticalmente, ao estilo do
        line-height do CSS. Ajustar aqui se o usuario pedir mais/menos
        espaco entre linhas. */
-    const float LINE_HEIGHT_MULT = 1.0f;
+    const float LINE_HEIGHT_MULT = 0.8f;
     float line_step = (float)(ascent - descent + linegap) * LINE_HEIGHT_MULT;
     float tol_units = (flatten_tol > 1e-6f) ? (flatten_tol * unitsPerEm) : 8.0f;
 
