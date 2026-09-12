@@ -25,6 +25,9 @@ void run_config_tests(void)
     EXPECT(d.particles_on == 0);
     EXPECT(nearf(d.particles_density, 0.5f));
     EXPECT(nearf(d.particles_opacity, 1.0f));
+    EXPECT(d.content_mode == CONTENT_TEXT);
+    EXPECT(d.clock_show_date == 0);
+    EXPECT(d.clock_show_seconds == 0);
 
     /* round-trip */
     Config a;
@@ -81,6 +84,9 @@ void run_config_tests(void)
     a.particles_speed = 1.6f;
     a.particles_size_scale = 0.4f;
     a.particles_opacity = 0.6f;
+    a.content_mode = CONTENT_CLOCK;
+    a.clock_show_date = 1;
+    a.clock_show_seconds = 1;
     config_save_to(&a, TESTKEY);
 
     Config b;
@@ -137,6 +143,9 @@ void run_config_tests(void)
     EXPECT(nearf(b.particles_speed, 1.6f));
     EXPECT(nearf(b.particles_size_scale, 0.4f));
     EXPECT(nearf(b.particles_opacity, 0.6f));
+    EXPECT(b.content_mode == CONTENT_CLOCK);
+    EXPECT(b.clock_show_date == 1);
+    EXPECT(b.clock_show_seconds == 1);
 
     /* valor ausente -> default; fora de faixa -> clamp; lixo -> default */
     RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
@@ -185,8 +194,10 @@ void run_config_tests(void)
             { L"particles_kind", L"9" }, { L"particles_density", L"-1" },
             { L"particles_speed", L"9" }, { L"particles_size_scale", L"-1" },
             { L"particles_opacity", L"9" },
+            { L"content_mode", L"9" }, { L"clock_show_date", L"5" },
+            { L"clock_show_seconds", L"5" },
         };
-        for (int i = 0; i < 21; ++i)
+        for (int i = 0; i < 24; ++i)
             RegSetValueExW(kp, kv[i].n, 0, REG_SZ, (const BYTE *)kv[i].v,
                            (DWORD)((wcslen(kv[i].v) + 1) * sizeof(wchar_t)));
         RegCloseKey(kp);
@@ -214,6 +225,9 @@ void run_config_tests(void)
     EXPECT(e.particles_speed <= 2.0f);             /* 9 -> clamp */
     EXPECT(e.particles_size_scale >= 0.0f);        /* -1 -> clamp */
     EXPECT(e.particles_opacity <= 2.0f);           /* 9 -> clamp */
+    EXPECT(e.content_mode == CONTENT_TEXT);         /* 9 -> fora de 0..1 -> 0 */
+    EXPECT(e.clock_show_date == 1);                 /* 5 -> !=0 -> 1 */
+    EXPECT(e.clock_show_seconds == 1);              /* 5 -> !=0 -> 1 */
 
     RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
 }

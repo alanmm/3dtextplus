@@ -2,7 +2,7 @@
 #define M3DT_CONFIG_H
 #include <wchar.h>
 
-typedef enum { CONTENT_TEXT = 0 } ContentMode;
+typedef enum { CONTENT_TEXT = 0, CONTENT_CLOCK = 1 } ContentMode;
 
 typedef struct {
     int          version;              /* schema; atual = 1 */
@@ -59,6 +59,8 @@ typedef struct {
     float        particles_speed;       /* 0..2 */
     float        particles_size_scale;  /* 0..2 */
     float        particles_opacity;    /* 0..2, escala a opacidade aleatoria por particula (dust/bokeh) */
+    int          clock_show_date;      /* 0/1 */
+    int          clock_show_seconds;   /* 0/1 */
 } Config;
 
 void config_defaults(Config *c);
