@@ -185,8 +185,19 @@ static void spawn_ambient(ParticleSystem *p)
             /* cor: HSL bem claro e pouco saturado, dentro da faixa de
                matiz da sessao. */
             float hue = palette_hue + (hashf(&p->seed) - 0.5f) * hue_band_rad;
-            float sat = 0.10f + hashf(&p->seed) * 0.20f;    /* 10%..30% */
-            float lit = 0.90f + hashf(&p->seed) * 0.09f;    /* 90%..99% */
+            /* em HSL a "forca" da cor (chroma) e' (1-|2L-1|)*S - alem disso,
+               o bokeh usa blend normal (nao aditivo), entao o resultado
+               final na tela e' alpha*corParticula + (1-alpha)*corFundo;
+               como o fundo e' escuro-azulado e o alfa costuma ser baixo/
+               moderado (teto de 80%, ainda reduzido pelo blur), o azul do
+               fundo "dilui" e domina a cor real da particula - confirmado
+               amostrando pixels reais: toda particula testada saia com viés
+               azul, nao importa o matiz sorteado. L mais baixo da bem mais
+               forca de cor pra sobreviver a essa diluicao; ainda fica claro
+               (bem acima de 50% = cinza medio), so' nao tao proximo do
+               branco quanto antes. */
+            float sat = 0.25f + hashf(&p->seed) * 0.25f;    /* 25%..50% */
+            float lit = 0.65f + hashf(&p->seed) * 0.17f;    /* 65%..82% */
             hsl_to_rgb(hue, sat, lit, &pt->r, &pt->g, &pt->b);
 
             pt->rot = hashf(&p->seed) * 6.2831853f;
