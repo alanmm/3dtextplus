@@ -195,6 +195,20 @@ static void conlist_free_pts(ConList *cl)
     free(cl->c);
 }
 
+/* centraliza horizontalmente os contornos de UMA linha (indices
+   [start_ci, cl->n)) em torno do seu proprio centro, em vez de deixar
+   cada linha alinhada a esquerda - assim um bloco multilinha com linhas
+   de larguras diferentes fica com cada linha centralizada individualmente
+   (como um titulo), nao um bloco de texto alinhado a esquerda. */
+static void center_line_x(ConList *cl, int start_ci, float minx, float maxx, float sc)
+{
+    if (maxx <= minx) return;   /* linha sem tinta (linha em branco) */
+    float center = (minx + maxx) * 0.5f * sc;
+    for (int i = start_ci; i < cl->n; ++i)
+        for (int k = 0; k < cl->c[i].count; ++k)
+            cl->c[i].pts[k].x -= center;
+}
+
 static int utf8_next(const unsigned char **s)
 {
     int cp = **s;
@@ -229,13 +243,20 @@ int font_build_contours(const char *utf8, const wchar_t *family, int bold, int i
     float unitsPerEm = (float)(ascent - descent);
     if (unitsPerEm < 1.0f) unitsPerEm = 2048.0f;
     float sc = 1.0f / unitsPerEm;
-    float line_step = (float)(ascent - descent + linegap);   /* unidades de fonte */
+    /* espacamento entre linhas: 1.0 = metrica padrao da fonte (ascent+
+       descent+linegap); >1.0 afasta as linhas verticalmente, ao estilo do
+       line-height do CSS. Ajustar aqui se o usuario pedir mais/menos
+       espaco entre linhas. */
+    const float LINE_HEIGHT_MULT = 1.15f;
+    float line_step = (float)(ascent - descent + linegap) * LINE_HEIGHT_MULT;
     float tol_units = (flatten_tol > 1e-6f) ? (flatten_tol * unitsPerEm) : 8.0f;
 
     ConList cl = { 0, 0, 0 };
     float penx = 0.0f, peny = 0.0f;
     float bminx = 1e30f, bminy = 1e30f, bmaxx = -1e30f, bmaxy = -1e30f;
     int have_bounds = 0;
+    int line_start_ci = 0;
+    float line_minx = 1e30f, line_maxx = -1e30f;
 
     const float target_gap = 0.09f * unitsPerEm;   /* folga otica minima entre glifos */
     /* o perfil de kerning precisa de uma tolerancia de achatamento FIXA e
@@ -256,7 +277,15 @@ int font_build_contours(const char *utf8, const wchar_t *family, int bold, int i
         int cp = utf8_next(&s);
         if (cp == 0) break;
 
-        if (cp == '\n') { penx = 0.0f; peny -= line_step; have_prev_profile = 0; continue; }
+        if (cp == '\r') continue;   /* edits multilinha do Win32 usam \r\n; \r sozinho nao deve virar glifo */
+
+        if (cp == '\n') {
+            center_line_x(&cl, line_start_ci, line_minx, line_maxx, sc);
+            line_start_ci = cl.n;
+            line_minx = 1e30f; line_maxx = -1e30f;
+            penx = 0.0f; peny -= line_step; have_prev_profile = 0;
+            continue;
+        }
 
         /* extrai o glifo em espaco LOCAL (x cru, sem penx ainda) para poder
            decidir a posicao final antes de fixa-la - uma vez na qualidade
@@ -316,6 +345,8 @@ int font_build_contours(const char *utf8, const wchar_t *family, int bold, int i
                 co->pts[k].y = gy * sc;
                 if (gx < bminx) bminx = gx;
                 if (gx > bmaxx) bmaxx = gx;
+                if (gx < line_minx) line_minx = gx;
+                if (gx > line_maxx) line_maxx = gx;
                 if (gy < bminy) bminy = gy;
                 if (gy > bmaxy) bmaxy = gy;
                 have_bounds = 1;
@@ -337,18 +368,28 @@ int font_build_contours(const char *utf8, const wchar_t *family, int bold, int i
         }
     }
     free(fbytes);
+    center_line_x(&cl, line_start_ci, line_minx, line_maxx, sc);   /* ultima linha (sem \n final) */
 
-    /* centraliza na bbox */
+    /* centraliza na bbox. O eixo X ja foi centralizado POR LINHA acima
+       (center_line_x), entao os limites horizontais sao recalculados a
+       partir dos pontos finais - bminx/bmaxx acima ainda refletem as
+       posicoes brutas alinhadas a esquerda, anteriores a esse ajuste. */
     float ox = 0.0f, oy = 0.0f;
     if (have_bounds) {
-        ox = (bminx + bmaxx) * 0.5f * sc;
+        float fminx = 1e30f, fmaxx = -1e30f;
+        for (int i = 0; i < cl.n; ++i)
+            for (int k = 0; k < cl.c[i].count; ++k) {
+                if (cl.c[i].pts[k].x < fminx) fminx = cl.c[i].pts[k].x;
+                if (cl.c[i].pts[k].x > fmaxx) fmaxx = cl.c[i].pts[k].x;
+            }
+        ox = (fminx + fmaxx) * 0.5f;
         oy = (bminy + bmaxy) * 0.5f * sc;
         for (int i = 0; i < cl.n; ++i)
             for (int k = 0; k < cl.c[i].count; ++k) {
                 cl.c[i].pts[k].x -= ox;
                 cl.c[i].pts[k].y -= oy;
             }
-        out->minx = bminx * sc - ox; out->maxx = bmaxx * sc - ox;
+        out->minx = fminx - ox; out->maxx = fmaxx - ox;
         out->miny = bminy * sc - oy; out->maxy = bmaxy * sc - oy;
     }
 
