@@ -124,10 +124,18 @@ static void preview_dirty(HWND child)
 /* copia g_work para o preview com o texto fixo em "3D" - um texto configurado
    longo nao cabe no enquadramento aproximado do preview; a tela cheia real
    (/s, /p, /c) sempre usa g_work sem essa substituicao. */
+static int g_cur_tab = 0;
+
 static void preview_config_sync(void)
 {
     g_preview_cfg = g_work;
-    strcpy(g_preview_cfg.text, "3D");
+    /* fora da aba Conteudo, o preview usa um texto curto fixo pro
+       enquadramento (zoom fechado de Material/Geometria, texto real
+       do usuario pode ser longo e estourar); na aba Conteudo o usuario
+       esta literalmente editando o texto, entao o preview precisa
+       refletir o que foi digitado. */
+    if (g_cur_tab != 0)
+        strcpy(g_preview_cfg.text, "3D");
 }
 
 /* ---------------- aba Conteudo ---------------- */
@@ -205,6 +213,13 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     if (HIWORD(w) == EN_CHANGE) {
                         wchar_t wtext[512];
                         GetDlgItemTextW(h, IDC_TEXT, wtext, 512);
+                        /* controles multilinha do Win32 devolvem \r\n nas quebras
+                           de linha; sem remover o \r ele sobra como um codepoint
+                           sem glifo real (a fonte desenha o .notdef, um retangulo
+                           quebrado) entre o fim de uma linha e o inicio da outra */
+                        wchar_t *src = wtext, *dst = wtext;
+                        while (*src) { if (*src != L'\r') *dst++ = *src; src++; }
+                        *dst = 0;
                         WideCharToMultiByte(CP_UTF8, 0, wtext, -1, g_work.text,
                                             (int)sizeof g_work.text, NULL, NULL);
                         preview_dirty(h);
@@ -876,6 +891,9 @@ static void place_tab_child(HWND dlg, HWND tabs, HWND child)
 
 static void select_tab(int sel)
 {
+    g_cur_tab = sel;
+    g_dirty = true;   /* re-sincroniza o preview ja na troca (ex.: sair/entrar na aba Conteudo) */
+
     ShowWindow(g_content,  sel == 0 ? SW_SHOW : SW_HIDE);
     ShowWindow(g_motion,   sel == 1 ? SW_SHOW : SW_HIDE);
     ShowWindow(g_material, sel == 2 ? SW_SHOW : SW_HIDE);
