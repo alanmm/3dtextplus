@@ -32,7 +32,7 @@ LDFLAGS := -mwindows -municode -static -static-libgcc -s
 LIBS    := -lopengl32 -lgdi32 -luser32 -lkernel32 -lcomdlg32 -lcomctl32 \
            -lshell32 -lole32 -ladvapi32 -ldwmapi -lwinmm
 
-SRC_C := src/main.c src/cmdline.c src/util/log.c src/util/mathx.c src/gl_core.c \
+SRC_C := src/main.c src/cmdline.c src/util/log.c src/util/mathx.c src/util/clockfmt.c src/gl_core.c \
          src/gl_window.c src/host_win32.c src/config_dialog.c src/config.c \
          src/material.c src/scene.c src/env.c src/post.c src/particles.c \
          src/render_tiers.c src/render_tiers_gl.c \
@@ -101,8 +101,8 @@ config: debug
 TEST_SRC   := build/tests/test_main.c build/tests/test_cmdline.c build/tests/test_log.c \
               build/tests/test_mathx.c build/tests/test_font_outline.c \
               build/tests/test_contour_mesh.c build/tests/test_config.c build/tests/test_sdf.c \
-              build/tests/test_render_tiers.c
-TEST_UNITS := src/cmdline.c src/util/log.c src/util/mathx.c \
+              build/tests/test_render_tiers.c build/tests/test_clockfmt.c
+TEST_UNITS := src/cmdline.c src/util/log.c src/util/mathx.c src/util/clockfmt.c \
               src/geometry/font_outline.c src/geometry/contour_mesh.c src/config.c \
               src/geometry/sdf.c src/render_tiers.c
 TEST_INC   := -Isrc -Ithird_party -Ithird_party/libtess2/Include -Ibuild/tests
@@ -121,7 +121,7 @@ build/obj/test/stb_impl.o: src/geometry/stb_impl.c
 test: build/obj/test/stb_impl.o $(LIBTESS_TEST_OBJ)
 	$(CC) -std=c11 -Wall -Wextra $(TEST_INC) \
 	  $(TEST_SRC) $(TEST_UNITS) $^ \
-	  -o build/obj/run_tests.exe -lm -lgdi32 -luser32 -ladvapi32
+	  -o build/obj/run_tests.exe -lm -lgdi32 -luser32 -ladvapi32 -lkernel32
 	./build/obj/run_tests.exe
 
 clean:
