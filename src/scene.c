@@ -3,6 +3,7 @@
 #include "gl_core.h"
 #include "env.h"
 #include "particles.h"
+#include "util/clockfmt.h"
 #include "geometry/font_outline.h"
 #include "geometry/contour_mesh.h"
 #include "util/mathx.h"
@@ -69,6 +70,9 @@ struct SceneRenderer {
     int    wall_cache_count;
     double last_t;
     int    have_last_t;
+
+    int content_mode;
+    int clock_show_date, clock_show_seconds;
 };
 
 static void upload_sdf(SceneRenderer *s, const Sdf *sdf)
@@ -225,7 +229,12 @@ void scene_set_config(SceneRenderer *s, const Config *cfg)
         || s->bevel_segments != cfg->bevel_segments
         || s->shell != cfg->shell
         || s->wall_thickness != cfg->wall_thickness
-        || s->quality != cfg->quality;
+        || s->quality != cfg->quality
+        || s->content_mode != (int)cfg->content_mode;
+
+    s->content_mode = cfg->content_mode;
+    s->clock_show_date = cfg->clock_show_date;
+    s->clock_show_seconds = cfg->clock_show_seconds;
 
     strncpy(s->text, cfg->text, sizeof s->text - 1);
     s->text[sizeof s->text - 1] = 0;
@@ -326,6 +335,19 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h, int particles_
     }
     s->last_t = t;
     s->have_last_t = 1;
+
+    if (s->content_mode == CONTENT_CLOCK) {
+        SYSTEMTIME st;
+        GetLocalTime(&st);
+        char buf[512];
+        clock_format(st, s->clock_show_date, s->clock_show_seconds, buf, sizeof buf);
+        if (strcmp(buf, s->text) != 0) {
+            strncpy(s->text, buf, sizeof s->text - 1);
+            s->text[sizeof s->text - 1] = 0;
+            if (!rebuild_mesh(s))
+                log_errorf("scene: rebuild_mesh (relogio) falhou (text='%s')", s->text);
+        }
+    }
 
     glViewport(0, 0, fb_w, fb_h);
     glClearColor(0.02f, 0.03f, 0.05f, 1.0f);
