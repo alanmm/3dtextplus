@@ -52,6 +52,7 @@ struct GlWindow {
     RenderQuality quality;
     AutoQuality  *aq;
     int   vsync;
+    int   particles_on;
 };
 
 /* ------------------------------------------------------------------ */
@@ -244,6 +245,14 @@ static int frame_bloom(const GlWindow *g)
     return (g->quality.bloom && g->post_params.bloom) ? 1 : 0;
 }
 
+/* Particulas: mesmo padrao de gate (qualidade AND toggle do usuario, nunca
+   no preview). */
+static int frame_particles(const GlWindow *g)
+{
+    if (g->preview) return 0;
+    return (g->quality.particles && g->particles_on) ? 1 : 0;
+}
+
 static void render_into_post(GlWindow *g, double t, int measure)
 {
     RECT cr; GetClientRect(g->hwnd, &cr);
@@ -256,7 +265,7 @@ static void render_into_post(GlWindow *g, double t, int measure)
     if (measure) aq_frame_begin(g->aq);
 
     post_begin(g->post, sw, sh, q.msaa);
-    if (g->scene) scene_render(g->scene, t, sw, sh);
+    if (g->scene) scene_render(g->scene, t, sw, sh, frame_particles(g));
     else { glClearColor(0.10f, 0.0f, 0.0f, 1.0f); glClear(GL_COLOR_BUFFER_BIT); }
 
     PostParams pr = g->post_params;
@@ -309,6 +318,8 @@ void gl_window_set_config(GlWindow *g, const Config *cfg)
     g->post_params.vignette_on      = cfg->vignette_on;
     g->post_params.vignette_amount  = cfg->vignette_amount;
     g->post_params.fxaa_on          = cfg->fxaa_on;
+
+    g->particles_on = cfg->particles_on;
 
     if (g->rc) wglMakeCurrent(g->dc, g->rc);
 

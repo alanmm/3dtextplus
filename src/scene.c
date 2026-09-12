@@ -2,6 +2,7 @@
 #include "material.h"
 #include "gl_core.h"
 #include "env.h"
+#include "particles.h"
 #include "geometry/font_outline.h"
 #include "geometry/contour_mesh.h"
 #include "util/mathx.h"
@@ -60,6 +61,14 @@ struct SceneRenderer {
     int      bg_image_fit;
     float    bg_pan_speed;
     v3       bg_neb_color1, bg_neb_color2;
+
+    /* particulas */
+    ParticleSystem *particles;
+    v3     wall_pos_cache[512];
+    v3     wall_n_cache[512];
+    int    wall_cache_count;
+    double last_t;
+    int    have_last_t;
 };
 
 static void upload_sdf(SceneRenderer *s, const Sdf *sdf)
@@ -145,6 +154,18 @@ static int rebuild_mesh(SceneRenderer *s)
     if (s->hx < 1e-3f) s->hx = 1.0f;
     if (s->hy < 1e-3f) s->hy = 1.0f;
 
+    {
+        int wc = 0;
+        for (int i = 0; i < md.nverts && wc < 512; ++i) {
+            if (md.verts[i].surf == 2.0f) {
+                s->wall_pos_cache[wc] = (v3){ md.verts[i].px, md.verts[i].py, md.verts[i].pz };
+                s->wall_n_cache[wc]   = (v3){ md.verts[i].nx, md.verts[i].ny, md.verts[i].nz };
+                ++wc;
+            }
+        }
+        s->wall_cache_count = wc;
+    }
+
     upload_sdf(s, md.has_sdf ? &md.sdf : NULL);
     mesh_data_free(&md);
     s->have_mesh = 1;
@@ -164,6 +185,14 @@ SceneRenderer *scene_create(const Config *cfg)
     s->bg_prog = gl_program((const char *)EMBED_fullscreen_vert,
                              (const char *)EMBED_background_frag);
     if (!s->bg_prog) {
+        material_destroy(&s->mat);
+        free(s);
+        return NULL;
+    }
+
+    s->particles = particles_create();
+    if (!s->particles) {
+        glDeleteProgram(s->bg_prog);
         material_destroy(&s->mat);
         free(s);
         return NULL;
@@ -247,6 +276,9 @@ void scene_set_config(SceneRenderer *s, const Config *cfg)
         if (!rebuild_mesh(s))
             log_errorf("scene: rebuild_mesh falhou (text='%s' font='%ls')", s->text, s->font_family);
     }
+
+    particles_set_config(s->particles, cfg, s->hx, s->hy, s->hz,
+                         s->wall_pos_cache, s->wall_n_cache, s->wall_cache_count);
 }
 
 void scene_set_zoom(SceneRenderer *s, float zoom)
@@ -281,10 +313,20 @@ void scene_pan(SceneRenderer *s, float dx, float dy)
     s->man_pan_y += dy;
 }
 
-void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h)
+void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h, int particles_active)
 {
     if (fb_w < 1) fb_w = 1;
     if (fb_h < 1) fb_h = 1;
+
+    float dt = 0.0f;
+    if (s->have_last_t) {
+        dt = (float)(t - s->last_t);
+        if (dt < 0.0f) dt = 0.0f;
+        if (dt > 0.1f) dt = 0.1f;
+    }
+    s->last_t = t;
+    s->have_last_t = 1;
+
     glViewport(0, 0, fb_w, fb_h);
     glClearColor(0.02f, 0.03f, 0.05f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -380,12 +422,18 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h)
         glDepthMask(GL_TRUE);
         glDisable(GL_BLEND);
     }
+
+    if (particles_active) {
+        particles_update(s->particles, dt, model);
+        particles_render(s->particles, view, proj);
+    }
 }
 
 void scene_destroy(SceneRenderer *s)
 {
     if (!s) return;
     if (s->have_mesh) gl_mesh_free(&s->mesh);
+    particles_destroy(s->particles);
     if (s->sdf_tex) glDeleteTextures(1, &s->sdf_tex);
     if (s->bg_tex) glDeleteTextures(1, &s->bg_tex);
     if (s->bg_prog) glDeleteProgram(s->bg_prog);

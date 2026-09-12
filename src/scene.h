@@ -14,7 +14,7 @@ void scene_set_auto_spin(SceneRenderer *s, int enabled);   /* giro continuo, ign
    configurado) ate a SceneRenderer ser recriada. */
 void scene_orbit(SceneRenderer *s, float dyaw_deg, float dpitch_deg);
 void scene_pan(SceneRenderer *s, float dx, float dy);
-void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h);
+void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h, int particles_active);
 void scene_destroy(SceneRenderer *s);
 
 #endif
