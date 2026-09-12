@@ -15,7 +15,7 @@ uniform int   uRing;         /* 1 = bokeh: cresce (em vez de encolher) com a dis
    vez de todo blur vir so' da distancia (o que fazia todas ficarem com a
    mesma nitidez). Maior = mais variedade de blur; menor = mais uniforme/
    dependente so' da distancia. Ajustar aqui se o valor nao ficar bom. */
-const float BLUR_RAND_SPREAD = 0.7;
+const float BLUR_RAND_SPREAD = 0.85;
 
 out vec4  vColor;
 out float vBlur;

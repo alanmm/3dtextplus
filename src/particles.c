@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <windows.h>
 
 #define PARTICLES_MAX   4000
 #define WALL_SAMPLE_MAX 512
@@ -81,6 +82,25 @@ static void curl2d(float x, float y, float *ox, float *oy)
     *oy = -(n3 - n4) / (2.0f * e);
 }
 
+/* h em radianos [0, 2pi); s, l em [0,1]. Conversao HSL->RGB padrao. */
+static void hsl_to_rgb(float h, float s, float l, float *r, float *g, float *b)
+{
+    float hh = h / 6.2831853f;
+    hh -= floorf(hh);
+    float c = (1.0f - fabsf(2.0f * l - 1.0f)) * s;
+    float hp = hh * 6.0f;
+    float x = c * (1.0f - fabsf(fmodf(hp, 2.0f) - 1.0f));
+    float r1, g1, b1;
+    if      (hp < 1.0f) { r1 = c; g1 = x; b1 = 0.0f; }
+    else if (hp < 2.0f) { r1 = x; g1 = c; b1 = 0.0f; }
+    else if (hp < 3.0f) { r1 = 0.0f; g1 = c; b1 = x; }
+    else if (hp < 4.0f) { r1 = 0.0f; g1 = x; b1 = c; }
+    else if (hp < 5.0f) { r1 = x; g1 = 0.0f; b1 = c; }
+    else                { r1 = c; g1 = 0.0f; b1 = x; }
+    float m = l - c * 0.5f;
+    *r = r1 + m; *g = g1 + m; *b = b1 + m;
+}
+
 /* ---------------- ciclo de vida ---------------- */
 
 ParticleSystem *particles_create(void)
@@ -109,7 +129,15 @@ ParticleSystem *particles_create(void)
     glBindVertexArray(0);
 
     p->kind = -1;
-    p->seed = 0x9E3779B9u;
+    /* semente com entropia real - sem isso toda execucao do protetor de
+       tela sorteia exatamente a mesma paleta/layout (achado testando esta
+       mudanca: duas capturas em execucoes separadas saiam identicas,
+       pixel a pixel). QueryPerformanceCounter tem resolucao bem mais fina
+       que GetTickCount; o endereco de p adiciona alguma variacao a mais
+       entre janelas de monitores diferentes criadas quase juntas. */
+    LARGE_INTEGER qpc;
+    QueryPerformanceCounter(&qpc);
+    p->seed = 0x9E3779B9u ^ (unsigned)qpc.LowPart ^ (unsigned)(size_t)p;
     glEnable(GL_PROGRAM_POINT_SIZE);
     return p;
 }
@@ -126,6 +154,16 @@ static void spawn_ambient(ParticleSystem *p)
     }
     if (target > PARTICLES_MAX) target = PARTICLES_MAX;
     p->count = target;
+
+    /* bokeh: uma faixa de matiz e' sorteada uma vez por semeadura (nao por
+       particula) - todas as particulas dessa "sessao" tiram sua cor de
+       dentro dessa faixa estreita, dando uma paleta coerente em vez de
+       um arco-iris. Reamostrado toda vez que spawn_ambient roda de novo
+       (mudanca de densidade/tipo, ou o dialogo reabrindo). */
+    const float HUE_BAND_DEG = 40.0f;
+    float hue_band_rad = HUE_BAND_DEG * (3.14159265f / 180.0f);
+    float palette_hue = hashf(&p->seed) * 6.2831853f;
+
     for (int i = 0; i < target; ++i) {
         Particle *pt = &p->buf[i];
         pt->x = (hashf(&p->seed) * 2.0f - 1.0f) * p->box_hx;
@@ -136,19 +174,22 @@ static void spawn_ambient(ParticleSystem *p)
         pt->life = 0.0f;
         pt->alpha_rand = 0.01f + hashf(&p->seed) * 0.79f;   /* 1%..80%, aleatoria por particula */
         if (p->kind == 1) {
-            /* bokeh: tamanho, cor pastel, rotacao do hexagono e semente de
-               blur aleatorios por particula - sem isso todas saem com a
-               mesma rotacao (fica simetrico) e o mesmo blur numa dada
-               profundidade (fica homogeneo demais). */
-            pt->size = size * (0.5f + hashf(&p->seed) * 1.0f);
-            /* tons pasteis discretos (mais escuros/dessaturados que um
-               pastel "vivo") pra nao brigar com o fundo escuro */
-            float hue = hashf(&p->seed) * 6.2831853f;
-            pt->r = 0.42f + 0.16f * cosf(hue);
-            pt->g = 0.42f + 0.16f * cosf(hue - 2.094395f);
-            pt->b = 0.42f + 0.16f * cosf(hue - 4.188790f);
-            pt->rot = hashf(&p->seed) * 6.2831853f;
+            /* bokeh: semente de blur primeiro - ela tambem governa tamanho
+               e opacidade abaixo (quanto mais fora de foco, maior e mais
+               fraca a particula fica, como um bokeh de verdade), por cima
+               da variacao independente que ja existia. */
             pt->blur_seed = hashf(&p->seed);
+            pt->size = size * (0.5f + hashf(&p->seed) * 1.0f) * (1.0f + 0.5f * pt->blur_seed);
+            pt->alpha_rand *= (1.0f - 0.5f * pt->blur_seed);
+
+            /* cor: HSL bem claro e pouco saturado, dentro da faixa de
+               matiz da sessao. */
+            float hue = palette_hue + (hashf(&p->seed) - 0.5f) * hue_band_rad;
+            float sat = 0.10f + hashf(&p->seed) * 0.20f;    /* 10%..30% */
+            float lit = 0.90f + hashf(&p->seed) * 0.09f;    /* 90%..99% */
+            hsl_to_rgb(hue, sat, lit, &pt->r, &pt->g, &pt->b);
+
+            pt->rot = hashf(&p->seed) * 6.2831853f;
         } else {
             pt->size = size;
             pt->r = r; pt->g = g; pt->b = b;
