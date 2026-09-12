@@ -146,6 +146,13 @@ static int CALLBACK enum_fonts_cb(const LOGFONTW *lf, const TEXTMETRICW *tm, DWO
     return 1;
 }
 
+static void content_enable(HWND h)
+{
+    EnableWindow(GetDlgItem(h, IDC_TEXT), g_work.content_mode == CONTENT_TEXT);
+    EnableWindow(GetDlgItem(h, IDC_CLOCKDATE), g_work.content_mode == CONTENT_CLOCK);
+    EnableWindow(GetDlgItem(h, IDC_CLOCKSEC), g_work.content_mode == CONTENT_CLOCK);
+}
+
 static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
 {
     (void)l;
@@ -156,6 +163,14 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             SetDlgItemTextW(h, IDC_TEXT, wtext);
             CheckDlgButton(h, IDC_BOLD, g_work.font_bold ? BST_CHECKED : BST_UNCHECKED);
             CheckDlgButton(h, IDC_ITALIC, g_work.font_italic ? BST_CHECKED : BST_UNCHECKED);
+
+            static const wchar_t *modes[] = { L"Texto", L"Relogio" };
+            for (int i = 0; i < 2; ++i)
+                SendDlgItemMessageW(h, IDC_CONTMODE, CB_ADDSTRING, 0, (LPARAM)modes[i]);
+            SendDlgItemMessageW(h, IDC_CONTMODE, CB_SETCURSEL, g_work.content_mode, 0);
+            CheckDlgButton(h, IDC_CLOCKDATE, g_work.clock_show_date ? BST_CHECKED : BST_UNCHECKED);
+            CheckDlgButton(h, IDC_CLOCKSEC, g_work.clock_show_seconds ? BST_CHECKED : BST_UNCHECKED);
+            content_enable(h);
 
             HWND cb = GetDlgItem(h, IDC_FONT);
             HDC dc = GetDC(h);
@@ -170,6 +185,22 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
         }
         case WM_COMMAND:
             switch (LOWORD(w)) {
+                case IDC_CONTMODE:
+                    if (HIWORD(w) == CBN_SELCHANGE) {
+                        g_work.content_mode =
+                            (ContentMode)SendDlgItemMessageW(h, IDC_CONTMODE, CB_GETCURSEL, 0, 0);
+                        content_enable(h);
+                        preview_dirty(h);
+                    }
+                    break;
+                case IDC_CLOCKDATE:
+                    g_work.clock_show_date = (IsDlgButtonChecked(h, IDC_CLOCKDATE) == BST_CHECKED);
+                    preview_dirty(h);
+                    break;
+                case IDC_CLOCKSEC:
+                    g_work.clock_show_seconds = (IsDlgButtonChecked(h, IDC_CLOCKSEC) == BST_CHECKED);
+                    preview_dirty(h);
+                    break;
                 case IDC_TEXT:
                     if (HIWORD(w) == EN_CHANGE) {
                         wchar_t wtext[512];
