@@ -28,6 +28,7 @@ static HWND       g_effects;     /* sub-dialogo da aba Efeitos */
 static HWND       g_perf;        /* sub-dialogo da aba Desempenho */
 static HWND       g_post;        /* sub-dialogo da aba Pos */
 static HWND       g_bg;          /* sub-dialogo da aba Fundo */
+static HWND       g_particles;   /* sub-dialogo da aba Particulas */
 static bool       g_selftest;
 static GlWindow  *g_preview;
 static bool       g_dirty;
@@ -765,6 +766,68 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
     return FALSE;
 }
 
+/* ---------------- aba Particulas ---------------- */
+
+static void particles_labels(HWND h)
+{
+    wchar_t b[32];
+    swprintf(b, 32, L"%.2f", (double)g_work.particles_density);    SetDlgItemTextW(h, IDC_PARTDENS_VAL, b);
+    swprintf(b, 32, L"%.2f", (double)g_work.particles_speed);      SetDlgItemTextW(h, IDC_PARTSPEED_VAL, b);
+    swprintf(b, 32, L"%.2f", (double)g_work.particles_size_scale); SetDlgItemTextW(h, IDC_PARTSIZE_VAL, b);
+}
+
+static void particles_enable(HWND h)
+{
+    BOOL on = g_work.particles_on ? TRUE : FALSE;
+    EnableWindow(GetDlgItem(h, IDC_PARTKIND), on);
+    EnableWindow(GetDlgItem(h, IDC_PARTDENS), on);
+    EnableWindow(GetDlgItem(h, IDC_PARTSPEED), on);
+    EnableWindow(GetDlgItem(h, IDC_PARTSIZE), on);
+}
+
+static INT_PTR CALLBACK particles_proc(HWND h, UINT m, WPARAM w, LPARAM l)
+{
+    (void)l;
+    switch (m) {
+        case WM_INITDIALOG: {
+            static const wchar_t *kinds[] = { L"Poeira", L"Bokeh", L"Faiscas", L"Estrelas" };
+            for (int i = 0; i < 4; ++i)
+                SendDlgItemMessageW(h, IDC_PARTKIND, CB_ADDSTRING, 0, (LPARAM)kinds[i]);
+            SendDlgItemMessageW(h, IDC_PARTKIND, CB_SETCURSEL, g_work.particles_kind, 0);
+            CheckDlgButton(h, IDC_PARTON, g_work.particles_on ? BST_CHECKED : BST_UNCHECKED);
+            set_slider(h, IDC_PARTDENS, 0, 100, (int)(g_work.particles_density * 100.0f + 0.5f));
+            set_slider(h, IDC_PARTSPEED, 0, 200, (int)(g_work.particles_speed * 100.0f + 0.5f));
+            set_slider(h, IDC_PARTSIZE, 0, 200, (int)(g_work.particles_size_scale * 100.0f + 0.5f));
+            particles_labels(h);
+            particles_enable(h);
+            return TRUE;
+        }
+        case WM_HSCROLL:
+            g_work.particles_density    = (float)SendDlgItemMessageW(h, IDC_PARTDENS, TBM_GETPOS, 0, 0) / 100.0f;
+            g_work.particles_speed      = (float)SendDlgItemMessageW(h, IDC_PARTSPEED, TBM_GETPOS, 0, 0) / 100.0f;
+            g_work.particles_size_scale = (float)SendDlgItemMessageW(h, IDC_PARTSIZE, TBM_GETPOS, 0, 0) / 100.0f;
+            particles_labels(h);
+            preview_dirty(h);
+            return TRUE;
+        case WM_COMMAND:
+            switch (LOWORD(w)) {
+                case IDC_PARTON:
+                    g_work.particles_on = (IsDlgButtonChecked(h, IDC_PARTON) == BST_CHECKED);
+                    particles_enable(h);
+                    preview_dirty(h);
+                    break;
+                case IDC_PARTKIND:
+                    if (HIWORD(w) == CBN_SELCHANGE) {
+                        g_work.particles_kind = (int)SendDlgItemMessageW(h, IDC_PARTKIND, CB_GETCURSEL, 0, 0);
+                        preview_dirty(h);
+                    }
+                    break;
+            }
+            return TRUE;
+    }
+    return FALSE;
+}
+
 /* ---------------- dialogo principal ---------------- */
 
 static void place_tab_child(HWND dlg, HWND tabs, HWND child)
@@ -786,6 +849,7 @@ static void select_tab(int sel)
     ShowWindow(g_perf,     sel == 5 ? SW_SHOW : SW_HIDE);
     ShowWindow(g_post,     sel == 6 ? SW_SHOW : SW_HIDE);
     ShowWindow(g_bg,       sel == 7 ? SW_SHOW : SW_HIDE);
+    ShowWindow(g_particles, sel == 8 ? SW_SHOW : SW_HIDE);
 
     /* Material e Geometria se beneficiam de um enquadramento mais proximo -
        e onde bevel, metalizacao e reflexo de ambiente ficam visiveis no preview
@@ -822,6 +886,8 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             TabCtrl_InsertItem(tabs, 6, &ti);
             ti.pszText = L"Fundo";
             TabCtrl_InsertItem(tabs, 7, &ti);
+            ti.pszText = L"Particulas";
+            TabCtrl_InsertItem(tabs, 8, &ti);
 
             g_content = CreateDialogW(GetModuleHandleW(NULL),
                                       MAKEINTRESOURCEW(IDD_TAB_CONTENT), h, content_proc);
@@ -839,6 +905,8 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                                    MAKEINTRESOURCEW(IDD_TAB_POST), h, post_proc);
             g_bg = CreateDialogW(GetModuleHandleW(NULL),
                                  MAKEINTRESOURCEW(IDD_TAB_BG), h, bg_proc);
+            g_particles = CreateDialogW(GetModuleHandleW(NULL),
+                                        MAKEINTRESOURCEW(IDD_TAB_PARTICLES), h, particles_proc);
             place_tab_child(h, tabs, g_content);
             place_tab_child(h, tabs, g_motion);
             place_tab_child(h, tabs, g_material);
@@ -847,6 +915,7 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             place_tab_child(h, tabs, g_perf);
             place_tab_child(h, tabs, g_post);
             place_tab_child(h, tabs, g_bg);
+            place_tab_child(h, tabs, g_particles);
             select_tab(0);
 
             /* mini-preview 3D ao vivo */
@@ -874,7 +943,7 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                 if (GetEnvironmentVariableA("M3DT_TAB", tb, sizeof tb) > 0) {
                     int sel = atoi(tb);
                     if (sel < 0) sel = 0;
-                    if (sel > 7) sel = 7;
+                    if (sel > 8) sel = 8;
                     TabCtrl_SetCurSel(tabs, sel);
                     select_tab(sel);
                 }
