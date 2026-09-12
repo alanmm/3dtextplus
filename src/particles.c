@@ -17,6 +17,7 @@ typedef struct {
     float age, life;   /* sparks: idade/vida real; stars: age reaproveitado como fase de cintilacao */
     float size;
     float r, g, b;
+    float alpha_rand;  /* opacidade base aleatoria por particula (dust/bokeh), 1%..80% */
 } Particle;
 
 typedef struct { float x, y, z, size, r, g, b, a; } ParticleVertex;
@@ -31,6 +32,7 @@ struct ParticleSystem {
     int   kind;      /* -1 = ainda nao inicializado */
     float density, speed, size_scale;
     float box_hx, box_hy, box_hz;
+    float fade_dist;   /* distancia de referencia p/ o fade por distancia e o crescimento do bokeh */
 
     float time;
     float star_angle;
@@ -111,8 +113,8 @@ static void spawn_ambient(ParticleSystem *p)
     int target = 0;
     float size = 0.05f, r = 1.0f, g = 1.0f, b = 1.0f;
     switch (p->kind) {
-        case 0: target = (int)(p->density * 800.0f); size = 0.035f; r = g = b = 1.0f; break;               /* dust */
-        case 1: target = (int)(p->density * 60.0f);  size = 0.16f;  r = 1.0f; g = 0.95f; b = 0.85f; break;  /* bokeh */
+        case 0: target = (int)(p->density * 800.0f); size = 0.035f; r = g = b = 1.0f; break;   /* dust */
+        case 1: target = (int)(p->density * 60.0f);  size = 0.16f;  break;                     /* bokeh: cor/tamanho abaixo, por particula */
         case 3: target = (int)(p->density * 300.0f); size = 0.03f;  r = 0.85f; g = 0.9f; b = 1.0f; break;   /* stars */
         default: target = 0; break;
     }
@@ -126,8 +128,20 @@ static void spawn_ambient(ParticleSystem *p)
         pt->vx = pt->vy = pt->vz = 0.0f;
         pt->age = hashf(&p->seed) * 6.2831853f;   /* fase de cintilacao - so' stars usam */
         pt->life = 0.0f;
-        pt->size = size;
-        pt->r = r; pt->g = g; pt->b = b;
+        pt->alpha_rand = 0.01f + hashf(&p->seed) * 0.79f;   /* 1%..80%, aleatoria por particula */
+        if (p->kind == 1) {
+            /* bokeh: tamanho e cor pastel aleatorios por particula */
+            pt->size = size * (0.5f + hashf(&p->seed) * 1.0f);
+            /* tons pasteis discretos (mais escuros/dessaturados que um
+               pastel "vivo") pra nao brigar com o fundo escuro */
+            float hue = hashf(&p->seed) * 6.2831853f;
+            pt->r = 0.42f + 0.16f * cosf(hue);
+            pt->g = 0.42f + 0.16f * cosf(hue - 2.094395f);
+            pt->b = 0.42f + 0.16f * cosf(hue - 4.188790f);
+        } else {
+            pt->size = size;
+            pt->r = r; pt->g = g; pt->b = b;
+        }
     }
 }
 
@@ -143,6 +157,7 @@ void particles_set_config(ParticleSystem *p, const Config *cfg,
     p->box_hx = hx * 3.0f + 1.0f;
     p->box_hy = hy * 3.0f + 1.0f;
     p->box_hz = hz * 6.0f + 2.0f;
+    p->fade_dist = fmaxf(p->box_hx, fmaxf(p->box_hy, p->box_hz));
 
     int n = wall_count;
     if (n > WALL_SAMPLE_MAX) n = WALL_SAMPLE_MAX;
@@ -280,7 +295,7 @@ void particles_render(ParticleSystem *p, m4 view, m4 proj, int fb_h)
         gv->x = pos.x; gv->y = pos.y; gv->z = pos.z;
         gv->size = pt->size * p->size_scale;
 
-        float alpha = 1.0f;
+        float alpha = pt->alpha_rand;   /* dust/bokeh: base 1%..80%, aleatoria por particula */
         v3 col = { pt->r, pt->g, pt->b };
         if (p->kind == 2) {
             float u = pt->life > 0.0f ? pt->age / pt->life : 1.0f;
@@ -300,7 +315,14 @@ void particles_render(ParticleSystem *p, m4 view, m4 proj, int fb_h)
     glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(p->count * (int)sizeof(ParticleVertex)), p->gpu_buf);
 
     glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+    if (p->kind == 1) {
+        /* bokeh: blend "normal" (over) - aditivo faz circulos sobrepostos
+           saturarem rapido pra um branco solido; alpha normal fica
+           translucido de verdade, mais parecido com uma foto de bokeh. */
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    } else {
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);   /* aditivo: poeira/faiscas/estrelas brilham */
+    }
     glDepthMask(GL_FALSE);
 
     glUseProgram(p->prog);
@@ -312,6 +334,7 @@ void particles_render(ParticleSystem *p, m4 view, m4 proj, int fb_h)
        grande) - proj.m[5] e' 1/tan(fovy/2) (m4_perspective). */
     float pixel_scale = (float)fb_h * proj.m[5] * 0.5f;
     glUniform1f(glGetUniformLocation(p->prog, "uPixelScale"), pixel_scale);
+    glUniform1f(glGetUniformLocation(p->prog, "uFadeDist"), p->fade_dist);
     glUniform1i(glGetUniformLocation(p->prog, "uRing"), p->kind == 1 ? 1 : 0);
 
     glBindVertexArray(p->vao);

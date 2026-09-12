@@ -20,8 +20,14 @@ void main()
     vec2 uv = gl_PointCoord * 2.0 - 1.0;
     float alpha;
     if (uRing != 0) {
-        /* opacidade unica e translucida, sem borda mais forte que o centro */
-        alpha = smoothstep(1.0, 0.85, hex_shape(uv)) * 0.45;
+        /* queda suave e REDONDA do centro pra borda (tipo desfoque de
+           lente) - usar a "distancia" hexagonal direto como expoente cria
+           cristas nos 6 eixos que o bloom transforma numa estrela/flor.
+           O hexagono entra so' como um recorte na borda externa. */
+        float d = length(uv);
+        float radial = pow(clamp(1.0 - d, 0.0, 1.0), 1.6);
+        float edge = smoothstep(1.0, 0.85, hex_shape(uv));
+        alpha = radial * edge;
     } else {
         float d = length(uv);
         alpha = smoothstep(1.0, 0.0, d);
