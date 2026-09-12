@@ -58,6 +58,7 @@ typedef struct {
     float        particles_density;     /* 0..1 */
     float        particles_speed;       /* 0..2 */
     float        particles_size_scale;  /* 0..2 */
+    float        particles_opacity;    /* 0..2, escala a opacidade aleatoria por particula (dust/bokeh) */
 } Config;
 
 void config_defaults(Config *c);

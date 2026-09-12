@@ -24,6 +24,7 @@ void run_config_tests(void)
     EXPECT(nearf(d.bg_color1_r, 0.02f) && nearf(d.bg_color1_g, 0.03f) && nearf(d.bg_color1_b, 0.05f));
     EXPECT(d.particles_on == 0);
     EXPECT(nearf(d.particles_density, 0.5f));
+    EXPECT(nearf(d.particles_opacity, 1.0f));
 
     /* round-trip */
     Config a;
@@ -79,6 +80,7 @@ void run_config_tests(void)
     a.particles_density = 0.75f;
     a.particles_speed = 1.6f;
     a.particles_size_scale = 0.4f;
+    a.particles_opacity = 0.6f;
     config_save_to(&a, TESTKEY);
 
     Config b;
@@ -134,6 +136,7 @@ void run_config_tests(void)
     EXPECT(nearf(b.particles_density, 0.75f));
     EXPECT(nearf(b.particles_speed, 1.6f));
     EXPECT(nearf(b.particles_size_scale, 0.4f));
+    EXPECT(nearf(b.particles_opacity, 0.6f));
 
     /* valor ausente -> default; fora de faixa -> clamp; lixo -> default */
     RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
@@ -181,8 +184,9 @@ void run_config_tests(void)
             { L"bg_image_fit", L"9" }, { L"bg_pan_speed", L"-1" },
             { L"particles_kind", L"9" }, { L"particles_density", L"-1" },
             { L"particles_speed", L"9" }, { L"particles_size_scale", L"-1" },
+            { L"particles_opacity", L"9" },
         };
-        for (int i = 0; i < 20; ++i)
+        for (int i = 0; i < 21; ++i)
             RegSetValueExW(kp, kv[i].n, 0, REG_SZ, (const BYTE *)kv[i].v,
                            (DWORD)((wcslen(kv[i].v) + 1) * sizeof(wchar_t)));
         RegCloseKey(kp);
@@ -209,6 +213,7 @@ void run_config_tests(void)
     EXPECT(e.particles_density >= 0.0f);           /* -1 -> clamp */
     EXPECT(e.particles_speed <= 2.0f);             /* 9 -> clamp */
     EXPECT(e.particles_size_scale >= 0.0f);        /* -1 -> clamp */
+    EXPECT(e.particles_opacity <= 2.0f);           /* 9 -> clamp */
 
     RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
 }

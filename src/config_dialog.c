@@ -774,6 +774,7 @@ static void particles_labels(HWND h)
     swprintf(b, 32, L"%.2f", (double)g_work.particles_density);    SetDlgItemTextW(h, IDC_PARTDENS_VAL, b);
     swprintf(b, 32, L"%.2f", (double)g_work.particles_speed);      SetDlgItemTextW(h, IDC_PARTSPEED_VAL, b);
     swprintf(b, 32, L"%.2f", (double)g_work.particles_size_scale); SetDlgItemTextW(h, IDC_PARTSIZE_VAL, b);
+    swprintf(b, 32, L"%.2f", (double)g_work.particles_opacity);    SetDlgItemTextW(h, IDC_PARTOPACITY_VAL, b);
 }
 
 static void particles_enable(HWND h)
@@ -783,6 +784,7 @@ static void particles_enable(HWND h)
     EnableWindow(GetDlgItem(h, IDC_PARTDENS), on);
     EnableWindow(GetDlgItem(h, IDC_PARTSPEED), on);
     EnableWindow(GetDlgItem(h, IDC_PARTSIZE), on);
+    EnableWindow(GetDlgItem(h, IDC_PARTOPACITY), on);
 }
 
 static INT_PTR CALLBACK particles_proc(HWND h, UINT m, WPARAM w, LPARAM l)
@@ -798,6 +800,7 @@ static INT_PTR CALLBACK particles_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             set_slider(h, IDC_PARTDENS, 0, 100, (int)(g_work.particles_density * 100.0f + 0.5f));
             set_slider(h, IDC_PARTSPEED, 0, 200, (int)(g_work.particles_speed * 100.0f + 0.5f));
             set_slider(h, IDC_PARTSIZE, 0, 200, (int)(g_work.particles_size_scale * 100.0f + 0.5f));
+            set_slider(h, IDC_PARTOPACITY, 0, 200, (int)(g_work.particles_opacity * 100.0f + 0.5f));
             particles_labels(h);
             particles_enable(h);
             return TRUE;
@@ -806,6 +809,7 @@ static INT_PTR CALLBACK particles_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             g_work.particles_density    = (float)SendDlgItemMessageW(h, IDC_PARTDENS, TBM_GETPOS, 0, 0) / 100.0f;
             g_work.particles_speed      = (float)SendDlgItemMessageW(h, IDC_PARTSPEED, TBM_GETPOS, 0, 0) / 100.0f;
             g_work.particles_size_scale = (float)SendDlgItemMessageW(h, IDC_PARTSIZE, TBM_GETPOS, 0, 0) / 100.0f;
+            g_work.particles_opacity    = (float)SendDlgItemMessageW(h, IDC_PARTOPACITY, TBM_GETPOS, 0, 0) / 100.0f;
             particles_labels(h);
             preview_dirty(h);
             return TRUE;

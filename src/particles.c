@@ -30,7 +30,7 @@ struct ParticleSystem {
     int            count;
 
     int   kind;      /* -1 = ainda nao inicializado */
-    float density, speed, size_scale;
+    float density, speed, size_scale, opacity_scale;
     float box_hx, box_hy, box_hz;
     float fade_dist;   /* distancia de referencia p/ o fade por distancia e o crescimento do bokeh */
 
@@ -154,6 +154,7 @@ void particles_set_config(ParticleSystem *p, const Config *cfg,
     p->density    = cfg->particles_density;
     p->speed      = cfg->particles_speed;
     p->size_scale = cfg->particles_size_scale;
+    p->opacity_scale = cfg->particles_opacity;
     p->box_hx = hx * 3.0f + 1.0f;
     p->box_hy = hy * 3.0f + 1.0f;
     p->box_hz = hz * 6.0f + 2.0f;
@@ -295,7 +296,10 @@ void particles_render(ParticleSystem *p, m4 view, m4 proj, int fb_h)
         gv->x = pos.x; gv->y = pos.y; gv->z = pos.z;
         gv->size = pt->size * p->size_scale;
 
-        float alpha = pt->alpha_rand;   /* dust/bokeh: base 1%..80%, aleatoria por particula */
+        /* dust/bokeh: base 1%..80% aleatoria por particula, escalada pelo
+           slider geral de opacidade - aplicado aqui (nao no spawn) pra
+           reagir na hora ao mexer no slider, sem esperar re-semear. */
+        float alpha = pt->alpha_rand * p->opacity_scale;
         v3 col = { pt->r, pt->g, pt->b };
         if (p->kind == 2) {
             float u = pt->life > 0.0f ? pt->age / pt->life : 1.0f;

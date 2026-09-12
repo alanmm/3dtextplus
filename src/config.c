@@ -66,6 +66,7 @@ void config_defaults(Config *c)
     c->particles_density = 0.5f;
     c->particles_speed = 1.0f;
     c->particles_size_scale = 1.0f;
+    c->particles_opacity = 1.0f;
 }
 
 static float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
@@ -204,6 +205,7 @@ void config_load_from(Config *c, const wchar_t *subkey)
     if (reg_get_f(k, L"particles_density", &f))    c->particles_density = f;
     if (reg_get_f(k, L"particles_speed", &f))      c->particles_speed = f;
     if (reg_get_f(k, L"particles_size_scale", &f)) c->particles_size_scale = f;
+    if (reg_get_f(k, L"particles_opacity", &f))     c->particles_opacity = f;
 
     wchar_t col[16];
     if (reg_get_w(k, L"base_color", col, 16) && col[0] == L'#' && wcslen(col) >= 7) {
@@ -277,6 +279,7 @@ void config_load_from(Config *c, const wchar_t *subkey)
     c->particles_density    = clampf(c->particles_density, 0.0f, 1.0f);
     c->particles_speed      = clampf(c->particles_speed, 0.0f, 2.0f);
     c->particles_size_scale = clampf(c->particles_size_scale, 0.0f, 2.0f);
+    c->particles_opacity    = clampf(c->particles_opacity, 0.0f, 2.0f);
     if (c->text[0] == 0) strcpy(c->text, "Modern 3D Text");
     if (c->font_family[0] == 0) wcscpy(c->font_family, L"Segoe UI");
 }
@@ -355,6 +358,7 @@ void config_save_to(const Config *c, const wchar_t *subkey)
     set_f(k, L"particles_density", c->particles_density);
     set_f(k, L"particles_speed", c->particles_speed);
     set_f(k, L"particles_size_scale", c->particles_size_scale);
+    set_f(k, L"particles_opacity", c->particles_opacity);
 
     wchar_t col[16];
     unsigned r = (unsigned)(c->base_r * 255.0f + 0.5f);

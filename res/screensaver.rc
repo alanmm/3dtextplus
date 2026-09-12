@@ -208,6 +208,10 @@ BEGIN
     LTEXT      "Tamanho:", -1, 8, 108, 80, 9
     LTEXT      "", IDC_PARTSIZE_VAL, 182, 108, 50, 9
     CONTROL    "", IDC_PARTSIZE, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 118, 224, 16
+
+    LTEXT      "Opacidade:", -1, 8, 138, 80, 9
+    LTEXT      "", IDC_PARTOPACITY_VAL, 182, 138, 50, 9
+    CONTROL    "", IDC_PARTOPACITY, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 148, 224, 16
 END
 
 VS_VERSION_INFO VERSIONINFO
