@@ -203,7 +203,8 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
             free(rev);
         }
     }
-    if (!tessTesselate(t, TESS_WINDING_NONZERO, TESS_POLYGONS, 3, 2, NULL)) {
+    int winding = (cs->fill_rule == 1) ? TESS_WINDING_ODD : TESS_WINDING_NONZERO;
+    if (!tessTesselate(t, winding, TESS_POLYGONS, 3, 2, NULL)) {
         tessDeleteTess(t);
         for (int i = 0; i < cs->count; ++i) free(inner ? inner[i] : NULL);
         free(inner); free(shell_ok);

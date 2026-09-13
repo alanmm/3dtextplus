@@ -8,6 +8,7 @@ typedef struct {
     Contour *contours;
     int      count;
     float    minx, miny, maxx, maxy;               /* bbox da uniao */
+    int      fill_rule;   /* 0 nonzero (TESS_WINDING_NONZERO), 1 evenodd (TESS_WINDING_ODD) */
 } ContourSet;
 
 #endif

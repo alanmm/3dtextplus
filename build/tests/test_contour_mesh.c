@@ -10,6 +10,7 @@ static ContourSet cs_make(int nc)
     cs.count = nc;
     cs.contours = (Contour *)calloc((size_t)nc, sizeof(Contour));
     cs.minx = cs.miny = -1; cs.maxx = cs.maxy = 1;
+    cs.fill_rule = 0;
     return cs;
 }
 static void cs_set(ContourSet *cs, int i, const float *xy, int npts)
@@ -105,6 +106,33 @@ void run_contour_mesh_tests(void)
         EXPECT(contour_mesh_build(&cs, mp_plain(0.4f), &md) == 1);
         EXPECT(md.nidx % 3 == 0 && md.nverts > 0);
         mesh_data_free(&md);
+        cs_free(&cs);
+    }
+
+    /* furo via evenodd: MESMA orientacao nos dois contornos (nao seria
+       furo em nonzero), mas fill_rule=1 deve mesmo assim criar um furo -
+       prova que o parametro realmente chega ate a tesselacao */
+    {
+        ContourSet cs = cs_make(2);
+        float outer[] = { -2,-2,  2,-2,  2,2,  -2,2 };   /* CCW */
+        float inner[] = { -1,-1,  1,-1,  1,1,  -1,1 };   /* TAMBEM CCW */
+        cs_set(&cs, 0, outer, 4);
+        cs_set(&cs, 1, inner, 4);
+
+        cs.fill_rule = 1;   /* evenodd */
+        MeshData md_evenodd;
+        EXPECT(contour_mesh_build(&cs, mp_plain(0.4f), &md_evenodd) == 1);
+
+        cs.fill_rule = 0;   /* nonzero: mesma orientacao NAO cria furo */
+        MeshData md_nonzero;
+        EXPECT(contour_mesh_build(&cs, mp_plain(0.4f), &md_nonzero) == 1);
+
+        /* evenodd deixa a area do furo vazia -> menos triangulos que
+           nonzero, que preenche tudo (winding number 2 por dentro) */
+        EXPECT(md_evenodd.nidx < md_nonzero.nidx);
+
+        mesh_data_free(&md_evenodd);
+        mesh_data_free(&md_nonzero);
         cs_free(&cs);
     }
 
