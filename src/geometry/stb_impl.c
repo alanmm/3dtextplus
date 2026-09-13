@@ -10,3 +10,6 @@
 
 #define NANOSVG_IMPLEMENTATION
 #include "nanosvg.h"
+
+#define FAST_OBJ_IMPLEMENTATION
+#include "fast_obj.h"
