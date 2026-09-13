@@ -22,6 +22,7 @@
 
 static Config     g_work;        /* config sendo editada */
 static Config     g_preview_cfg; /* copia de g_work p/ o preview, com texto fixo curto */
+static HWND       g_dlg;         /* dialogo principal */
 static HWND       g_content;     /* sub-dialogo da aba Conteudo */
 static HWND       g_motion;      /* sub-dialogo da aba Movimento */
 static HWND       g_material;    /* sub-dialogo da aba Material */
@@ -813,19 +814,7 @@ static void perf_apply_i18n(HWND h)
     perf_labels(h);
 }
 
-/* refeita na Task 13 pra tambem cobrir Pos/Fundo/Particulas e o chrome
-   principal do dialogo (que ainda nao existem/nao sao alcancaveis neste
-   ponto do arquivo) - por ora cobre so' as abas ja existentes ate aqui */
-static void apply_language_change(void)
-{
-    i18n_init(g_work.ui_language);
-    content_apply_i18n(g_content);
-    motion_apply_i18n(g_motion);
-    material_apply_i18n(g_material);
-    geometry_apply_i18n(g_geometry);
-    effects_apply_i18n(g_effects);
-    perf_apply_i18n(g_perf);
-}
+static void apply_language_change(void);
 
 static INT_PTR CALLBACK perf_proc(HWND h, UINT m, WPARAM w, LPARAM l)
 {
@@ -1280,32 +1269,58 @@ static void select_tab(int sel)
     }
 }
 
+static void apply_language_change(void)
+{
+    i18n_init(g_work.ui_language);
+
+    content_apply_i18n(g_content);
+    motion_apply_i18n(g_motion);
+    material_apply_i18n(g_material);
+    geometry_apply_i18n(g_geometry);
+    effects_apply_i18n(g_effects);
+    perf_apply_i18n(g_perf);
+    post_apply_i18n(g_post);
+    bg_apply_i18n(g_bg);
+    particles_apply_i18n(g_particles);
+
+    if (g_dlg) {
+        SetDlgItemTextW(g_dlg, IDCANCEL, i18n_str(STR_BTN_CANCEL));
+        SetDlgItemTextW(g_dlg, IDC_APPLY, i18n_str(STR_BTN_APPLY));
+
+        HWND tabs = GetDlgItem(g_dlg, IDC_TABS);
+        TCITEMW ti; memset(&ti, 0, sizeof ti); ti.mask = TCIF_TEXT;
+        const StrId tab_ids[9] = {
+            STR_TAB_CONTENT, STR_TAB_MOTION, STR_TAB_MATERIAL, STR_TAB_GEOMETRY,
+            STR_TAB_EFFECTS, STR_TAB_PERF, STR_TAB_POST, STR_TAB_BG, STR_TAB_PARTICLES
+        };
+        for (int i = 0; i < 9; ++i) {
+            ti.pszText = (wchar_t *)i18n_str(tab_ids[i]);
+            TabCtrl_SetItem(tabs, i, &ti);
+        }
+    }
+}
+
 static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
 {
     switch (m) {
         case WM_INITDIALOG: {
+            g_dlg = h;
+            i18n_init(g_work.ui_language);
+
             HWND tabs = GetDlgItem(h, IDC_TABS);
             TCITEMW ti;
             memset(&ti, 0, sizeof ti);
             ti.mask = TCIF_TEXT;
-            ti.pszText = L"Conteudo";
-            TabCtrl_InsertItem(tabs, 0, &ti);
-            ti.pszText = L"Movimento";
-            TabCtrl_InsertItem(tabs, 1, &ti);
-            ti.pszText = L"Material";
-            TabCtrl_InsertItem(tabs, 2, &ti);
-            ti.pszText = L"Geometria";
-            TabCtrl_InsertItem(tabs, 3, &ti);
-            ti.pszText = L"Efeitos";
-            TabCtrl_InsertItem(tabs, 4, &ti);
-            ti.pszText = L"Desempenho";
-            TabCtrl_InsertItem(tabs, 5, &ti);
-            ti.pszText = L"Pos";
-            TabCtrl_InsertItem(tabs, 6, &ti);
-            ti.pszText = L"Fundo";
-            TabCtrl_InsertItem(tabs, 7, &ti);
-            ti.pszText = L"Particulas";
-            TabCtrl_InsertItem(tabs, 8, &ti);
+            const StrId tab_ids[9] = {
+                STR_TAB_CONTENT, STR_TAB_MOTION, STR_TAB_MATERIAL, STR_TAB_GEOMETRY,
+                STR_TAB_EFFECTS, STR_TAB_PERF, STR_TAB_POST, STR_TAB_BG, STR_TAB_PARTICLES
+            };
+            for (int i = 0; i < 9; ++i) {
+                ti.pszText = (wchar_t *)i18n_str(tab_ids[i]);
+                TabCtrl_InsertItem(tabs, i, &ti);
+            }
+            SetDlgItemTextW(h, IDCANCEL, i18n_str(STR_BTN_CANCEL));
+            SetDlgItemTextW(h, IDC_APPLY, i18n_str(STR_BTN_APPLY));
 
             g_content = CreateDialogW(GetModuleHandleW(NULL),
                                       MAKEINTRESOURCEW(IDD_TAB_CONTENT), h, content_proc);
