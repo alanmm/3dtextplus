@@ -194,6 +194,7 @@ static void content_enable(HWND h)
     ShowWindow(GetDlgItem(h, IDC_MESHSCALELABEL), is_mesh ? SW_SHOW : SW_HIDE);
     ShowWindow(GetDlgItem(h, IDC_MESHSCALE_VAL),  is_mesh ? SW_SHOW : SW_HIDE);
     ShowWindow(GetDlgItem(h, IDC_MESHSCALE),      is_mesh ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(h, IDC_MESHUSEMAT),     is_mesh ? SW_SHOW : SW_HIDE);
 
     EnableWindow(GetDlgItem(h, IDC_CLOCKDATE), g_work.content_mode == CONTENT_CLOCK);
     EnableWindow(GetDlgItem(h, IDC_CLOCKSEC), g_work.content_mode == CONTENT_CLOCK);
@@ -225,6 +226,7 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
 
             set_slider(h, IDC_MESHSCALE, 0, 200, (int)(g_work.mesh_size_scale * 100.0f + 0.5f));
             content_mesh_label(h);
+            CheckDlgButton(h, IDC_MESHUSEMAT, g_work.mesh_use_file_materials ? BST_CHECKED : BST_UNCHECKED);
             content_enable(h);
 
             HWND cb = GetDlgItem(h, IDC_FONT);
@@ -317,6 +319,11 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                 case IDC_MESHCLEAR:
                     g_work.mesh_path[0] = 0;
                     content_mesh_label(h);
+                    preview_dirty(h);
+                    break;
+                case IDC_MESHUSEMAT:
+                    g_work.mesh_use_file_materials =
+                        (IsDlgButtonChecked(h, IDC_MESHUSEMAT) == BST_CHECKED);
                     preview_dirty(h);
                     break;
                 case IDC_TEXT:
