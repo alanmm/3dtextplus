@@ -4,6 +4,7 @@
 #include "gl_window.h"
 #include "util/log.h"
 #include "geometry/mesh_import.h"
+#include "i18n.h"
 
 #include <windows.h>
 #include <commctrl.h>
@@ -201,6 +202,47 @@ static void content_enable(HWND h)
     EnableWindow(GetDlgItem(h, IDC_CLOCKSEC), g_work.content_mode == CONTENT_CLOCK);
 }
 
+static void content_apply_i18n(HWND h)
+{
+    SetDlgItemTextW(h, IDC_MODE_LABEL, i18n_str(STR_CONTENT_MODE_LABEL));
+    SetDlgItemTextW(h, IDC_TEXTLABEL, i18n_str(STR_CONTENT_TEXT_LABEL));
+    SetDlgItemTextW(h, IDC_FONTLABEL, i18n_str(STR_CONTENT_FONT_LABEL));
+    SetDlgItemTextW(h, IDC_SVGPATHLABEL, i18n_str(STR_COMMON_FILE_LABEL));
+    SetDlgItemTextW(h, IDC_SVGPICK, i18n_str(STR_COMMON_CHOOSE));
+    SetDlgItemTextW(h, IDC_SVGCLEAR, i18n_str(STR_COMMON_CLEAR));
+    SetDlgItemTextW(h, IDC_SVGCOLORLABEL, i18n_str(STR_CONTENT_SVG_COLORS_LABEL));
+    SetDlgItemTextW(h, IDC_MESHPATHLABEL, i18n_str(STR_COMMON_FILE_LABEL));
+    SetDlgItemTextW(h, IDC_MESHPICK, i18n_str(STR_COMMON_CHOOSE));
+    SetDlgItemTextW(h, IDC_MESHCLEAR, i18n_str(STR_COMMON_CLEAR));
+    SetDlgItemTextW(h, IDC_MESHSCALELABEL, i18n_str(STR_CONTENT_MESH_SCALE_LABEL));
+    SetDlgItemTextW(h, IDC_MESHUSEMAT, i18n_str(STR_CONTENT_MESH_USEMAT));
+    SetDlgItemTextW(h, IDC_BOLD, i18n_str(STR_CONTENT_BOLD));
+    SetDlgItemTextW(h, IDC_ITALIC, i18n_str(STR_CONTENT_ITALIC));
+    SetDlgItemTextW(h, IDC_CLOCKDATE, i18n_str(STR_CONTENT_CLOCK_DATE));
+    SetDlgItemTextW(h, IDC_CLOCKSEC, i18n_str(STR_CONTENT_CLOCK_SECONDS));
+    SetDlgItemTextW(h, IDC_COLOR_LABEL, i18n_str(STR_CONTENT_COLOR_LABEL));
+    SetDlgItemTextW(h, IDC_COLOR, i18n_str(STR_COMMON_CHOOSE_COLOR));
+
+    HWND cm = GetDlgItem(h, IDC_CONTMODE);
+    int cur = (int)SendMessageW(cm, CB_GETCURSEL, 0, 0);
+    SendMessageW(cm, CB_RESETCONTENT, 0, 0);
+    SendMessageW(cm, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_CONTENT_MODE_TEXT));
+    SendMessageW(cm, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_CONTENT_MODE_CLOCK));
+    SendMessageW(cm, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_CONTENT_MODE_SVG));
+    SendMessageW(cm, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_CONTENT_MODE_MESH));
+    SendMessageW(cm, CB_SETCURSEL, cur < 0 ? (int)g_work.content_mode : cur, 0);
+
+    HWND svgc = GetDlgItem(h, IDC_SVGCOLORMODE);
+    cur = (int)SendMessageW(svgc, CB_GETCURSEL, 0, 0);
+    SendMessageW(svgc, CB_RESETCONTENT, 0, 0);
+    SendMessageW(svgc, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_CONTENT_SVG_COLOR_PRESERVE));
+    SendMessageW(svgc, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_CONTENT_SVG_COLOR_SINGLE));
+    SendMessageW(svgc, CB_SETCURSEL, cur < 0 ? g_work.svg_color_mode : cur, 0);
+
+    content_svg_label(h);
+    content_mesh_label(h);
+}
+
 static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
 {
     (void)l;
@@ -211,23 +253,11 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             SetDlgItemTextW(h, IDC_TEXT, wtext);
             CheckDlgButton(h, IDC_BOLD, g_work.font_bold ? BST_CHECKED : BST_UNCHECKED);
             CheckDlgButton(h, IDC_ITALIC, g_work.font_italic ? BST_CHECKED : BST_UNCHECKED);
-
-            static const wchar_t *modes[] = { L"Texto", L"Relogio", L"SVG", L"Malha 3D" };
-            for (int i = 0; i < 4; ++i)
-                SendDlgItemMessageW(h, IDC_CONTMODE, CB_ADDSTRING, 0, (LPARAM)modes[i]);
-            SendDlgItemMessageW(h, IDC_CONTMODE, CB_SETCURSEL, g_work.content_mode, 0);
             CheckDlgButton(h, IDC_CLOCKDATE, g_work.clock_show_date ? BST_CHECKED : BST_UNCHECKED);
             CheckDlgButton(h, IDC_CLOCKSEC, g_work.clock_show_seconds ? BST_CHECKED : BST_UNCHECKED);
-
-            static const wchar_t *svg_modes[] = { L"Preservar do arquivo", L"Unica (material)" };
-            for (int i = 0; i < 2; ++i)
-                SendDlgItemMessageW(h, IDC_SVGCOLORMODE, CB_ADDSTRING, 0, (LPARAM)svg_modes[i]);
-            SendDlgItemMessageW(h, IDC_SVGCOLORMODE, CB_SETCURSEL, g_work.svg_color_mode, 0);
-            content_svg_label(h);
-
-            set_slider(h, IDC_MESHSCALE, 0, 200, (int)(g_work.mesh_size_scale * 100.0f + 0.5f));
-            content_mesh_label(h);
             CheckDlgButton(h, IDC_MESHUSEMAT, g_work.mesh_use_file_materials ? BST_CHECKED : BST_UNCHECKED);
+            set_slider(h, IDC_MESHSCALE, 0, 200, (int)(g_work.mesh_size_scale * 100.0f + 0.5f));
+            content_apply_i18n(h);
             content_enable(h);
 
             HWND cb = GetDlgItem(h, IDC_FONT);

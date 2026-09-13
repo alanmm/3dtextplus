@@ -41,6 +41,8 @@
 #define IDC_MESHSCALE_VAL  1121
 #define IDC_MESHSCALE      1122
 #define IDC_MESHUSEMAT     1123
+#define IDC_MODE_LABEL     1124
+#define IDC_COLOR_LABEL    1125
 
 /* aba Movimento */
 #define IDC_DEPTH         1200
