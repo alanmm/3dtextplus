@@ -3,6 +3,7 @@
 #include "config.h"
 #include "gl_window.h"
 #include "util/log.h"
+#include "geometry/mesh_import.h"
 
 #include <windows.h>
 #include <commctrl.h>
@@ -311,10 +312,17 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     ofn.nMaxFile = 512;
                     ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
                     if (GetOpenFileNameW(&ofn)) {
-                        wcsncpy(g_work.mesh_path, file, 511);
-                        g_work.mesh_path[511] = 0;
-                        content_mesh_label(h);
-                        preview_dirty(h);
+                        if (mesh_import_file_too_big(file)) {
+                            MessageBoxW(h,
+                                L"Este arquivo passa de 10MB e nao sera aceito - "
+                                L"escolha uma malha menor.",
+                                L"Arquivo muito grande", MB_OK | MB_ICONWARNING);
+                        } else {
+                            wcsncpy(g_work.mesh_path, file, 511);
+                            g_work.mesh_path[511] = 0;
+                            content_mesh_label(h);
+                            preview_dirty(h);
+                        }
                     }
                     break;
                 }
