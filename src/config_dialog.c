@@ -298,7 +298,11 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     memset(&ofn, 0, sizeof ofn);
                     ofn.lStructSize = sizeof ofn;
                     ofn.hwndOwner = h;
-                    ofn.lpstrFilter = L"Malha 3D\0*.obj;*.stl\0Todos\0*.*\0";
+                    ofn.lpstrFilter =
+                        L"Malha 3D (*.obj, *.stl)\0*.obj;*.stl\0"
+                        L"Arquivos OBJ (*.obj)\0*.obj\0"
+                        L"Arquivos STL (*.stl)\0*.stl\0"
+                        L"Todos os arquivos (*.*)\0*.*\0";
                     ofn.lpstrFile = file;
                     ofn.nMaxFile = 512;
                     ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
