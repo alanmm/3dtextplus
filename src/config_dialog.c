@@ -301,9 +301,11 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     ofn.lStructSize = sizeof ofn;
                     ofn.hwndOwner = h;
                     ofn.lpstrFilter =
-                        L"Malha 3D (*.obj, *.stl)\0*.obj;*.stl\0"
+                        L"Malha 3D (*.obj, *.stl, *.glb, *.gltf)\0*.obj;*.stl;*.glb;*.gltf\0"
                         L"Arquivos OBJ (*.obj)\0*.obj\0"
                         L"Arquivos STL (*.stl)\0*.stl\0"
+                        L"Arquivos GLB (*.glb)\0*.glb\0"
+                        L"Arquivos glTF (*.gltf)\0*.gltf\0"
                         L"Todos os arquivos (*.*)\0*.*\0";
                     ofn.lpstrFile = file;
                     ofn.nMaxFile = 512;
