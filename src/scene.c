@@ -8,6 +8,7 @@
 #include "geometry/contour_mesh.h"
 #include "geometry/svg_shapes.h"
 #include "geometry/mesh_import.h"
+#include "i18n.h"
 #include "util/mathx.h"
 #include "util/log.h"
 
@@ -315,7 +316,10 @@ static int rebuild_svg_mesh(SceneRenderer *s)
     if (!loaded || svgset.count == 0) {
         if (loaded) svg_shapes_free(&svgset);
         s->have_svg_mesh = 1;
-        return build_error_plaque(s, "SVG nao\nencontrado ou\nsem forma\npreenchida");
+        char msg[256];
+        WideCharToMultiByte(CP_UTF8, 0, i18n_str(STR_ERROR_SVG_NO_SHAPE), -1,
+                            msg, (int)sizeof msg, NULL, NULL);
+        return build_error_plaque(s, msg);
     }
 
     s->svg_meshes = (GlMesh *)calloc((size_t)svgset.count, sizeof(GlMesh));
@@ -361,7 +365,10 @@ static int rebuild_svg_mesh(SceneRenderer *s)
     if (s->svg_mesh_count == 0) {
         free_svg_pieces(s);
         s->have_svg_mesh = 1;
-        return build_error_plaque(s, "SVG sem\ngeometria\nvalida");
+        char msg[256];
+        WideCharToMultiByte(CP_UTF8, 0, i18n_str(STR_ERROR_SVG_EMPTY), -1,
+                            msg, (int)sizeof msg, NULL, NULL);
+        return build_error_plaque(s, msg);
     }
 
     if (uhx < 1e-3f) uhx = 1.0f;
@@ -424,7 +431,10 @@ static int rebuild_imported_mesh(SceneRenderer *s)
     MeshData md;
     int ok = s->mesh_path[0] != 0 && mesh_import_load(s->mesh_path, s->mesh_size_scale, &md);
     if (!ok) {
-        return build_error_plaque(s, "Malha nao\nencontrada\nou invalida");
+        char msg[256];
+        WideCharToMultiByte(CP_UTF8, 0, i18n_str(STR_ERROR_MESH_INVALID), -1,
+                            msg, (int)sizeof msg, NULL, NULL);
+        return build_error_plaque(s, msg);
     }
 
     if (s->have_mesh) gl_mesh_free(&s->mesh);

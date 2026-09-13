@@ -3,6 +3,7 @@
 #include "gl_core.h"
 #include "scene.h"
 #include "config.h"
+#include "i18n.h"
 #include "util/log.h"
 
 #include <glad/gl.h>
@@ -70,6 +71,7 @@ int host_run_saver(HINSTANCE hInst)
 
     Config cfg;
     config_load(&cfg);
+    i18n_init(cfg.ui_language);
 
     MonitorList ml; ml.n = 0;
     if (!selftest)
@@ -194,6 +196,7 @@ int host_run_preview(HINSTANCE hInst, HWND parent)
 
     Config cfg;
     config_load(&cfg);
+    i18n_init(cfg.ui_language);
 
     RECT pr; GetClientRect(parent, &pr);
     GlWindow *g = gl_window_create(hInst, WS_CHILD | WS_VISIBLE, 0, parent,
