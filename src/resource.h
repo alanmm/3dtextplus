@@ -53,6 +53,9 @@
 #define IDC_TILT_VAL      1205
 #define IDC_PERIOD        1206
 #define IDC_PERIOD_VAL    1207
+#define IDC_ANGLE_LABEL   1208
+#define IDC_TILT_LABEL    1209
+#define IDC_PERIOD_LABEL  1210
 
 /* aba Material */
 #define IDC_MATMODE       1300
@@ -63,6 +66,10 @@
 #define IDC_ENVPATH       1305
 #define IDC_ENVPICK       1306
 #define IDC_ENVCLEAR      1307
+#define IDC_MATERIAL_LABEL 1308
+#define IDC_METAL_LABEL    1309
+#define IDC_ROUGH_LABEL    1310
+#define IDC_ENV_LABEL      1311
 
 /* aba Geometria */
 #define IDC_BEVELMODE     1400
@@ -76,6 +83,13 @@
 #define IDC_WALL          1408
 #define IDC_WALL_VAL      1409
 #define IDC_QUALITY       1410
+#define IDC_DEPTH_LABEL   1411
+#define IDC_BEVEL_LABEL   1412
+#define IDC_BSIZE_LABEL   1413
+#define IDC_BDEPTH_LABEL  1414
+#define IDC_BSEG_LABEL    1415
+#define IDC_WALL_LABEL    1416
+#define IDC_QUALITY_LABEL 1417
 
 /* aba Efeitos */
 #define IDC_BLOOM         1500

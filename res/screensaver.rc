@@ -57,13 +57,13 @@ IDD_TAB_MOTION DIALOGEX 0, 0, 240, 200
 STYLE DS_SETFONT | DS_CONTROL | WS_CHILD
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
-    LTEXT    "Angulo max. (graus):", -1, 8, 10, 110, 9
+    LTEXT    "Angulo max. (graus):", IDC_ANGLE_LABEL, 8, 10, 110, 9
     LTEXT    "", IDC_ANGLE_VAL, 182, 10, 50, 9
     CONTROL  "", IDC_ANGLE, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 20, 224, 18
-    LTEXT    "Inclinacao X (graus):", -1, 8, 44, 110, 9
+    LTEXT    "Inclinacao X (graus):", IDC_TILT_LABEL, 8, 44, 110, 9
     LTEXT    "", IDC_TILT_VAL, 182, 44, 50, 9
     CONTROL  "", IDC_TILT, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 54, 224, 18
-    LTEXT    "Periodo (s):", -1, 8, 78, 90, 9
+    LTEXT    "Periodo (s):", IDC_PERIOD_LABEL, 8, 78, 90, 9
     LTEXT    "", IDC_PERIOD_VAL, 182, 78, 50, 9
     CONTROL  "", IDC_PERIOD, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 88, 224, 18
 END
@@ -72,15 +72,15 @@ IDD_TAB_MATERIAL DIALOGEX 0, 0, 240, 200
 STYLE DS_SETFONT | DS_CONTROL | WS_CHILD
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
-    LTEXT      "Material:", -1, 8, 10, 60, 9
+    LTEXT      "Material:", IDC_MATERIAL_LABEL, 8, 10, 60, 9
     COMBOBOX   IDC_MATMODE, 8, 22, 150, 80, CBS_DROPDOWNLIST | WS_TABSTOP
-    LTEXT      "Metalizacao:", -1, 8, 46, 90, 9
+    LTEXT      "Metalizacao:", IDC_METAL_LABEL, 8, 46, 90, 9
     LTEXT      "", IDC_METAL_VAL, 182, 46, 50, 9
     CONTROL    "", IDC_METAL, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 56, 224, 18
-    LTEXT      "Rugosidade:", -1, 8, 80, 90, 9
+    LTEXT      "Rugosidade:", IDC_ROUGH_LABEL, 8, 80, 90, 9
     LTEXT      "", IDC_ROUGH_VAL, 182, 80, 50, 9
     CONTROL    "", IDC_ROUGH, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 90, 224, 18
-    LTEXT      "Imagem de ambiente (opcional):", -1, 8, 116, 200, 9
+    LTEXT      "Imagem de ambiente (opcional):", IDC_ENV_LABEL, 8, 116, 200, 9
     LTEXT      "(procedural)", IDC_ENVPATH, 8, 128, 224, 9, SS_PATHELLIPSIS
     PUSHBUTTON "Escolher...", IDC_ENVPICK, 8, 140, 60, 14
     PUSHBUTTON "Limpar",      IDC_ENVCLEAR, 72, 140, 50, 14
@@ -90,25 +90,25 @@ IDD_TAB_GEOMETRY DIALOGEX 0, 0, 240, 200
 STYLE DS_SETFONT | DS_CONTROL | WS_CHILD
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
-    LTEXT      "Profundidade:", -1, 8, 8, 90, 9
+    LTEXT      "Profundidade:", IDC_DEPTH_LABEL, 8, 8, 90, 9
     LTEXT      "", IDC_DEPTH_VAL, 182, 8, 50, 9
     CONTROL    "", IDC_DEPTH, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 18, 224, 16
-    LTEXT      "Bevel:", -1, 8, 36, 50, 9
+    LTEXT      "Bevel:", IDC_BEVEL_LABEL, 8, 36, 50, 9
     COMBOBOX   IDC_BEVELMODE, 64, 34, 140, 80, CBS_DROPDOWNLIST | WS_TABSTOP
-    LTEXT      "Tamanho:", -1, 8, 52, 90, 9
+    LTEXT      "Tamanho:", IDC_BSIZE_LABEL, 8, 52, 90, 9
     LTEXT      "", IDC_BSIZE_VAL, 182, 52, 50, 9
     CONTROL    "", IDC_BSIZE, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 62, 224, 16
-    LTEXT      "Profundidade do chanfro:", -1, 8, 80, 120, 9
+    LTEXT      "Profundidade do chanfro:", IDC_BDEPTH_LABEL, 8, 80, 120, 9
     LTEXT      "", IDC_BDEPTH_VAL, 182, 80, 50, 9
     CONTROL    "", IDC_BDEPTH, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 90, 224, 16
-    LTEXT      "Segmentos (modo geometrico):", -1, 8, 108, 130, 9
+    LTEXT      "Segmentos (modo geometrico):", IDC_BSEG_LABEL, 8, 108, 130, 9
     LTEXT      "", IDC_BSEG_VAL, 182, 108, 50, 9
     CONTROL    "", IDC_BSEG, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 118, 224, 16
     AUTOCHECKBOX "Casca oca", IDC_SHELL, 8, 138, 80, 12
-    LTEXT      "Espessura da parede:", -1, 8, 154, 110, 9
+    LTEXT      "Espessura da parede:", IDC_WALL_LABEL, 8, 154, 110, 9
     LTEXT      "", IDC_WALL_VAL, 182, 154, 50, 9
     CONTROL    "", IDC_WALL, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 164, 224, 16
-    LTEXT      "Qualidade:", -1, 8, 184, 60, 9
+    LTEXT      "Qualidade:", IDC_QUALITY_LABEL, 8, 184, 60, 9
     COMBOBOX   IDC_QUALITY, 72, 182, 90, 80, CBS_DROPDOWNLIST | WS_TABSTOP
 END
 

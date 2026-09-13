@@ -441,6 +441,13 @@ static void motion_labels(HWND h)
     swprintf(b, 32, L"%.1f", (double)g_work.period);      SetDlgItemTextW(h, IDC_PERIOD_VAL, b);
 }
 
+static void motion_apply_i18n(HWND h)
+{
+    SetDlgItemTextW(h, IDC_ANGLE_LABEL, i18n_str(STR_MOTION_ANGLE_LABEL));
+    SetDlgItemTextW(h, IDC_TILT_LABEL, i18n_str(STR_MOTION_TILT_LABEL));
+    SetDlgItemTextW(h, IDC_PERIOD_LABEL, i18n_str(STR_MOTION_PERIOD_LABEL));
+}
+
 static INT_PTR CALLBACK motion_proc(HWND h, UINT m, WPARAM w, LPARAM l)
 {
     (void)w; (void)l;
@@ -450,6 +457,7 @@ static INT_PTR CALLBACK motion_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             set_slider(h, IDC_TILT,   0, 30,  (int)(g_work.tilt_x + 0.5f));
             set_slider(h, IDC_PERIOD, 20, 300, (int)(g_work.period * 10.0f + 0.5f));
             motion_labels(h);
+            motion_apply_i18n(h);
             return TRUE;
         case WM_HSCROLL:
             g_work.max_angle_y = (float)SendDlgItemMessageW(h, IDC_ANGLE, TBM_GETPOS, 0, 0);
@@ -472,18 +480,35 @@ static void material_labels(HWND h)
     SetDlgItemTextW(h, IDC_ENVPATH, g_work.env_path[0] ? g_work.env_path : L"(procedural)");
 }
 
+static void material_apply_i18n(HWND h)
+{
+    SetDlgItemTextW(h, IDC_MATERIAL_LABEL, i18n_str(STR_MATERIAL_LABEL));
+    SetDlgItemTextW(h, IDC_METAL_LABEL, i18n_str(STR_MATERIAL_METALNESS_LABEL));
+    SetDlgItemTextW(h, IDC_ROUGH_LABEL, i18n_str(STR_MATERIAL_ROUGHNESS_LABEL));
+    SetDlgItemTextW(h, IDC_ENV_LABEL, i18n_str(STR_MATERIAL_ENV_LABEL));
+    SetDlgItemTextW(h, IDC_ENVPICK, i18n_str(STR_COMMON_CHOOSE));
+    SetDlgItemTextW(h, IDC_ENVCLEAR, i18n_str(STR_COMMON_CLEAR));
+
+    HWND cb = GetDlgItem(h, IDC_MATMODE);
+    int cur = (int)SendMessageW(cb, CB_GETCURSEL, 0, 0);
+    SendMessageW(cb, CB_RESETCONTENT, 0, 0);
+    SendMessageW(cb, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_MATERIAL_MODE_CLASSIC));
+    SendMessageW(cb, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_MATERIAL_MODE_METALLIC));
+    SendMessageW(cb, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_MATERIAL_MODE_GLASS));
+    SendMessageW(cb, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_MATERIAL_MODE_MATTE));
+    SendMessageW(cb, CB_SETCURSEL, cur < 0 ? g_work.material_mode : cur, 0);
+
+    material_labels(h);
+}
+
 static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
 {
     (void)l;
     switch (m) {
         case WM_INITDIALOG: {
-            static const wchar_t *names[] = { L"Classico", L"Metalico", L"Vidro", L"Fosco" };
-            for (int i = 0; i < 4; ++i)
-                SendDlgItemMessageW(h, IDC_MATMODE, CB_ADDSTRING, 0, (LPARAM)names[i]);
-            SendDlgItemMessageW(h, IDC_MATMODE, CB_SETCURSEL, g_work.material_mode, 0);
             set_slider(h, IDC_METAL, 0, 100, (int)(g_work.metalness * 100.0f + 0.5f));
             set_slider(h, IDC_ROUGH, 0, 100, (int)(g_work.roughness * 100.0f + 0.5f));
-            material_labels(h);
+            material_apply_i18n(h);
             return TRUE;
         }
         case WM_HSCROLL:
@@ -548,25 +573,46 @@ static void geometry_enable(HWND h)
     EnableWindow(GetDlgItem(h, IDC_WALL), g_work.shell != 0);
 }
 
+static void geometry_apply_i18n(HWND h)
+{
+    SetDlgItemTextW(h, IDC_DEPTH_LABEL, i18n_str(STR_GEOMETRY_DEPTH_LABEL));
+    SetDlgItemTextW(h, IDC_BEVEL_LABEL, i18n_str(STR_GEOMETRY_BEVEL_LABEL));
+    SetDlgItemTextW(h, IDC_BSIZE_LABEL, i18n_str(STR_GEOMETRY_BSIZE_LABEL));
+    SetDlgItemTextW(h, IDC_BDEPTH_LABEL, i18n_str(STR_GEOMETRY_BDEPTH_LABEL));
+    SetDlgItemTextW(h, IDC_BSEG_LABEL, i18n_str(STR_GEOMETRY_BSEG_LABEL));
+    SetDlgItemTextW(h, IDC_SHELL, i18n_str(STR_GEOMETRY_SHELL));
+    SetDlgItemTextW(h, IDC_WALL_LABEL, i18n_str(STR_GEOMETRY_WALL_LABEL));
+    SetDlgItemTextW(h, IDC_QUALITY_LABEL, i18n_str(STR_GEOMETRY_QUALITY_LABEL));
+
+    HWND bev = GetDlgItem(h, IDC_BEVELMODE);
+    int cur = (int)SendMessageW(bev, CB_GETCURSEL, 0, 0);
+    SendMessageW(bev, CB_RESETCONTENT, 0, 0);
+    SendMessageW(bev, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_GEOMETRY_BEVEL_SHADING));
+    SendMessageW(bev, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_GEOMETRY_BEVEL_GEOMETRIC));
+    SendMessageW(bev, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_GEOMETRY_BEVEL_OFF));
+    SendMessageW(bev, CB_SETCURSEL, cur < 0 ? g_work.bevel_mode : cur, 0);
+
+    HWND qual = GetDlgItem(h, IDC_QUALITY);
+    cur = (int)SendMessageW(qual, CB_GETCURSEL, 0, 0);
+    SendMessageW(qual, CB_RESETCONTENT, 0, 0);
+    SendMessageW(qual, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_GEOMETRY_QUALITY_LOW));
+    SendMessageW(qual, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_GEOMETRY_QUALITY_MEDIUM));
+    SendMessageW(qual, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_GEOMETRY_QUALITY_HIGH));
+    SendMessageW(qual, CB_SETCURSEL, cur < 0 ? g_work.quality : cur, 0);
+}
+
 static INT_PTR CALLBACK geometry_proc(HWND h, UINT m, WPARAM w, LPARAM l)
 {
     (void)l;
     switch (m) {
         case WM_INITDIALOG: {
-            static const wchar_t *bev[]  = { L"Sombreado", L"Geometrico", L"Desligado" };
-            static const wchar_t *qual[] = { L"Baixa", L"Media", L"Alta" };
-            for (int i = 0; i < 3; ++i)
-                SendDlgItemMessageW(h, IDC_BEVELMODE, CB_ADDSTRING, 0, (LPARAM)bev[i]);
-            for (int i = 0; i < 3; ++i)
-                SendDlgItemMessageW(h, IDC_QUALITY, CB_ADDSTRING, 0, (LPARAM)qual[i]);
-            SendDlgItemMessageW(h, IDC_BEVELMODE, CB_SETCURSEL, g_work.bevel_mode, 0);
-            SendDlgItemMessageW(h, IDC_QUALITY, CB_SETCURSEL, g_work.quality, 0);
             set_slider(h, IDC_DEPTH,  2, 200, (int)(g_work.depth * 100.0f + 0.5f));
             set_slider(h, IDC_BSIZE,  0, 200, (int)(g_work.bevel_size * 1000.0f + 0.5f));
             set_slider(h, IDC_BDEPTH, 0, 200, (int)(g_work.bevel_depth * 1000.0f + 0.5f));
             set_slider(h, IDC_BSEG,   2, 8,   g_work.bevel_segments);
             set_slider(h, IDC_WALL,   10, 200, (int)(g_work.wall_thickness * 1000.0f + 0.5f));
             CheckDlgButton(h, IDC_SHELL, g_work.shell ? BST_CHECKED : BST_UNCHECKED);
+            geometry_apply_i18n(h);
             geometry_labels(h);
             geometry_enable(h);
             return TRUE;
