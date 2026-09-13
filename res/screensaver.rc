@@ -43,6 +43,7 @@ BEGIN
     LTEXT           "Escala:", IDC_MESHSCALELABEL, 8, 92, 60, 9
     LTEXT           "", IDC_MESHSCALE_VAL, 182, 92, 50, 9
     CONTROL         "", IDC_MESHSCALE, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 102, 224, 16
+    AUTOCHECKBOX     "Usar materiais do arquivo", IDC_MESHUSEMAT, 8, 119, 180, 9
 
     AUTOCHECKBOX     "Negrito", IDC_BOLD,   8, 128, 60, 12
     AUTOCHECKBOX     "Italico", IDC_ITALIC, 76, 128, 60, 12
