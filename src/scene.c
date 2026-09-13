@@ -7,6 +7,7 @@
 #include "geometry/font_outline.h"
 #include "geometry/contour_mesh.h"
 #include "geometry/svg_shapes.h"
+#include "geometry/mesh_import.h"
 #include "util/mathx.h"
 #include "util/log.h"
 
@@ -81,6 +82,9 @@ struct SceneRenderer {
     v3      *svg_colors;
     int      svg_mesh_count;
     int      have_svg_mesh;
+
+    wchar_t  mesh_path[512];
+    float    mesh_size_scale;
 };
 
 static void upload_sdf(SceneRenderer *s, const Sdf *sdf)
@@ -267,6 +271,32 @@ static int rebuild_svg_mesh(SceneRenderer *s)
     return 1;
 }
 
+static int rebuild_imported_mesh(SceneRenderer *s)
+{
+    MeshData md;
+    int ok = s->mesh_path[0] != 0 && mesh_import_load(s->mesh_path, s->mesh_size_scale, &md);
+    if (!ok) {
+        strncpy(s->text, "Malha nao encontrada ou invalida", sizeof s->text - 1);
+        s->text[sizeof s->text - 1] = 0;
+        return rebuild_mesh(s);
+    }
+
+    if (s->have_mesh) gl_mesh_free(&s->mesh);
+    s->mesh = gl_mesh_upload(md.verts, md.nverts, md.idx, md.nidx);
+    s->hx = 0.5f * (md.maxx - md.minx);
+    s->hy = 0.5f * (md.maxy - md.miny);
+    s->hz = 0.5f * (md.maxz - md.minz);
+    if (s->hx < 1e-3f) s->hx = 1.0f;
+    if (s->hy < 1e-3f) s->hy = 1.0f;
+    s->wall_cache_count = 0;   /* malha importada nao tem paredes - faiscas nao emitem nela */
+    upload_sdf(s, NULL);       /* sem bevel/SDF pra malha importada */
+    int nv = md.nverts;
+    mesh_data_free(&md);
+    s->have_mesh = 1;
+    log_infof("scene: malha '%ls' -> %d verts", s->mesh_path, nv);
+    return 1;
+}
+
 SceneRenderer *scene_create(const Config *cfg)
 {
     SceneRenderer *s = (SceneRenderer *)calloc(1, sizeof *s);
@@ -308,6 +338,9 @@ void scene_set_config(SceneRenderer *s, const Config *cfg)
     int svg_relevant_change = (cfg->content_mode == CONTENT_SVG)
         && (wcscmp(s->svg_path, cfg->svg_path) != 0 || s->svg_color_mode != cfg->svg_color_mode);
 
+    int mesh_relevant_change = (cfg->content_mode == CONTENT_MESH)
+        && (wcscmp(s->mesh_path, cfg->mesh_path) != 0 || s->mesh_size_scale != cfg->mesh_size_scale);
+
     int mesh_dirty = (cfg->content_mode == CONTENT_SVG ? !s->have_svg_mesh : !s->have_mesh)
         || strcmp(s->text, cfg->text) != 0
         || wcscmp(s->font_family, cfg->font_family) != 0
@@ -322,7 +355,8 @@ void scene_set_config(SceneRenderer *s, const Config *cfg)
         || s->wall_thickness != cfg->wall_thickness
         || s->quality != cfg->quality
         || s->content_mode != (int)cfg->content_mode
-        || svg_relevant_change;
+        || svg_relevant_change
+        || mesh_relevant_change;
 
     s->content_mode = cfg->content_mode;
     s->clock_show_date = cfg->clock_show_date;
@@ -330,6 +364,9 @@ void scene_set_config(SceneRenderer *s, const Config *cfg)
     wcsncpy(s->svg_path, cfg->svg_path, 511);
     s->svg_path[511] = 0;
     s->svg_color_mode = cfg->svg_color_mode;
+    wcsncpy(s->mesh_path, cfg->mesh_path, 511);
+    s->mesh_path[511] = 0;
+    s->mesh_size_scale = cfg->mesh_size_scale;
 
     strncpy(s->text, cfg->text, sizeof s->text - 1);
     s->text[sizeof s->text - 1] = 0;
@@ -377,7 +414,10 @@ void scene_set_config(SceneRenderer *s, const Config *cfg)
     }
 
     if (mesh_dirty) {
-        int ok = (s->content_mode == CONTENT_SVG) ? rebuild_svg_mesh(s) : rebuild_mesh(s);
+        int ok;
+        if (s->content_mode == CONTENT_SVG) ok = rebuild_svg_mesh(s);
+        else if (s->content_mode == CONTENT_MESH) ok = rebuild_imported_mesh(s);
+        else ok = rebuild_mesh(s);
         if (!ok)
             log_errorf("scene: rebuild falhou (content_mode=%d)", s->content_mode);
     }
