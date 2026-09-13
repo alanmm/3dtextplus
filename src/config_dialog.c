@@ -154,15 +154,26 @@ static int CALLBACK enum_fonts_cb(const LOGFONTW *lf, const TEXTMETRICW *tm, DWO
     return 1;
 }
 
+static void set_slider(HWND h, int id, int lo, int hi, int pos);
+
 static void content_svg_label(HWND h)
 {
     SetDlgItemTextW(h, IDC_SVGPATH, g_work.svg_path[0] ? g_work.svg_path : L"(nenhum)");
+}
+
+static void content_mesh_label(HWND h)
+{
+    SetDlgItemTextW(h, IDC_MESHPATH, g_work.mesh_path[0] ? g_work.mesh_path : L"(nenhum)");
+    wchar_t b[32];
+    swprintf(b, 32, L"%.2f", (double)g_work.mesh_size_scale);
+    SetDlgItemTextW(h, IDC_MESHSCALE_VAL, b);
 }
 
 static void content_enable(HWND h)
 {
     int is_text = g_work.content_mode == CONTENT_TEXT;
     int is_svg  = g_work.content_mode == CONTENT_SVG;
+    int is_mesh = g_work.content_mode == CONTENT_MESH;
 
     ShowWindow(GetDlgItem(h, IDC_TEXTLABEL), is_text ? SW_SHOW : SW_HIDE);
     ShowWindow(GetDlgItem(h, IDC_TEXT),      is_text ? SW_SHOW : SW_HIDE);
@@ -175,6 +186,14 @@ static void content_enable(HWND h)
     ShowWindow(GetDlgItem(h, IDC_SVGCLEAR),      is_svg ? SW_SHOW : SW_HIDE);
     ShowWindow(GetDlgItem(h, IDC_SVGCOLORLABEL), is_svg ? SW_SHOW : SW_HIDE);
     ShowWindow(GetDlgItem(h, IDC_SVGCOLORMODE),  is_svg ? SW_SHOW : SW_HIDE);
+
+    ShowWindow(GetDlgItem(h, IDC_MESHPATHLABEL),  is_mesh ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(h, IDC_MESHPATH),       is_mesh ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(h, IDC_MESHPICK),       is_mesh ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(h, IDC_MESHCLEAR),      is_mesh ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(h, IDC_MESHSCALELABEL), is_mesh ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(h, IDC_MESHSCALE_VAL),  is_mesh ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(h, IDC_MESHSCALE),      is_mesh ? SW_SHOW : SW_HIDE);
 
     EnableWindow(GetDlgItem(h, IDC_CLOCKDATE), g_work.content_mode == CONTENT_CLOCK);
     EnableWindow(GetDlgItem(h, IDC_CLOCKSEC), g_work.content_mode == CONTENT_CLOCK);
@@ -191,8 +210,8 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             CheckDlgButton(h, IDC_BOLD, g_work.font_bold ? BST_CHECKED : BST_UNCHECKED);
             CheckDlgButton(h, IDC_ITALIC, g_work.font_italic ? BST_CHECKED : BST_UNCHECKED);
 
-            static const wchar_t *modes[] = { L"Texto", L"Relogio", L"SVG" };
-            for (int i = 0; i < 3; ++i)
+            static const wchar_t *modes[] = { L"Texto", L"Relogio", L"SVG", L"Malha 3D" };
+            for (int i = 0; i < 4; ++i)
                 SendDlgItemMessageW(h, IDC_CONTMODE, CB_ADDSTRING, 0, (LPARAM)modes[i]);
             SendDlgItemMessageW(h, IDC_CONTMODE, CB_SETCURSEL, g_work.content_mode, 0);
             CheckDlgButton(h, IDC_CLOCKDATE, g_work.clock_show_date ? BST_CHECKED : BST_UNCHECKED);
@@ -203,6 +222,9 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                 SendDlgItemMessageW(h, IDC_SVGCOLORMODE, CB_ADDSTRING, 0, (LPARAM)svg_modes[i]);
             SendDlgItemMessageW(h, IDC_SVGCOLORMODE, CB_SETCURSEL, g_work.svg_color_mode, 0);
             content_svg_label(h);
+
+            set_slider(h, IDC_MESHSCALE, 0, 200, (int)(g_work.mesh_size_scale * 100.0f + 0.5f));
+            content_mesh_label(h);
             content_enable(h);
 
             HWND cb = GetDlgItem(h, IDC_FONT);
@@ -216,6 +238,12 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                 SendMessageW(cb, CB_SETCURSEL, 0, 0);
             return TRUE;
         }
+        case WM_HSCROLL:
+            g_work.mesh_size_scale =
+                (float)SendDlgItemMessageW(h, IDC_MESHSCALE, TBM_GETPOS, 0, 0) / 100.0f;
+            content_mesh_label(h);
+            preview_dirty(h);
+            return TRUE;
         case WM_COMMAND:
             switch (LOWORD(w)) {
                 case IDC_CONTMODE:
@@ -263,6 +291,29 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                             (int)SendDlgItemMessageW(h, IDC_SVGCOLORMODE, CB_GETCURSEL, 0, 0);
                         preview_dirty(h);
                     }
+                    break;
+                case IDC_MESHPICK: {
+                    wchar_t file[512] = L"";
+                    OPENFILENAMEW ofn;
+                    memset(&ofn, 0, sizeof ofn);
+                    ofn.lStructSize = sizeof ofn;
+                    ofn.hwndOwner = h;
+                    ofn.lpstrFilter = L"Malha 3D\0*.obj;*.stl\0Todos\0*.*\0";
+                    ofn.lpstrFile = file;
+                    ofn.nMaxFile = 512;
+                    ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+                    if (GetOpenFileNameW(&ofn)) {
+                        wcsncpy(g_work.mesh_path, file, 511);
+                        g_work.mesh_path[511] = 0;
+                        content_mesh_label(h);
+                        preview_dirty(h);
+                    }
+                    break;
+                }
+                case IDC_MESHCLEAR:
+                    g_work.mesh_path[0] = 0;
+                    content_mesh_label(h);
+                    preview_dirty(h);
                     break;
                 case IDC_TEXT:
                     if (HIWORD(w) == EN_CHANGE) {
