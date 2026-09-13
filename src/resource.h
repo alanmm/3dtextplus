@@ -25,6 +25,14 @@
 #define IDC_CONTMODE      1105
 #define IDC_CLOCKDATE     1106
 #define IDC_CLOCKSEC      1107
+#define IDC_TEXTLABEL     1108
+#define IDC_FONTLABEL     1109
+#define IDC_SVGPATHLABEL  1110
+#define IDC_SVGPATH       1111
+#define IDC_SVGPICK       1112
+#define IDC_SVGCLEAR      1113
+#define IDC_SVGCOLORLABEL 1114
+#define IDC_SVGCOLORMODE  1115
 
 /* aba Movimento */
 #define IDC_DEPTH         1200
