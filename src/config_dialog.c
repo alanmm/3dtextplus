@@ -154,9 +154,28 @@ static int CALLBACK enum_fonts_cb(const LOGFONTW *lf, const TEXTMETRICW *tm, DWO
     return 1;
 }
 
+static void content_svg_label(HWND h)
+{
+    SetDlgItemTextW(h, IDC_SVGPATH, g_work.svg_path[0] ? g_work.svg_path : L"(nenhum)");
+}
+
 static void content_enable(HWND h)
 {
-    EnableWindow(GetDlgItem(h, IDC_TEXT), g_work.content_mode == CONTENT_TEXT);
+    int is_text = g_work.content_mode == CONTENT_TEXT;
+    int is_svg  = g_work.content_mode == CONTENT_SVG;
+
+    ShowWindow(GetDlgItem(h, IDC_TEXTLABEL), is_text ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(h, IDC_TEXT),      is_text ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(h, IDC_FONTLABEL), is_text ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(h, IDC_FONT),      is_text ? SW_SHOW : SW_HIDE);
+
+    ShowWindow(GetDlgItem(h, IDC_SVGPATHLABEL),  is_svg ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(h, IDC_SVGPATH),       is_svg ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(h, IDC_SVGPICK),       is_svg ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(h, IDC_SVGCLEAR),      is_svg ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(h, IDC_SVGCOLORLABEL), is_svg ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(h, IDC_SVGCOLORMODE),  is_svg ? SW_SHOW : SW_HIDE);
+
     EnableWindow(GetDlgItem(h, IDC_CLOCKDATE), g_work.content_mode == CONTENT_CLOCK);
     EnableWindow(GetDlgItem(h, IDC_CLOCKSEC), g_work.content_mode == CONTENT_CLOCK);
 }
@@ -172,12 +191,18 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             CheckDlgButton(h, IDC_BOLD, g_work.font_bold ? BST_CHECKED : BST_UNCHECKED);
             CheckDlgButton(h, IDC_ITALIC, g_work.font_italic ? BST_CHECKED : BST_UNCHECKED);
 
-            static const wchar_t *modes[] = { L"Texto", L"Relogio" };
-            for (int i = 0; i < 2; ++i)
+            static const wchar_t *modes[] = { L"Texto", L"Relogio", L"SVG" };
+            for (int i = 0; i < 3; ++i)
                 SendDlgItemMessageW(h, IDC_CONTMODE, CB_ADDSTRING, 0, (LPARAM)modes[i]);
             SendDlgItemMessageW(h, IDC_CONTMODE, CB_SETCURSEL, g_work.content_mode, 0);
             CheckDlgButton(h, IDC_CLOCKDATE, g_work.clock_show_date ? BST_CHECKED : BST_UNCHECKED);
             CheckDlgButton(h, IDC_CLOCKSEC, g_work.clock_show_seconds ? BST_CHECKED : BST_UNCHECKED);
+
+            static const wchar_t *svg_modes[] = { L"Preservar do arquivo", L"Unica (material)" };
+            for (int i = 0; i < 2; ++i)
+                SendDlgItemMessageW(h, IDC_SVGCOLORMODE, CB_ADDSTRING, 0, (LPARAM)svg_modes[i]);
+            SendDlgItemMessageW(h, IDC_SVGCOLORMODE, CB_SETCURSEL, g_work.svg_color_mode, 0);
+            content_svg_label(h);
             content_enable(h);
 
             HWND cb = GetDlgItem(h, IDC_FONT);
@@ -208,6 +233,36 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                 case IDC_CLOCKSEC:
                     g_work.clock_show_seconds = (IsDlgButtonChecked(h, IDC_CLOCKSEC) == BST_CHECKED);
                     preview_dirty(h);
+                    break;
+                case IDC_SVGPICK: {
+                    wchar_t file[512] = L"";
+                    OPENFILENAMEW ofn;
+                    memset(&ofn, 0, sizeof ofn);
+                    ofn.lStructSize = sizeof ofn;
+                    ofn.hwndOwner = h;
+                    ofn.lpstrFilter = L"SVG\0*.svg\0Todos\0*.*\0";
+                    ofn.lpstrFile = file;
+                    ofn.nMaxFile = 512;
+                    ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+                    if (GetOpenFileNameW(&ofn)) {
+                        wcsncpy(g_work.svg_path, file, 511);
+                        g_work.svg_path[511] = 0;
+                        content_svg_label(h);
+                        preview_dirty(h);
+                    }
+                    break;
+                }
+                case IDC_SVGCLEAR:
+                    g_work.svg_path[0] = 0;
+                    content_svg_label(h);
+                    preview_dirty(h);
+                    break;
+                case IDC_SVGCOLORMODE:
+                    if (HIWORD(w) == CBN_SELCHANGE) {
+                        g_work.svg_color_mode =
+                            (int)SendDlgItemMessageW(h, IDC_SVGCOLORMODE, CB_GETCURSEL, 0, 0);
+                        preview_dirty(h);
+                    }
                     break;
                 case IDC_TEXT:
                     if (HIWORD(w) == EN_CHANGE) {
