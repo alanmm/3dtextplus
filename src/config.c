@@ -73,6 +73,7 @@ void config_defaults(Config *c)
     c->svg_color_mode = 0;
     c->mesh_path[0] = 0;
     c->mesh_size_scale = 1.0f;
+    c->mesh_use_file_materials = 0;
 }
 
 static float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
@@ -222,6 +223,7 @@ void config_load_from(Config *c, const wchar_t *subkey)
 
     reg_get_w(k, L"mesh_path", c->mesh_path, 512);
     if (reg_get_f(k, L"mesh_size_scale", &f)) c->mesh_size_scale = f;
+    reg_get_i(k, L"mesh_use_file_materials", &c->mesh_use_file_materials);
 
     wchar_t col[16];
     if (reg_get_w(k, L"base_color", col, 16) && col[0] == L'#' && wcslen(col) >= 7) {
@@ -301,6 +303,7 @@ void config_load_from(Config *c, const wchar_t *subkey)
     c->clock_show_seconds = c->clock_show_seconds ? 1 : 0;
     c->svg_color_mode = c->svg_color_mode ? 1 : 0;
     c->mesh_size_scale = clampf(c->mesh_size_scale, 0.0f, 2.0f);
+    c->mesh_use_file_materials = c->mesh_use_file_materials ? 1 : 0;
     if (c->text[0] == 0) strcpy(c->text, "Modern 3D Text");
     if (c->font_family[0] == 0) wcscpy(c->font_family, L"Segoe UI");
 }
@@ -389,6 +392,7 @@ void config_save_to(const Config *c, const wchar_t *subkey)
 
     set_w(k, L"mesh_path", c->mesh_path);
     set_f(k, L"mesh_size_scale", c->mesh_size_scale);
+    set_f(k, L"mesh_use_file_materials", (float)c->mesh_use_file_materials);
 
     wchar_t col[16];
     unsigned r = (unsigned)(c->base_r * 255.0f + 0.5f);

@@ -32,6 +32,7 @@ void run_config_tests(void)
     EXPECT(d.svg_color_mode == 0);
     EXPECT(d.mesh_path[0] == 0);
     EXPECT(nearf(d.mesh_size_scale, 1.0f));
+    EXPECT(d.mesh_use_file_materials == 0);
 
     /* round-trip */
     Config a;
@@ -175,12 +176,14 @@ void run_config_tests(void)
     ma.content_mode = CONTENT_MESH;
     wcscpy(ma.mesh_path, L"C:\\modelos\\objeto.obj");
     ma.mesh_size_scale = 1.5f;
+    ma.mesh_use_file_materials = 1;
     config_save_to(&ma, TESTKEY);
 
     config_load_from(&mb, TESTKEY);
     EXPECT(mb.content_mode == CONTENT_MESH);
     EXPECT(wcscmp(mb.mesh_path, L"C:\\modelos\\objeto.obj") == 0);
     EXPECT(nearf(mb.mesh_size_scale, 1.5f));
+    EXPECT(mb.mesh_use_file_materials == 1);
 
     RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
 
@@ -235,8 +238,9 @@ void run_config_tests(void)
             { L"clock_show_seconds", L"5" },
             { L"svg_color_mode", L"9" },
             { L"mesh_size_scale", L"9" },
+            { L"mesh_use_file_materials", L"5" },
         };
-        for (int i = 0; i < 26; ++i)
+        for (int i = 0; i < 27; ++i)
             RegSetValueExW(kp, kv[i].n, 0, REG_SZ, (const BYTE *)kv[i].v,
                            (DWORD)((wcslen(kv[i].v) + 1) * sizeof(wchar_t)));
         RegCloseKey(kp);
@@ -269,6 +273,7 @@ void run_config_tests(void)
     EXPECT(e.clock_show_seconds == 1);              /* 5 -> !=0 -> 1 */
     EXPECT(e.svg_color_mode == 1);                  /* 9 -> !=0 -> 1 */
     EXPECT(e.mesh_size_scale <= 2.0f);              /* 9 -> clamp */
+    EXPECT(e.mesh_use_file_materials == 1);         /* 5 -> !=0 -> 1 */
 
     RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
 }

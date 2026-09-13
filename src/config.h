@@ -65,6 +65,7 @@ typedef struct {
     int          svg_color_mode;       /* 0 preservar cores do arquivo, 1 cor unica do material */
     wchar_t      mesh_path[512];       /* caminho do .obj ou .stl escolhido */
     float        mesh_size_scale;      /* 0..2, ajuste fino sobre o tamanho normalizado */
+    int          mesh_use_file_materials; /* 0/1, so' tem efeito com .obj com material real */
 } Config;
 
 void config_defaults(Config *c);
