@@ -160,12 +160,12 @@ static void set_slider(HWND h, int id, int lo, int hi, int pos);
 
 static void content_svg_label(HWND h)
 {
-    SetDlgItemTextW(h, IDC_SVGPATH, g_work.svg_path[0] ? g_work.svg_path : L"(nenhum)");
+    SetDlgItemTextW(h, IDC_SVGPATH, g_work.svg_path[0] ? g_work.svg_path : i18n_str(STR_PLACEHOLDER_NONE_M));
 }
 
 static void content_mesh_label(HWND h)
 {
-    SetDlgItemTextW(h, IDC_MESHPATH, g_work.mesh_path[0] ? g_work.mesh_path : L"(nenhum)");
+    SetDlgItemTextW(h, IDC_MESHPATH, g_work.mesh_path[0] ? g_work.mesh_path : i18n_str(STR_PLACEHOLDER_NONE_M));
     wchar_t b[32];
     swprintf(b, 32, L"%.2f", (double)g_work.mesh_size_scale);
     SetDlgItemTextW(h, IDC_MESHSCALE_VAL, b);
@@ -200,6 +200,14 @@ static void content_enable(HWND h)
 
     EnableWindow(GetDlgItem(h, IDC_CLOCKDATE), g_work.content_mode == CONTENT_CLOCK);
     EnableWindow(GetDlgItem(h, IDC_CLOCKSEC), g_work.content_mode == CONTENT_CLOCK);
+}
+
+static void filter_append(wchar_t *buf, int *pos, int cap, const wchar_t *s)
+{
+    int n = (int)wcslen(s);
+    if (*pos + n + 1 > cap) return;
+    wcscpy(buf + *pos, s);
+    *pos += n + 1;
 }
 
 static void content_apply_i18n(HWND h)
@@ -301,7 +309,13 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     memset(&ofn, 0, sizeof ofn);
                     ofn.lStructSize = sizeof ofn;
                     ofn.hwndOwner = h;
-                    ofn.lpstrFilter = L"SVG\0*.svg\0Todos\0*.*\0";
+                    wchar_t filter[128]; int fp = 0;
+                    filter_append(filter, &fp, 128, i18n_str(STR_FILTER_SVG));
+                    filter_append(filter, &fp, 128, L"*.svg");
+                    filter_append(filter, &fp, 128, i18n_str(STR_FILTER_ALL_SHORT));
+                    filter_append(filter, &fp, 128, L"*.*");
+                    filter[fp] = 0;
+                    ofn.lpstrFilter = filter;
                     ofn.lpstrFile = file;
                     ofn.nMaxFile = 512;
                     ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
@@ -331,22 +345,29 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     memset(&ofn, 0, sizeof ofn);
                     ofn.lStructSize = sizeof ofn;
                     ofn.hwndOwner = h;
-                    ofn.lpstrFilter =
-                        L"Malha 3D (*.obj, *.stl, *.glb, *.gltf)\0*.obj;*.stl;*.glb;*.gltf\0"
-                        L"Arquivos OBJ (*.obj)\0*.obj\0"
-                        L"Arquivos STL (*.stl)\0*.stl\0"
-                        L"Arquivos GLB (*.glb)\0*.glb\0"
-                        L"Arquivos glTF (*.gltf)\0*.gltf\0"
-                        L"Todos os arquivos (*.*)\0*.*\0";
+                    wchar_t filter[512]; int fp = 0;
+                    filter_append(filter, &fp, 512, i18n_str(STR_FILTER_MESH_ALL));
+                    filter_append(filter, &fp, 512, L"*.obj;*.stl;*.glb;*.gltf");
+                    filter_append(filter, &fp, 512, i18n_str(STR_FILTER_OBJ));
+                    filter_append(filter, &fp, 512, L"*.obj");
+                    filter_append(filter, &fp, 512, i18n_str(STR_FILTER_STL));
+                    filter_append(filter, &fp, 512, L"*.stl");
+                    filter_append(filter, &fp, 512, i18n_str(STR_FILTER_GLB));
+                    filter_append(filter, &fp, 512, L"*.glb");
+                    filter_append(filter, &fp, 512, i18n_str(STR_FILTER_GLTF));
+                    filter_append(filter, &fp, 512, L"*.gltf");
+                    filter_append(filter, &fp, 512, i18n_str(STR_FILTER_ALL_LONG));
+                    filter_append(filter, &fp, 512, L"*.*");
+                    filter[fp] = 0;
+                    ofn.lpstrFilter = filter;
                     ofn.lpstrFile = file;
                     ofn.nMaxFile = 512;
                     ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
                     if (GetOpenFileNameW(&ofn)) {
                         if (mesh_import_file_too_big(file)) {
-                            MessageBoxW(h,
-                                L"Este arquivo passa de 10MB e nao sera aceito - "
-                                L"escolha uma malha menor.",
-                                L"Arquivo muito grande", MB_OK | MB_ICONWARNING);
+                            MessageBoxW(h, i18n_str(STR_MSG_FILE_TOO_BIG_TEXT),
+                                        i18n_str(STR_MSG_FILE_TOO_BIG_TITLE),
+                                        MB_OK | MB_ICONWARNING);
                         } else {
                             wcsncpy(g_work.mesh_path, file, 511);
                             g_work.mesh_path[511] = 0;
@@ -477,7 +498,7 @@ static void material_labels(HWND h)
     wchar_t b[32];
     swprintf(b, 32, L"%.2f", (double)g_work.metalness);  SetDlgItemTextW(h, IDC_METAL_VAL, b);
     swprintf(b, 32, L"%.2f", (double)g_work.roughness);  SetDlgItemTextW(h, IDC_ROUGH_VAL, b);
-    SetDlgItemTextW(h, IDC_ENVPATH, g_work.env_path[0] ? g_work.env_path : L"(procedural)");
+    SetDlgItemTextW(h, IDC_ENVPATH, g_work.env_path[0] ? g_work.env_path : i18n_str(STR_PLACEHOLDER_PROCEDURAL));
 }
 
 static void material_apply_i18n(HWND h)
@@ -532,7 +553,13 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     memset(&ofn, 0, sizeof ofn);
                     ofn.lStructSize = sizeof ofn;
                     ofn.hwndOwner = h;
-                    ofn.lpstrFilter = L"Imagens\0*.jpg;*.jpeg;*.png;*.bmp;*.tga\0Todos\0*.*\0";
+                    wchar_t filter[128]; int fp = 0;
+                    filter_append(filter, &fp, 128, i18n_str(STR_FILTER_IMAGES));
+                    filter_append(filter, &fp, 128, L"*.jpg;*.jpeg;*.png;*.bmp;*.tga");
+                    filter_append(filter, &fp, 128, i18n_str(STR_FILTER_ALL_SHORT));
+                    filter_append(filter, &fp, 128, L"*.*");
+                    filter[fp] = 0;
+                    ofn.lpstrFilter = filter;
                     ofn.lpstrFile = file;
                     ofn.nMaxFile = 512;
                     ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
@@ -936,7 +963,7 @@ static void bg_labels(HWND h)
     wchar_t b[32];
     swprintf(b, 32, L"%.0f", (double)g_work.bg_grad_angle); SetDlgItemTextW(h, IDC_BGANGLE_VAL, b);
     swprintf(b, 32, L"%.2f", (double)g_work.bg_pan_speed);  SetDlgItemTextW(h, IDC_BGPAN_VAL, b);
-    SetDlgItemTextW(h, IDC_BGIMGPATH, g_work.bg_image_path[0] ? g_work.bg_image_path : L"(nenhuma)");
+    SetDlgItemTextW(h, IDC_BGIMGPATH, g_work.bg_image_path[0] ? g_work.bg_image_path : i18n_str(STR_PLACEHOLDER_NONE_F));
 }
 
 static void bg_enable(HWND h)
@@ -1104,7 +1131,13 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     memset(&ofn, 0, sizeof ofn);
                     ofn.lStructSize = sizeof ofn;
                     ofn.hwndOwner = h;
-                    ofn.lpstrFilter = L"Imagens\0*.jpg;*.jpeg;*.png;*.bmp;*.tga\0Todos\0*.*\0";
+                    wchar_t filter[128]; int fp = 0;
+                    filter_append(filter, &fp, 128, i18n_str(STR_FILTER_IMAGES));
+                    filter_append(filter, &fp, 128, L"*.jpg;*.jpeg;*.png;*.bmp;*.tga");
+                    filter_append(filter, &fp, 128, i18n_str(STR_FILTER_ALL_SHORT));
+                    filter_append(filter, &fp, 128, L"*.*");
+                    filter[fp] = 0;
+                    ofn.lpstrFilter = filter;
                     ofn.lpstrFile = file;
                     ofn.nMaxFile = 512;
                     ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
