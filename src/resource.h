@@ -134,6 +134,9 @@
 #define IDC_VAMT          1704
 #define IDC_VAMT_VAL      1705
 #define IDC_FXAA          1706
+#define IDC_CSTR_LABEL    1710
+#define IDC_VAMT_LABEL    1711
+#define IDC_POST_HINT     1712
 
 /* aba Fundo */
 #define IDC_BGTYPE        1800
@@ -149,6 +152,14 @@
 #define IDC_BGPAN_VAL     1810
 #define IDC_BGNEBCOLOR1   1811
 #define IDC_BGNEBCOLOR2   1812
+#define IDC_BGTYPE_LABEL   1820
+#define IDC_BGCOLOR1_LABEL 1821
+#define IDC_BGCOLOR2_LABEL 1822
+#define IDC_BGANGLE_LABEL  1823
+#define IDC_BGIMAGE_LABEL  1824
+#define IDC_BGFIT_LABEL    1825
+#define IDC_BGPAN_LABEL    1826
+#define IDC_BGNEBULA_LABEL 1827
 
 /* aba Particulas */
 #define IDC_PARTON        1900
@@ -161,5 +172,10 @@
 #define IDC_PARTSIZE_VAL  1907
 #define IDC_PARTOPACITY     1908
 #define IDC_PARTOPACITY_VAL 1909
+#define IDC_PARTKIND_LABEL     1920
+#define IDC_PARTDENS_LABEL     1921
+#define IDC_PARTSPEED_LABEL    1922
+#define IDC_PARTSIZE_LABEL     1923
+#define IDC_PARTOPACITY_LABEL  1924
 
 #endif

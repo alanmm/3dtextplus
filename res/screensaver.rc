@@ -162,49 +162,48 @@ STYLE DS_SETFONT | DS_CONTROL | WS_CHILD
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     AUTOCHECKBOX "Aberracao cromatica", IDC_CHROMA, 8, 8, 160, 12
-    LTEXT      "Intensidade:", -1, 8, 24, 80, 9
+    LTEXT      "Intensidade:", IDC_CSTR_LABEL, 8, 24, 80, 9
     LTEXT      "", IDC_CSTR_VAL, 182, 24, 50, 9
     CONTROL    "", IDC_CSTR, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 33, 224, 14
 
     AUTOCHECKBOX "Vinheta", IDC_VIGNETTE, 8, 55, 160, 12
-    LTEXT      "Intensidade:", -1, 8, 71, 80, 9
+    LTEXT      "Intensidade:", IDC_VAMT_LABEL, 8, 71, 80, 9
     LTEXT      "", IDC_VAMT_VAL, 182, 71, 50, 9
     CONTROL    "", IDC_VAMT, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 80, 224, 14
 
     AUTOCHECKBOX "FXAA (anti-serrilhado)", IDC_FXAA, 8, 102, 200, 12
 
-    LTEXT      "Aberracao cromatica e vinheta agem antes do tonemap; o FXAA e o ultimo passe, depois do tonemap.",
-               -1, 8, 124, 224, 20
+    LTEXT      "", IDC_POST_HINT, 8, 124, 224, 20
 END
 
 IDD_TAB_BG DIALOGEX 0, 0, 240, 200
 STYLE DS_SETFONT | DS_CONTROL | WS_CHILD
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
-    LTEXT      "Tipo de fundo:", -1, 8, 10, 90, 9
+    LTEXT      "Tipo de fundo:", IDC_BGTYPE_LABEL, 8, 10, 90, 9
     COMBOBOX   IDC_BGTYPE, 100, 8, 132, 80, CBS_DROPDOWNLIST | WS_TABSTOP
 
-    LTEXT      "Cor 1:", -1, 8, 30, 60, 9
+    LTEXT      "Cor 1:", IDC_BGCOLOR1_LABEL, 8, 30, 60, 9
     PUSHBUTTON "Escolher cor...", IDC_BGCOLOR1, 100, 28, 100, 14
-    LTEXT      "Cor 2:", -1, 8, 48, 60, 9
+    LTEXT      "Cor 2:", IDC_BGCOLOR2_LABEL, 8, 48, 60, 9
     PUSHBUTTON "Escolher cor...", IDC_BGCOLOR2, 100, 46, 100, 14
 
-    LTEXT      "Angulo do gradiente (graus):", -1, 8, 66, 140, 9
+    LTEXT      "Angulo do gradiente (graus):", IDC_BGANGLE_LABEL, 8, 66, 140, 9
     LTEXT      "", IDC_BGANGLE_VAL, 182, 66, 50, 9
     CONTROL    "", IDC_BGANGLE, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 76, 224, 16
 
-    LTEXT      "Imagem de fundo:", -1, 8, 96, 200, 9
+    LTEXT      "Imagem de fundo:", IDC_BGIMAGE_LABEL, 8, 96, 200, 9
     LTEXT      "(nenhuma)", IDC_BGIMGPATH, 8, 108, 224, 9, SS_PATHELLIPSIS
     PUSHBUTTON "Escolher...", IDC_BGIMGPICK, 8, 120, 60, 14
     PUSHBUTTON "Limpar",      IDC_BGIMGCLEAR, 72, 120, 50, 14
-    LTEXT      "Ajuste:", -1, 128, 122, 34, 9
+    LTEXT      "Ajuste:", IDC_BGFIT_LABEL, 128, 122, 34, 9
     COMBOBOX   IDC_BGFIT, 162, 120, 70, 60, CBS_DROPDOWNLIST | WS_TABSTOP
 
-    LTEXT      "Velocidade de pan:", -1, 8, 140, 110, 9
+    LTEXT      "Velocidade de pan:", IDC_BGPAN_LABEL, 8, 140, 110, 9
     LTEXT      "", IDC_BGPAN_VAL, 182, 140, 50, 9
     CONTROL    "", IDC_BGPAN, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 150, 224, 16
 
-    LTEXT      "Nebulosa:", -1, 8, 172, 50, 9
+    LTEXT      "Nebulosa:", IDC_BGNEBULA_LABEL, 8, 172, 50, 9
     PUSHBUTTON "Cor 1...", IDC_BGNEBCOLOR1, 60, 170, 80, 14
     PUSHBUTTON "Cor 2...", IDC_BGNEBCOLOR2, 144, 170, 80, 14
 END
@@ -215,22 +214,22 @@ FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     AUTOCHECKBOX "Ativar particulas", IDC_PARTON, 8, 8, 140, 12
 
-    LTEXT      "Tipo:", -1, 8, 28, 40, 9
+    LTEXT      "Tipo:", IDC_PARTKIND_LABEL, 8, 28, 40, 9
     COMBOBOX   IDC_PARTKIND, 60, 26, 140, 80, CBS_DROPDOWNLIST | WS_TABSTOP
 
-    LTEXT      "Densidade:", -1, 8, 48, 80, 9
+    LTEXT      "Densidade:", IDC_PARTDENS_LABEL, 8, 48, 80, 9
     LTEXT      "", IDC_PARTDENS_VAL, 182, 48, 50, 9
     CONTROL    "", IDC_PARTDENS, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 58, 224, 16
 
-    LTEXT      "Velocidade:", -1, 8, 78, 80, 9
+    LTEXT      "Velocidade:", IDC_PARTSPEED_LABEL, 8, 78, 80, 9
     LTEXT      "", IDC_PARTSPEED_VAL, 182, 78, 50, 9
     CONTROL    "", IDC_PARTSPEED, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 88, 224, 16
 
-    LTEXT      "Tamanho:", -1, 8, 108, 80, 9
+    LTEXT      "Tamanho:", IDC_PARTSIZE_LABEL, 8, 108, 80, 9
     LTEXT      "", IDC_PARTSIZE_VAL, 182, 108, 50, 9
     CONTROL    "", IDC_PARTSIZE, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 118, 224, 16
 
-    LTEXT      "Opacidade:", -1, 8, 138, 80, 9
+    LTEXT      "Opacidade:", IDC_PARTOPACITY_LABEL, 8, 138, 80, 9
     LTEXT      "", IDC_PARTOPACITY_VAL, 182, 138, 50, 9
     CONTROL    "", IDC_PARTOPACITY, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 148, 224, 16
 END

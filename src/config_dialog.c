@@ -877,6 +877,16 @@ static void post_enable(HWND h)
     EnableWindow(GetDlgItem(h, IDC_VAMT), g_work.vignette_on ? TRUE : FALSE);
 }
 
+static void post_apply_i18n(HWND h)
+{
+    SetDlgItemTextW(h, IDC_CHROMA, i18n_str(STR_POST_CHROMA));
+    SetDlgItemTextW(h, IDC_CSTR_LABEL, i18n_str(STR_POST_CHROMA_INTENSITY_LABEL));
+    SetDlgItemTextW(h, IDC_VIGNETTE, i18n_str(STR_POST_VIGNETTE));
+    SetDlgItemTextW(h, IDC_VAMT_LABEL, i18n_str(STR_POST_VIGNETTE_INTENSITY_LABEL));
+    SetDlgItemTextW(h, IDC_FXAA, i18n_str(STR_POST_FXAA));
+    SetDlgItemTextW(h, IDC_POST_HINT, i18n_str(STR_POST_HINT));
+}
+
 static INT_PTR CALLBACK post_proc(HWND h, UINT m, WPARAM w, LPARAM l)
 {
     (void)l;
@@ -887,6 +897,7 @@ static INT_PTR CALLBACK post_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             CheckDlgButton(h, IDC_FXAA, g_work.fxaa_on ? BST_CHECKED : BST_UNCHECKED);
             set_slider(h, IDC_CSTR, 0, 100, (int)(g_work.chroma_strength * 100.0f + 0.5f));
             set_slider(h, IDC_VAMT, 0, 100, (int)(g_work.vignette_amount * 100.0f + 0.5f));
+            post_apply_i18n(h);
             post_labels(h);
             post_enable(h);
             return TRUE;
@@ -942,22 +953,51 @@ static void bg_enable(HWND h)
     EnableWindow(GetDlgItem(h, IDC_BGNEBCOLOR2), t == 3);
 }
 
+static void bg_apply_i18n(HWND h)
+{
+    SetDlgItemTextW(h, IDC_BGTYPE_LABEL, i18n_str(STR_BG_TYPE_LABEL));
+    SetDlgItemTextW(h, IDC_BGCOLOR1_LABEL, i18n_str(STR_BG_COLOR1_LABEL));
+    SetDlgItemTextW(h, IDC_BGCOLOR1, i18n_str(STR_COMMON_CHOOSE_COLOR));
+    SetDlgItemTextW(h, IDC_BGCOLOR2_LABEL, i18n_str(STR_BG_COLOR2_LABEL));
+    SetDlgItemTextW(h, IDC_BGCOLOR2, i18n_str(STR_COMMON_CHOOSE_COLOR));
+    SetDlgItemTextW(h, IDC_BGANGLE_LABEL, i18n_str(STR_BG_ANGLE_LABEL));
+    SetDlgItemTextW(h, IDC_BGIMAGE_LABEL, i18n_str(STR_BG_IMAGE_LABEL));
+    SetDlgItemTextW(h, IDC_BGIMGPICK, i18n_str(STR_COMMON_CHOOSE));
+    SetDlgItemTextW(h, IDC_BGIMGCLEAR, i18n_str(STR_COMMON_CLEAR));
+    SetDlgItemTextW(h, IDC_BGFIT_LABEL, i18n_str(STR_BG_FIT_LABEL));
+    SetDlgItemTextW(h, IDC_BGPAN_LABEL, i18n_str(STR_BG_PAN_LABEL));
+    SetDlgItemTextW(h, IDC_BGNEBULA_LABEL, i18n_str(STR_BG_NEBULA_LABEL));
+    SetDlgItemTextW(h, IDC_BGNEBCOLOR1, i18n_str(STR_BG_NEBULA_COLOR1_BTN));
+    SetDlgItemTextW(h, IDC_BGNEBCOLOR2, i18n_str(STR_BG_NEBULA_COLOR2_BTN));
+
+    HWND ty = GetDlgItem(h, IDC_BGTYPE);
+    int cur = (int)SendMessageW(ty, CB_GETCURSEL, 0, 0);
+    SendMessageW(ty, CB_RESETCONTENT, 0, 0);
+    SendMessageW(ty, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_BG_TYPE_SOLID));
+    SendMessageW(ty, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_BG_TYPE_GRADIENT));
+    SendMessageW(ty, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_BG_TYPE_IMAGE));
+    SendMessageW(ty, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_BG_TYPE_NEBULA));
+    SendMessageW(ty, CB_SETCURSEL, cur < 0 ? g_work.background_type : cur, 0);
+
+    HWND fit = GetDlgItem(h, IDC_BGFIT);
+    cur = (int)SendMessageW(fit, CB_GETCURSEL, 0, 0);
+    SendMessageW(fit, CB_RESETCONTENT, 0, 0);
+    SendMessageW(fit, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_BG_FIT_COVER));
+    SendMessageW(fit, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_BG_FIT_CONTAIN));
+    SendMessageW(fit, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_BG_FIT_TILE));
+    SendMessageW(fit, CB_SETCURSEL, cur < 0 ? g_work.bg_image_fit : cur, 0);
+
+    bg_labels(h);
+}
+
 static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
 {
     (void)l;
     switch (m) {
         case WM_INITDIALOG: {
-            static const wchar_t *types[] = { L"Solido", L"Gradiente", L"Imagem", L"Nebulosa" };
-            static const wchar_t *fits[]  = { L"Cobrir", L"Conter", L"Repetir" };
-            for (int i = 0; i < 4; ++i)
-                SendDlgItemMessageW(h, IDC_BGTYPE, CB_ADDSTRING, 0, (LPARAM)types[i]);
-            for (int i = 0; i < 3; ++i)
-                SendDlgItemMessageW(h, IDC_BGFIT, CB_ADDSTRING, 0, (LPARAM)fits[i]);
-            SendDlgItemMessageW(h, IDC_BGTYPE, CB_SETCURSEL, g_work.background_type, 0);
-            SendDlgItemMessageW(h, IDC_BGFIT, CB_SETCURSEL, g_work.bg_image_fit, 0);
             set_slider(h, IDC_BGANGLE, 0, 360, (int)(g_work.bg_grad_angle + 0.5f));
             set_slider(h, IDC_BGPAN, 0, 100, (int)(g_work.bg_pan_speed * 100.0f + 0.5f));
-            bg_labels(h);
+            bg_apply_i18n(h);
             bg_enable(h);
             return TRUE;
         }
@@ -1108,21 +1148,38 @@ static void particles_enable(HWND h)
     EnableWindow(GetDlgItem(h, IDC_PARTOPACITY), on);
 }
 
+static void particles_apply_i18n(HWND h)
+{
+    SetDlgItemTextW(h, IDC_PARTON, i18n_str(STR_PARTICLES_ENABLE));
+    SetDlgItemTextW(h, IDC_PARTKIND_LABEL, i18n_str(STR_PARTICLES_KIND_LABEL));
+    SetDlgItemTextW(h, IDC_PARTDENS_LABEL, i18n_str(STR_PARTICLES_DENSITY_LABEL));
+    SetDlgItemTextW(h, IDC_PARTSPEED_LABEL, i18n_str(STR_PARTICLES_SPEED_LABEL));
+    SetDlgItemTextW(h, IDC_PARTSIZE_LABEL, i18n_str(STR_PARTICLES_SIZE_LABEL));
+    SetDlgItemTextW(h, IDC_PARTOPACITY_LABEL, i18n_str(STR_PARTICLES_OPACITY_LABEL));
+
+    HWND k = GetDlgItem(h, IDC_PARTKIND);
+    int cur = (int)SendMessageW(k, CB_GETCURSEL, 0, 0);
+    SendMessageW(k, CB_RESETCONTENT, 0, 0);
+    SendMessageW(k, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_PARTICLES_KIND_DUST));
+    SendMessageW(k, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_PARTICLES_KIND_BOKEH));
+    SendMessageW(k, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_PARTICLES_KIND_SPARKS));
+    SendMessageW(k, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_PARTICLES_KIND_STARS));
+    SendMessageW(k, CB_SETCURSEL, cur < 0 ? g_work.particles_kind : cur, 0);
+
+    particles_labels(h);
+}
+
 static INT_PTR CALLBACK particles_proc(HWND h, UINT m, WPARAM w, LPARAM l)
 {
     (void)l;
     switch (m) {
         case WM_INITDIALOG: {
-            static const wchar_t *kinds[] = { L"Poeira", L"Bokeh", L"Faiscas", L"Estrelas" };
-            for (int i = 0; i < 4; ++i)
-                SendDlgItemMessageW(h, IDC_PARTKIND, CB_ADDSTRING, 0, (LPARAM)kinds[i]);
-            SendDlgItemMessageW(h, IDC_PARTKIND, CB_SETCURSEL, g_work.particles_kind, 0);
             CheckDlgButton(h, IDC_PARTON, g_work.particles_on ? BST_CHECKED : BST_UNCHECKED);
             set_slider(h, IDC_PARTDENS, 0, 100, (int)(g_work.particles_density * 100.0f + 0.5f));
             set_slider(h, IDC_PARTSPEED, 0, 200, (int)(g_work.particles_speed * 100.0f + 0.5f));
             set_slider(h, IDC_PARTSIZE, 0, 200, (int)(g_work.particles_size_scale * 100.0f + 0.5f));
             set_slider(h, IDC_PARTOPACITY, 0, 200, (int)(g_work.particles_opacity * 100.0f + 0.5f));
-            particles_labels(h);
+            particles_apply_i18n(h);
             particles_enable(h);
             return TRUE;
         }
