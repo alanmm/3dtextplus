@@ -104,6 +104,13 @@
 #define IDC_SINT_VAL      1512
 #define IDC_SLEN          1513
 #define IDC_SLEN_VAL      1514
+#define IDC_BTHRESH_LABEL 1520
+#define IDC_BINT_LABEL    1521
+#define IDC_BRAD_LABEL    1522
+#define IDC_STREAKS_LABEL 1523
+#define IDC_SINT_LABEL    1524
+#define IDC_SLEN_LABEL    1525
+#define IDC_EFFECTS_HINT  1526
 
 /* aba Desempenho */
 #define IDC_FPSCAP        1600
@@ -112,6 +119,12 @@
 #define IDC_RSCALE        1603
 #define IDC_RSCALE_VAL    1604
 #define IDC_AUTOQ         1605
+#define IDC_FPS_LABEL     1606
+#define IDC_MSAA_LABEL    1607
+#define IDC_RSCALE_LABEL  1608
+#define IDC_PERF_HINT     1609
+#define IDC_LANGUAGE_LABEL 1610
+#define IDC_LANGUAGE       1611
 
 /* aba Pos */
 #define IDC_CHROMA        1700

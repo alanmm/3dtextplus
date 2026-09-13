@@ -675,6 +675,26 @@ static void effects_enable(HWND h)
     EnableWindow(GetDlgItem(h, IDC_SLEN), st);
 }
 
+static void effects_apply_i18n(HWND h)
+{
+    SetDlgItemTextW(h, IDC_BLOOM, i18n_str(STR_EFFECTS_BLOOM));
+    SetDlgItemTextW(h, IDC_BTHRESH_LABEL, i18n_str(STR_EFFECTS_THRESHOLD_LABEL));
+    SetDlgItemTextW(h, IDC_BINT_LABEL, i18n_str(STR_EFFECTS_BLOOM_INTENSITY_LABEL));
+    SetDlgItemTextW(h, IDC_BRAD_LABEL, i18n_str(STR_EFFECTS_SPREAD_LABEL));
+    SetDlgItemTextW(h, IDC_STREAKS_LABEL, i18n_str(STR_EFFECTS_STREAKS_LABEL));
+    SetDlgItemTextW(h, IDC_SINT_LABEL, i18n_str(STR_EFFECTS_STREAKS_INTENSITY_LABEL));
+    SetDlgItemTextW(h, IDC_SLEN_LABEL, i18n_str(STR_EFFECTS_LENGTH_LABEL));
+    SetDlgItemTextW(h, IDC_EFFECTS_HINT, i18n_str(STR_EFFECTS_HINT));
+
+    HWND sm = GetDlgItem(h, IDC_STREAKMODE);
+    int cur = (int)SendMessageW(sm, CB_GETCURSEL, 0, 0);
+    SendMessageW(sm, CB_RESETCONTENT, 0, 0);
+    SendMessageW(sm, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_EFFECTS_STREAKS_OFF));
+    SendMessageW(sm, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_EFFECTS_STREAKS_STARBURST));
+    SendMessageW(sm, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_EFFECTS_STREAKS_ANAMORPHIC));
+    SendMessageW(sm, CB_SETCURSEL, cur < 0 ? g_work.streaks_mode : cur, 0);
+}
+
 static INT_PTR CALLBACK effects_proc(HWND h, UINT m, WPARAM w, LPARAM l)
 {
     (void)l;
@@ -684,12 +704,9 @@ static INT_PTR CALLBACK effects_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             set_slider(h, IDC_BTHRESH, 20, 300, (int)(g_work.bloom_threshold * 100.0f + 0.5f));
             set_slider(h, IDC_BINT,     0, 200, (int)(g_work.bloom_intensity * 100.0f + 0.5f));
             set_slider(h, IDC_BRAD,     0, 100, (int)(g_work.bloom_radius * 100.0f + 0.5f));
-            static const wchar_t *sm[] = { L"Desligado", L"Starburst", L"Anamorfico" };
-            for (int i = 0; i < 3; ++i)
-                SendDlgItemMessageW(h, IDC_STREAKMODE, CB_ADDSTRING, 0, (LPARAM)sm[i]);
-            SendDlgItemMessageW(h, IDC_STREAKMODE, CB_SETCURSEL, g_work.streaks_mode, 0);
             set_slider(h, IDC_SINT, 0, 200, (int)(g_work.streaks_intensity * 100.0f + 0.5f));
             set_slider(h, IDC_SLEN, 0, 100, (int)(g_work.streaks_length * 100.0f + 0.5f));
+            effects_apply_i18n(h);
             effects_labels(h);
             effects_enable(h);
             return TRUE;
@@ -730,17 +747,68 @@ static void perf_labels(HWND h)
     SetDlgItemTextW(h, IDC_RSCALE_VAL, b);
 }
 
+static void perf_apply_i18n(HWND h)
+{
+    SetDlgItemTextW(h, IDC_FPS_LABEL, i18n_str(STR_PERF_FPS_LABEL));
+    SetDlgItemTextW(h, IDC_VSYNC, i18n_str(STR_PERF_VSYNC));
+    SetDlgItemTextW(h, IDC_MSAA_LABEL, i18n_str(STR_PERF_MSAA_LABEL));
+    SetDlgItemTextW(h, IDC_RSCALE_LABEL, i18n_str(STR_PERF_RSCALE_LABEL));
+    SetDlgItemTextW(h, IDC_AUTOQ, i18n_str(STR_PERF_AUTOQ));
+    SetDlgItemTextW(h, IDC_PERF_HINT, i18n_str(STR_PERF_HINT));
+    SetDlgItemTextW(h, IDC_LANGUAGE_LABEL, i18n_str(STR_PERF_LANGUAGE_LABEL));
+
+    HWND fps = GetDlgItem(h, IDC_FPSCAP);
+    int cur = (int)SendMessageW(fps, CB_GETCURSEL, 0, 0);
+    SendMessageW(fps, CB_RESETCONTENT, 0, 0);
+    SendMessageW(fps, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_PERF_FPS_UNLIMITED));
+    SendMessageW(fps, CB_ADDSTRING, 0, (LPARAM)L"30");
+    SendMessageW(fps, CB_ADDSTRING, 0, (LPARAM)L"60");
+    SendMessageW(fps, CB_ADDSTRING, 0, (LPARAM)L"120");
+    SendMessageW(fps, CB_SETCURSEL, cur < 0 ? 2 : cur, 0);
+
+    HWND msaa = GetDlgItem(h, IDC_MSAA);
+    cur = (int)SendMessageW(msaa, CB_GETCURSEL, 0, 0);
+    SendMessageW(msaa, CB_RESETCONTENT, 0, 0);
+    SendMessageW(msaa, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_PERF_MSAA_OFF));
+    SendMessageW(msaa, CB_ADDSTRING, 0, (LPARAM)L"2x");
+    SendMessageW(msaa, CB_ADDSTRING, 0, (LPARAM)L"4x");
+    SendMessageW(msaa, CB_ADDSTRING, 0, (LPARAM)L"8x");
+    SendMessageW(msaa, CB_SETCURSEL, cur < 0 ? 2 : cur, 0);
+
+    HWND lang = GetDlgItem(h, IDC_LANGUAGE);
+    cur = (int)SendMessageW(lang, CB_GETCURSEL, 0, 0);
+    SendMessageW(lang, CB_RESETCONTENT, 0, 0);
+    SendMessageW(lang, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_PERF_LANGUAGE_AUTO));
+    SendMessageW(lang, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_PERF_LANGUAGE_PT));
+    SendMessageW(lang, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_PERF_LANGUAGE_EN));
+    SendMessageW(lang, CB_SETCURSEL, cur < 0 ? g_work.ui_language : cur, 0);
+
+    perf_labels(h);
+}
+
+/* refeita na Task 13 pra tambem cobrir Pos/Fundo/Particulas e o chrome
+   principal do dialogo (que ainda nao existem/nao sao alcancaveis neste
+   ponto do arquivo) - por ora cobre so' as abas ja existentes ate aqui */
+static void apply_language_change(void)
+{
+    i18n_init(g_work.ui_language);
+    content_apply_i18n(g_content);
+    motion_apply_i18n(g_motion);
+    material_apply_i18n(g_material);
+    geometry_apply_i18n(g_geometry);
+    effects_apply_i18n(g_effects);
+    perf_apply_i18n(g_perf);
+}
+
 static INT_PTR CALLBACK perf_proc(HWND h, UINT m, WPARAM w, LPARAM l)
 {
     (void)l;
     switch (m) {
         case WM_INITDIALOG: {
-            static const wchar_t *fps[] = { L"Sem limite", L"30", L"60", L"120" };
-            static const wchar_t *ms[]  = { L"Desligado", L"2x", L"4x", L"8x" };
-            for (int i = 0; i < 4; ++i) {
-                SendDlgItemMessageW(h, IDC_FPSCAP, CB_ADDSTRING, 0, (LPARAM)fps[i]);
-                SendDlgItemMessageW(h, IDC_MSAA,   CB_ADDSTRING, 0, (LPARAM)ms[i]);
-            }
+            CheckDlgButton(h, IDC_VSYNC, g_work.vsync ? BST_CHECKED : BST_UNCHECKED);
+            CheckDlgButton(h, IDC_AUTOQ, g_work.auto_quality ? BST_CHECKED : BST_UNCHECKED);
+            set_slider(h, IDC_RSCALE, 50, 100, (int)(g_work.render_scale * 100.0f + 0.5f));
+            perf_apply_i18n(h);
             int fi = 2, mi = 2;
             for (int i = 0; i < 4; ++i) {
                 if (PERF_FPS[i] == g_work.fps_cap) fi = i;
@@ -748,10 +816,6 @@ static INT_PTR CALLBACK perf_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             }
             SendDlgItemMessageW(h, IDC_FPSCAP, CB_SETCURSEL, fi, 0);
             SendDlgItemMessageW(h, IDC_MSAA,   CB_SETCURSEL, mi, 0);
-            CheckDlgButton(h, IDC_VSYNC, g_work.vsync ? BST_CHECKED : BST_UNCHECKED);
-            CheckDlgButton(h, IDC_AUTOQ, g_work.auto_quality ? BST_CHECKED : BST_UNCHECKED);
-            set_slider(h, IDC_RSCALE, 50, 100, (int)(g_work.render_scale * 100.0f + 0.5f));
-            perf_labels(h);
             return TRUE;
         }
         case WM_HSCROLL:
@@ -783,6 +847,14 @@ static INT_PTR CALLBACK perf_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                 case IDC_AUTOQ:
                     g_work.auto_quality = (IsDlgButtonChecked(h, IDC_AUTOQ) == BST_CHECKED);
                     preview_dirty(h);
+                    break;
+                case IDC_LANGUAGE:
+                    if (HIWORD(w) == CBN_SELCHANGE) {
+                        g_work.ui_language =
+                            (int)SendDlgItemMessageW(h, IDC_LANGUAGE, CB_GETCURSEL, 0, 0);
+                        apply_language_change();
+                        preview_dirty(h);
+                    }
                     break;
             }
             return TRUE;
