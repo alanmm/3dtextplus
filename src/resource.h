@@ -33,6 +33,13 @@
 #define IDC_SVGCLEAR      1113
 #define IDC_SVGCOLORLABEL 1114
 #define IDC_SVGCOLORMODE  1115
+#define IDC_MESHPATHLABEL  1116
+#define IDC_MESHPATH       1117
+#define IDC_MESHPICK       1118
+#define IDC_MESHCLEAR      1119
+#define IDC_MESHSCALELABEL 1120
+#define IDC_MESHSCALE_VAL  1121
+#define IDC_MESHSCALE      1122
 
 /* aba Movimento */
 #define IDC_DEPTH         1200

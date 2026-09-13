@@ -36,6 +36,14 @@ BEGIN
     LTEXT           "Cores:", IDC_SVGCOLORLABEL, 8, 92, 60, 9
     COMBOBOX        IDC_SVGCOLORMODE, 68, 90, 164, 60, CBS_DROPDOWNLIST | WS_TABSTOP
 
+    LTEXT           "Arquivo:", IDC_MESHPATHLABEL, 8, 42, 60, 9
+    LTEXT           "(nenhum)", IDC_MESHPATH, 8, 54, 224, 9, SS_PATHELLIPSIS
+    PUSHBUTTON      "Escolher...", IDC_MESHPICK, 8, 66, 60, 14
+    PUSHBUTTON      "Limpar", IDC_MESHCLEAR, 72, 66, 50, 14
+    LTEXT           "Escala:", IDC_MESHSCALELABEL, 8, 92, 60, 9
+    LTEXT           "", IDC_MESHSCALE_VAL, 182, 92, 50, 9
+    CONTROL         "", IDC_MESHSCALE, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 102, 224, 16
+
     AUTOCHECKBOX     "Negrito", IDC_BOLD,   8, 128, 60, 12
     AUTOCHECKBOX     "Italico", IDC_ITALIC, 76, 128, 60, 12
     AUTOCHECKBOX     "Mostrar data", IDC_CLOCKDATE, 130, 128, 100, 12
