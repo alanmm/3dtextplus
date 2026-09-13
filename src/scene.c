@@ -91,6 +91,14 @@ struct SceneRenderer {
     int      mesh_piece_count;
     int      have_mesh_content;   /* "ja tentamos montar a malha atual pelo menos uma vez" -
                                       cobre tanto o caminho unico quanto o de pecas */
+
+    /* placa de erro (SVG/malha ausente ou invalida) - substitui o
+       conteudo 3D normal por uma caixa+texto achatados, nao pertence
+       aos campos svg_ ou mesh_ porque pode ser disparada por qualquer
+       um dos dois */
+    GlMesh   error_pieces[2];      /* [0] caixa, [1] texto */
+    v3       error_colors[2];
+    int      have_error_plaque;
 };
 
 static void upload_sdf(SceneRenderer *s, const Sdf *sdf)
@@ -163,8 +171,98 @@ static void free_svg_pieces(SceneRenderer *s)
     s->svg_mesh_count = 0;
 }
 
+static void free_error_plaque(SceneRenderer *s)
+{
+    if (s->have_error_plaque) {
+        gl_mesh_free(&s->error_pieces[0]);
+        gl_mesh_free(&s->error_pieces[1]);
+    }
+    s->have_error_plaque = 0;
+}
+
+/* quad achatado simples (2 triangulos, sem indice compartilhado),
+   centrado na origem, normal +Z (voltada pra camera). */
+static void build_flat_quad(float halfw, float halfh, float z, MeshData *out)
+{
+    memset(out, 0, sizeof *out);
+    MeshVertex *v = (MeshVertex *)malloc(6 * sizeof(MeshVertex));
+    unsigned *idx = (unsigned *)malloc(6 * sizeof(unsigned));
+    v3 p[4] = {
+        { -halfw, -halfh, z }, { halfw, -halfh, z },
+        { halfw,  halfh, z }, { -halfw,  halfh, z }
+    };
+    int tri[6] = { 0, 1, 2, 0, 2, 3 };
+    for (int i = 0; i < 6; ++i) {
+        v3 pp = p[tri[i]];
+        v[i] = (MeshVertex){ pp.x, pp.y, pp.z, 0.0f, 0.0f, 1.0f, 0.0f };
+        idx[i] = (unsigned)i;
+    }
+    out->verts = v; out->nverts = 6;
+    out->idx = idx; out->nidx = 6;
+    out->minx = -halfw; out->maxx = halfw;
+    out->miny = -halfh; out->maxy = halfh;
+    out->minz = z; out->maxz = z;
+    out->has_sdf = 0;
+}
+
+/* placa achatada (caixa cinza + texto preto) usada como fallback visivel
+   quando SVG/malha configurado esta ausente ou invalido - reaproveita o
+   mesmo pipeline de texto de sempre (font_build_contours+contour_mesh_build)
+   com depth=0 e bevel desligado (mesmo efeito "achatado" que ja aparecia
+   nos testes do SVG), fonte fixada no fallback do sistema (family=NULL) em
+   vez da fonte configurada pelo usuario, quebras de linha fixas na propria
+   'message'. Enquadramento de camera automatico via s->hx/hy/hz, igual a
+   qualquer outro conteudo. */
+static int build_error_plaque(SceneRenderer *s, const char *message)
+{
+    free_error_plaque(s);
+
+    float tol = s->quality <= 0 ? 0.010f : (s->quality == 1 ? 0.004f : 0.0018f);
+
+    ContourSet cs;
+    if (!font_build_contours(message, NULL, 0, 0, tol, &cs)) return 0;
+
+    MeshParams p;
+    memset(&p, 0, sizeof p);
+    p.bevel_mode = 2;   /* desligado */
+    p.quality = s->quality;
+
+    MeshData text_md;
+    int ok = contour_mesh_build(&cs, p, &text_md);
+    contourset_free(&cs);
+    if (!ok) return 0;
+
+    float text_hw = 0.5f * (text_md.maxx - text_md.minx);
+    float text_h  = text_md.maxy - text_md.miny;
+    float text_hh = 0.5f * text_h;
+    const float MARGIN_FRAC = 0.25f;   /* fracao da altura do texto, em cada lado */
+    float margin = MARGIN_FRAC * text_h;
+    float box_hw = text_hw + margin;
+    float box_hh = text_hh + margin;
+
+    MeshData box_md;
+    build_flat_quad(box_hw, box_hh, -0.02f, &box_md);
+
+    s->error_pieces[0] = gl_mesh_upload(box_md.verts, box_md.nverts, box_md.idx, box_md.nidx);
+    s->error_colors[0] = (v3){ 0.85f, 0.85f, 0.85f };
+    mesh_data_free(&box_md);
+
+    s->error_pieces[1] = gl_mesh_upload(text_md.verts, text_md.nverts, text_md.idx, text_md.nidx);
+    s->error_colors[1] = (v3){ 0.0f, 0.0f, 0.0f };
+    mesh_data_free(&text_md);
+
+    s->have_error_plaque = 1;
+    s->hx = box_hw; s->hy = box_hh; s->hz = 0.02f;
+    s->wall_cache_count = 0;
+    upload_sdf(s, NULL);
+    log_infof("scene: placa de erro '%s'", message);
+    return 1;
+}
+
 static int rebuild_mesh(SceneRenderer *s)
 {
+    free_error_plaque(s);
+
     float tol = s->quality <= 0 ? 0.010f : (s->quality == 1 ? 0.004f : 0.0018f);
 
     ContourSet cs;
@@ -208,6 +306,7 @@ static int rebuild_mesh(SceneRenderer *s)
 static int rebuild_svg_mesh(SceneRenderer *s)
 {
     free_svg_pieces(s);
+    free_error_plaque(s);
 
     float tol = s->quality <= 0 ? 0.010f : (s->quality == 1 ? 0.004f : 0.0018f);
 
@@ -215,10 +314,8 @@ static int rebuild_svg_mesh(SceneRenderer *s)
     int loaded = s->svg_path[0] != 0 && svg_shapes_load(s->svg_path, tol, &svgset);
     if (!loaded || svgset.count == 0) {
         if (loaded) svg_shapes_free(&svgset);
-        strncpy(s->text, "SVG nao encontrado ou sem forma preenchida", sizeof s->text - 1);
-        s->text[sizeof s->text - 1] = 0;
         s->have_svg_mesh = 1;
-        return rebuild_mesh(s);
+        return build_error_plaque(s, "SVG nao\nencontrado ou\nsem forma\npreenchida");
     }
 
     s->svg_meshes = (GlMesh *)calloc((size_t)svgset.count, sizeof(GlMesh));
@@ -263,10 +360,8 @@ static int rebuild_svg_mesh(SceneRenderer *s)
 
     if (s->svg_mesh_count == 0) {
         free_svg_pieces(s);
-        strncpy(s->text, "SVG sem geometria valida", sizeof s->text - 1);
-        s->text[sizeof s->text - 1] = 0;
         s->have_svg_mesh = 1;
-        return rebuild_mesh(s);
+        return build_error_plaque(s, "SVG sem\ngeometria\nvalida");
     }
 
     if (uhx < 1e-3f) uhx = 1.0f;
@@ -288,6 +383,7 @@ static void free_mesh_pieces(SceneRenderer *s)
 static int rebuild_imported_mesh(SceneRenderer *s)
 {
     free_mesh_pieces(s);
+    free_error_plaque(s);
     s->have_mesh_content = 1;
 
     if (s->mesh_path[0] != 0 && s->mesh_use_file_materials) {
@@ -328,9 +424,7 @@ static int rebuild_imported_mesh(SceneRenderer *s)
     MeshData md;
     int ok = s->mesh_path[0] != 0 && mesh_import_load(s->mesh_path, s->mesh_size_scale, &md);
     if (!ok) {
-        strncpy(s->text, "Malha nao encontrada ou invalida", sizeof s->text - 1);
-        s->text[sizeof s->text - 1] = 0;
-        return rebuild_mesh(s);
+        return build_error_plaque(s, "Malha nao\nencontrada\nou invalida");
     }
 
     if (s->have_mesh) gl_mesh_free(&s->mesh);
@@ -376,7 +470,8 @@ SceneRenderer *scene_create(const Config *cfg)
     glDisable(GL_CULL_FACE);   /* extrusao two-sided */
 
     scene_set_config(s, cfg);
-    if (!s->have_mesh && s->svg_mesh_count == 0 && s->mesh_piece_count == 0) {
+    if (!s->have_mesh && s->svg_mesh_count == 0 && s->mesh_piece_count == 0
+        && !s->have_error_plaque) {
         log_errorf("scene: sem malha inicial");
         material_destroy(&s->mat);
         free(s);
@@ -580,14 +675,15 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h, int particles_
     gl_fullscreen_draw(&s->bg_vao);
     glDepthMask(GL_TRUE);
 
-    if (!s->have_mesh && s->svg_mesh_count == 0 && s->mesh_piece_count == 0) return;
+    if (!s->have_mesh && s->svg_mesh_count == 0 && s->mesh_piece_count == 0
+        && !s->have_error_plaque) return;
 
     float aspect = (float)fb_w / (float)fb_h;
     float fovy = m3dt_radians(35.0f);
     float tanY = tanf(fovy * 0.5f);
     float tanX = tanY * aspect;
 
-    const float fill = 0.60f * s->zoom;
+    const float fill = (s->have_error_plaque ? 0.85f : 0.60f) * s->zoom;
     float distX = s->hx / (tanX * fill);
     float distY = s->hy / (tanY * fill);
     float dist = fmaxf(distX, distY) + s->hz + 0.5f;
@@ -632,7 +728,12 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h, int particles_
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glDepthMask(GL_FALSE);
     }
-    if (s->content_mode == CONTENT_SVG && s->svg_mesh_count > 0) {
+    if (s->have_error_plaque) {
+        material_set_piece_color(&s->mat, s->error_colors[0]);
+        gl_mesh_draw(&s->error_pieces[0]);
+        material_set_piece_color(&s->mat, s->error_colors[1]);
+        gl_mesh_draw(&s->error_pieces[1]);
+    } else if (s->content_mode == CONTENT_SVG && s->svg_mesh_count > 0) {
         for (int i = 0; i < s->svg_mesh_count; ++i) {
             v3 piece_color = (s->svg_color_mode == 0) ? s->svg_colors[i] : s->base_color;
             material_set_piece_color(&s->mat, piece_color);
@@ -663,6 +764,7 @@ void scene_destroy(SceneRenderer *s)
     if (s->have_mesh) gl_mesh_free(&s->mesh);
     free_svg_pieces(s);
     free_mesh_pieces(s);
+    free_error_plaque(s);
     particles_destroy(s->particles);
     if (s->sdf_tex) glDeleteTextures(1, &s->sdf_tex);
     if (s->bg_tex) glDeleteTextures(1, &s->bg_tex);
