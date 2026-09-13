@@ -24,6 +24,20 @@ static int has_ext(const wchar_t *path, const wchar_t *ext)
 static int load_gltf(const wchar_t *path, MeshData *out);
 static int load_gltf_pieces(const wchar_t *path, float size_scale, MeshPieceSet *out);
 
+static int mesh_file_too_big(const wchar_t *path, unsigned long long max_bytes)
+{
+    WIN32_FILE_ATTRIBUTE_DATA fad;
+    if (!GetFileAttributesExW(path, GetFileExInfoStandard, &fad)) return 0;
+    unsigned long long size = ((unsigned long long)fad.nFileSizeHigh << 32) | fad.nFileSizeLow;
+    return size > max_bytes;
+}
+
+int mesh_import_file_too_big(const wchar_t *path)
+{
+    if (!path || !path[0]) return 0;
+    return mesh_file_too_big(path, MESH_IMPORT_MAX_BYTES);
+}
+
 static int load_obj(const wchar_t *path, MeshData *out)
 {
     char u8[1024];
@@ -155,6 +169,12 @@ static void normalize_pieces(MeshPieceSet *out, float size_scale)
 int mesh_import_load_pieces(const wchar_t *path, float size_scale, MeshPieceSet *out)
 {
     memset(out, 0, sizeof *out);
+
+    if (mesh_file_too_big(path, MESH_IMPORT_MAX_BYTES)) {
+        log_errorf("mesh_import: arquivo excede o limite de %.0f MB",
+                   MESH_IMPORT_MAX_BYTES / (1024.0 * 1024.0));
+        return 0;
+    }
 
     if (has_ext(path, L".glb") || has_ext(path, L".gltf"))
         return load_gltf_pieces(path, size_scale, out);
@@ -513,6 +533,17 @@ static int gltf_collect_chunks(const wchar_t *path, GltfChunkList *out)
     memset(&options, 0, sizeof options);
     cgltf_data *data = NULL;
     if (cgltf_parse_file(&options, u8, &data) != cgltf_result_success) return 0;
+
+    unsigned long long total_buf_bytes = 0;
+    for (cgltf_size i = 0; i < data->buffers_count; ++i)
+        total_buf_bytes += data->buffers[i].size;
+    if (total_buf_bytes > MESH_IMPORT_MAX_BYTES) {
+        log_errorf("mesh_import: buffers do .gltf/.glb excedem o limite de %.0f MB",
+                   MESH_IMPORT_MAX_BYTES / (1024.0 * 1024.0));
+        cgltf_free(data);
+        return 0;
+    }
+
     if (cgltf_load_buffers(&options, data, u8) != cgltf_result_success) {
         cgltf_free(data);
         return 0;
@@ -641,6 +672,11 @@ int mesh_import_load(const wchar_t *path, float size_scale, MeshData *out)
 {
     memset(out, 0, sizeof *out);
     if (!path || !path[0]) return 0;
+    if (mesh_file_too_big(path, MESH_IMPORT_MAX_BYTES)) {
+        log_errorf("mesh_import: arquivo excede o limite de %.0f MB",
+                   MESH_IMPORT_MAX_BYTES / (1024.0 * 1024.0));
+        return 0;
+    }
 
     int ok;
     if (has_ext(path, L".obj"))

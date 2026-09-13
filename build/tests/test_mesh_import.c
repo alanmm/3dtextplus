@@ -5,6 +5,7 @@
 #include <string.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 static void write_text_file(const char *content, const wchar_t *ext, wchar_t *out_path)
 {
@@ -124,6 +125,39 @@ static void write_glb(const char *json, const void *bin, size_t bin_len, wchar_t
         WriteFile(h, bin, (DWORD)bin_len, &written, NULL);
         for (size_t i = 0; i < bin_pad; ++i) { char z = 0; WriteFile(h, &z, 1, &written, NULL); }
     }
+    CloseHandle(h);
+}
+
+static void write_big_dummy_file(const wchar_t *ext, size_t total_bytes, wchar_t *out_path)
+{
+    wchar_t dir[MAX_PATH];
+    GetTempPathW(MAX_PATH, dir);
+    GetTempFileNameW(dir, L"tmp", 0, out_path);
+    size_t n = wcslen(out_path);
+    wcsncpy(out_path + n - 3, ext, 3);
+
+    char *buf = (char *)malloc(total_bytes);
+    memset(buf, 'x', total_bytes);
+
+    HANDLE h = CreateFileW(out_path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
+    DWORD written = 0;
+    WriteFile(h, buf, (DWORD)total_bytes, &written, NULL);
+    CloseHandle(h);
+    free(buf);
+}
+
+static void write_gltf_json(const char *json, wchar_t *out_path)
+{
+    wchar_t dir[MAX_PATH];
+    GetTempPathW(MAX_PATH, dir);
+    GetTempFileNameW(dir, L"tmp", 0, out_path);
+    /* GetTempFileNameW da extensao .tmp (3 letras) - "gltf" tem 4, entao
+       anexa em vez de tentar substituir no lugar como os outros helpers */
+    wcscat(out_path, L".gltf");
+
+    HANDLE h = CreateFileW(out_path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
+    DWORD written = 0;
+    WriteFile(h, json, (DWORD)strlen(json), &written, NULL);
     CloseHandle(h);
 }
 
@@ -411,5 +445,75 @@ void run_mesh_import_tests(void)
         MeshData md;
         int ok = mesh_import_load(L"C:\\caminho\\que\\nao\\existe.glb", 1.0f, &md);
         EXPECT(!ok);
+    }
+
+    /* .obj acima de 10MB -> recusado antes de tentar parsear */
+    {
+        wchar_t path[MAX_PATH];
+        write_big_dummy_file(L"obj", (size_t)11 * 1024 * 1024, path);
+
+        MeshData md;
+        int ok = mesh_import_load(path, 1.0f, &md);
+        DeleteFileW(path);
+
+        EXPECT(!ok);
+    }
+
+    /* .glb acima de 10MB -> recusado antes de tentar parsear */
+    {
+        wchar_t path[MAX_PATH];
+        write_big_dummy_file(L"glb", (size_t)11 * 1024 * 1024, path);
+
+        MeshData md;
+        int ok = mesh_import_load(path, 1.0f, &md);
+        DeleteFileW(path);
+
+        EXPECT(!ok);
+    }
+
+    /* .gltf pequeno no disco, mas com byteLength declarado acima do limite
+       -> recusado sem tentar resolver o buffer (que nem existe de verdade) */
+    {
+        const char *json =
+            "{\"asset\":{\"version\":\"2.0\"},"
+            "\"buffers\":[{\"byteLength\":20000000}],"
+            "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36}],"
+            "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\","
+                            "\"min\":[0.0,0.0,0.0],\"max\":[1.0,1.0,0.0]}],"
+            "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0},\"mode\":4}]}],"
+            "\"nodes\":[{\"mesh\":0}],"
+            "\"scenes\":[{\"nodes\":[0]}],"
+            "\"scene\":0}";
+        wchar_t path[MAX_PATH];
+        write_gltf_json(json, path);
+
+        MeshData md;
+        int ok = mesh_import_load(path, 1.0f, &md);
+        DeleteFileW(path);
+
+        EXPECT(!ok);
+    }
+
+    /* mesh_import_file_too_big: arquivo pequeno normal -> aceito (0) */
+    {
+        const char *obj = "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n";
+        wchar_t path[MAX_PATH];
+        write_text_file(obj, L"obj", path);
+
+        int too_big = mesh_import_file_too_big(path);
+        DeleteFileW(path);
+
+        EXPECT(!too_big);
+    }
+
+    /* mesh_import_file_too_big: arquivo grande -> recusado (1) */
+    {
+        wchar_t path[MAX_PATH];
+        write_big_dummy_file(L"obj", (size_t)11 * 1024 * 1024, path);
+
+        int too_big = mesh_import_file_too_big(path);
+        DeleteFileW(path);
+
+        EXPECT(too_big);
     }
 }
