@@ -85,6 +85,12 @@ struct SceneRenderer {
 
     wchar_t  mesh_path[512];
     float    mesh_size_scale;
+    int      mesh_use_file_materials;
+    GlMesh  *mesh_pieces;
+    v3      *mesh_piece_colors;
+    int      mesh_piece_count;
+    int      have_mesh_content;   /* "ja tentamos montar a malha atual pelo menos uma vez" -
+                                      cobre tanto o caminho unico quanto o de pecas */
 };
 
 static void upload_sdf(SceneRenderer *s, const Sdf *sdf)
@@ -271,8 +277,54 @@ static int rebuild_svg_mesh(SceneRenderer *s)
     return 1;
 }
 
+static void free_mesh_pieces(SceneRenderer *s)
+{
+    for (int i = 0; i < s->mesh_piece_count; ++i) gl_mesh_free(&s->mesh_pieces[i]);
+    free(s->mesh_pieces); s->mesh_pieces = NULL;
+    free(s->mesh_piece_colors); s->mesh_piece_colors = NULL;
+    s->mesh_piece_count = 0;
+}
+
 static int rebuild_imported_mesh(SceneRenderer *s)
 {
+    free_mesh_pieces(s);
+    s->have_mesh_content = 1;
+
+    if (s->mesh_path[0] != 0 && s->mesh_use_file_materials) {
+        MeshPieceSet ps;
+        if (mesh_import_load_pieces(s->mesh_path, s->mesh_size_scale, &ps)) {
+            s->mesh_pieces = (GlMesh *)calloc((size_t)ps.count, sizeof(GlMesh));
+            s->mesh_piece_colors = (v3 *)calloc((size_t)ps.count, sizeof(v3));
+            if (s->mesh_pieces && s->mesh_piece_colors) {
+                float uhx = 0.0f, uhy = 0.0f, uhz = 0.0f;
+                for (int i = 0; i < ps.count; ++i) {
+                    MeshData *d = &ps.pieces[i].data;
+                    s->mesh_pieces[i] = gl_mesh_upload(d->verts, d->nverts, d->idx, d->nidx);
+                    s->mesh_piece_colors[i] = (v3){ ps.pieces[i].r, ps.pieces[i].g, ps.pieces[i].b };
+                    float phx = 0.5f * (d->maxx - d->minx);
+                    float phy = 0.5f * (d->maxy - d->miny);
+                    float phz = 0.5f * (d->maxz - d->minz);
+                    if (phx > uhx) uhx = phx;
+                    if (phy > uhy) uhy = phy;
+                    if (phz > uhz) uhz = phz;
+                }
+                s->mesh_piece_count = ps.count;
+                if (uhx < 1e-3f) uhx = 1.0f;
+                if (uhy < 1e-3f) uhy = 1.0f;
+                s->hx = uhx; s->hy = uhy; s->hz = uhz;
+                s->wall_cache_count = 0;
+                upload_sdf(s, NULL);
+                log_infof("scene: malha '%ls' -> %d peca(s) com material do arquivo",
+                          s->mesh_path, s->mesh_piece_count);
+                mesh_import_pieces_free(&ps);
+                return 1;
+            }
+            free_mesh_pieces(s);
+            mesh_import_pieces_free(&ps);
+            return 0;
+        }
+    }
+
     MeshData md;
     int ok = s->mesh_path[0] != 0 && mesh_import_load(s->mesh_path, s->mesh_size_scale, &md);
     if (!ok) {
@@ -324,7 +376,7 @@ SceneRenderer *scene_create(const Config *cfg)
     glDisable(GL_CULL_FACE);   /* extrusao two-sided */
 
     scene_set_config(s, cfg);
-    if (!s->have_mesh && s->svg_mesh_count == 0) {
+    if (!s->have_mesh && s->svg_mesh_count == 0 && s->mesh_piece_count == 0) {
         log_errorf("scene: sem malha inicial");
         material_destroy(&s->mat);
         free(s);
@@ -339,9 +391,13 @@ void scene_set_config(SceneRenderer *s, const Config *cfg)
         && (wcscmp(s->svg_path, cfg->svg_path) != 0 || s->svg_color_mode != cfg->svg_color_mode);
 
     int mesh_relevant_change = (cfg->content_mode == CONTENT_MESH)
-        && (wcscmp(s->mesh_path, cfg->mesh_path) != 0 || s->mesh_size_scale != cfg->mesh_size_scale);
+        && (wcscmp(s->mesh_path, cfg->mesh_path) != 0
+            || s->mesh_size_scale != cfg->mesh_size_scale
+            || s->mesh_use_file_materials != cfg->mesh_use_file_materials);
 
-    int mesh_dirty = (cfg->content_mode == CONTENT_SVG ? !s->have_svg_mesh : !s->have_mesh)
+    int mesh_dirty = (cfg->content_mode == CONTENT_SVG ? !s->have_svg_mesh
+                      : cfg->content_mode == CONTENT_MESH ? !s->have_mesh_content
+                      : !s->have_mesh)
         || strcmp(s->text, cfg->text) != 0
         || wcscmp(s->font_family, cfg->font_family) != 0
         || s->bold != cfg->font_bold
@@ -367,6 +423,7 @@ void scene_set_config(SceneRenderer *s, const Config *cfg)
     wcsncpy(s->mesh_path, cfg->mesh_path, 511);
     s->mesh_path[511] = 0;
     s->mesh_size_scale = cfg->mesh_size_scale;
+    s->mesh_use_file_materials = cfg->mesh_use_file_materials;
 
     strncpy(s->text, cfg->text, sizeof s->text - 1);
     s->text[sizeof s->text - 1] = 0;
@@ -523,7 +580,7 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h, int particles_
     gl_fullscreen_draw(&s->bg_vao);
     glDepthMask(GL_TRUE);
 
-    if (!s->have_mesh && s->svg_mesh_count == 0) return;
+    if (!s->have_mesh && s->svg_mesh_count == 0 && s->mesh_piece_count == 0) return;
 
     float aspect = (float)fb_w / (float)fb_h;
     float fovy = m3dt_radians(35.0f);
@@ -581,6 +638,11 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h, int particles_
             material_set_piece_color(&s->mat, piece_color);
             gl_mesh_draw(&s->svg_meshes[i]);
         }
+    } else if (s->content_mode == CONTENT_MESH && s->mesh_piece_count > 0) {
+        for (int i = 0; i < s->mesh_piece_count; ++i) {
+            material_set_piece_color(&s->mat, s->mesh_piece_colors[i]);
+            gl_mesh_draw(&s->mesh_pieces[i]);
+        }
     } else {
         gl_mesh_draw(&s->mesh);
     }
@@ -600,6 +662,7 @@ void scene_destroy(SceneRenderer *s)
     if (!s) return;
     if (s->have_mesh) gl_mesh_free(&s->mesh);
     free_svg_pieces(s);
+    free_mesh_pieces(s);
     particles_destroy(s->particles);
     if (s->sdf_tex) glDeleteTextures(1, &s->sdf_tex);
     if (s->bg_tex) glDeleteTextures(1, &s->bg_tex);
