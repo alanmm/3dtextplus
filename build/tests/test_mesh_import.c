@@ -81,6 +81,52 @@ static void write_obj_with_mtl(const char *obj_body_fmt, const char *mtl_content
     CloseHandle(h2);
 }
 
+static void write_glb(const char *json, const void *bin, size_t bin_len, wchar_t *out_path)
+{
+    wchar_t dir[MAX_PATH];
+    GetTempPathW(MAX_PATH, dir);
+    GetTempFileNameW(dir, L"tmp", 0, out_path);
+    size_t n = wcslen(out_path);
+    wcsncpy(out_path + n - 3, L"glb", 3);
+
+    size_t json_len = strlen(json);
+    size_t json_pad = (4 - (json_len % 4)) % 4;
+    size_t bin_pad = bin_len > 0 ? (4 - (bin_len % 4)) % 4 : 0;
+
+    unsigned int magic = 0x46546C67, version = 2;
+    unsigned int total_len = (unsigned int)(12 + 8 + json_len + json_pad
+                                            + (bin_len > 0 ? 8 + bin_len + bin_pad : 0));
+    unsigned char header[12];
+    memcpy(header + 0, &magic, 4);
+    memcpy(header + 4, &version, 4);
+    memcpy(header + 8, &total_len, 4);
+
+    unsigned int json_chunk_len = (unsigned int)(json_len + json_pad);
+    unsigned int json_chunk_type = 0x4E4F534A;
+    unsigned char json_chunk_header[8];
+    memcpy(json_chunk_header + 0, &json_chunk_len, 4);
+    memcpy(json_chunk_header + 4, &json_chunk_type, 4);
+
+    HANDLE h = CreateFileW(out_path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
+    DWORD written = 0;
+    WriteFile(h, header, 12, &written, NULL);
+    WriteFile(h, json_chunk_header, 8, &written, NULL);
+    WriteFile(h, json, (DWORD)json_len, &written, NULL);
+    for (size_t i = 0; i < json_pad; ++i) { char sp = ' '; WriteFile(h, &sp, 1, &written, NULL); }
+
+    if (bin_len > 0) {
+        unsigned int bin_chunk_len = (unsigned int)(bin_len + bin_pad);
+        unsigned int bin_chunk_type = 0x004E4942;
+        unsigned char bin_chunk_header[8];
+        memcpy(bin_chunk_header + 0, &bin_chunk_len, 4);
+        memcpy(bin_chunk_header + 4, &bin_chunk_type, 4);
+        WriteFile(h, bin_chunk_header, 8, &written, NULL);
+        WriteFile(h, bin, (DWORD)bin_len, &written, NULL);
+        for (size_t i = 0; i < bin_pad; ++i) { char z = 0; WriteFile(h, &z, 1, &written, NULL); }
+    }
+    CloseHandle(h);
+}
+
 void run_mesh_import_tests(void)
 {
     /* triangulo OBJ simples, sem normais -> normal calculada por face */
@@ -249,6 +295,121 @@ void run_mesh_import_tests(void)
         int ok = mesh_import_load_pieces(path, 1.0f, &ps);
         DeleteFileW(path);
 
+        EXPECT(!ok);
+    }
+
+    /* .glb: triangulo sem normais/material -> normal calculada, cor fallback branca */
+    {
+        const char *json =
+            "{\"asset\":{\"version\":\"2.0\"},"
+            "\"buffers\":[{\"byteLength\":36}],"
+            "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36}],"
+            "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\","
+                            "\"min\":[0.0,0.0,0.0],\"max\":[1.0,1.0,0.0]}],"
+            "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0},\"mode\":4}]}],"
+            "\"nodes\":[{\"mesh\":0}],"
+            "\"scenes\":[{\"nodes\":[0]}],"
+            "\"scene\":0}";
+        float bin[9] = { 0,0,0, 1,0,0, 0,1,0 };
+        wchar_t path[MAX_PATH];
+        write_glb(json, bin, sizeof bin, path);
+
+        MeshData md;
+        int ok = mesh_import_load(path, 1.0f, &md);
+        DeleteFileW(path);
+
+        EXPECT(ok);
+        EXPECT(md.nverts == 3);
+        EXPECT(fabsf(md.verts[0].nz) > 0.9f);   /* normal calculada, triangulo plano em XY */
+        mesh_data_free(&md);
+    }
+
+    /* .glb: 2 nos com 2 materiais (baseColorFactor diferentes) -> 2 pecas com cores distintas */
+    {
+        const char *json =
+            "{\"asset\":{\"version\":\"2.0\"},"
+            "\"buffers\":[{\"byteLength\":72}],"
+            "\"bufferViews\":["
+              "{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},"
+              "{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36}],"
+            "\"accessors\":["
+              "{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\","
+               "\"min\":[0.0,0.0,0.0],\"max\":[1.0,1.0,0.0]},"
+              "{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\","
+               "\"min\":[2.0,0.0,0.0],\"max\":[3.0,1.0,0.0]}],"
+            "\"materials\":["
+              "{\"pbrMetallicRoughness\":{\"baseColorFactor\":[1.0,0.0,0.0,1.0]}},"
+              "{\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.0,0.0,1.0,1.0]}}],"
+            "\"meshes\":["
+              "{\"primitives\":[{\"attributes\":{\"POSITION\":0},\"material\":0,\"mode\":4}]},"
+              "{\"primitives\":[{\"attributes\":{\"POSITION\":1},\"material\":1,\"mode\":4}]}],"
+            "\"nodes\":[{\"mesh\":0},{\"mesh\":1}],"
+            "\"scenes\":[{\"nodes\":[0,1]}],"
+            "\"scene\":0}";
+        float bin[18] = { 0,0,0, 1,0,0, 0,1,0,   2,0,0, 3,0,0, 2,1,0 };
+        wchar_t path[MAX_PATH];
+        write_glb(json, bin, sizeof bin, path);
+
+        MeshPieceSet ps;
+        int ok = mesh_import_load_pieces(path, 1.0f, &ps);
+        DeleteFileW(path);
+
+        EXPECT(ok);
+        EXPECT(ps.count == 2);
+        if (ps.count == 2) {
+            EXPECT(ps.pieces[0].r > 0.9f && ps.pieces[0].b < 0.1f);
+            EXPECT(ps.pieces[1].r < 0.1f && ps.pieces[1].b > 0.9f);
+        }
+        mesh_import_pieces_free(&ps);
+    }
+
+    /* .glb: no com translation aplicada corretamente (cgltf_node_transform_world) */
+    {
+        const char *json =
+            "{\"asset\":{\"version\":\"2.0\"},"
+            "\"buffers\":[{\"byteLength\":72}],"
+            "\"bufferViews\":["
+              "{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},"
+              "{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36}],"
+            "\"accessors\":["
+              "{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\","
+               "\"min\":[0.0,0.0,0.0],\"max\":[1.0,1.0,0.0]},"
+              "{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\","
+               "\"min\":[0.0,0.0,0.0],\"max\":[1.0,1.0,0.0]}],"
+            "\"meshes\":["
+              "{\"primitives\":[{\"attributes\":{\"POSITION\":0},\"mode\":4}]},"
+              "{\"primitives\":[{\"attributes\":{\"POSITION\":1},\"mode\":4}]}],"
+            "\"nodes\":[{\"mesh\":0},{\"mesh\":1,\"translation\":[100.0,0.0,0.0]}],"
+            "\"scenes\":[{\"nodes\":[0,1]}],"
+            "\"scene\":0}";
+        /* mesmo triangulo local nos dois nos - o node 1 so' difere pela translation */
+        float bin[18] = { 0,0,0, 1,0,0, 0,1,0,   0,0,0, 1,0,0, 0,1,0 };
+        wchar_t path[MAX_PATH];
+        write_glb(json, bin, sizeof bin, path);
+
+        MeshData md;
+        int ok = mesh_import_load(path, 1.0f, &md);
+        DeleteFileW(path);
+
+        EXPECT(ok);
+        EXPECT(md.nverts == 6);
+        float minx = 1e30f, maxx = -1e30f;
+        for (int i = 0; i < md.nverts; ++i) {
+            if (md.verts[i].px < minx) minx = md.verts[i].px;
+            if (md.verts[i].px > maxx) maxx = md.verts[i].px;
+        }
+        /* sem a translacao de 100 unidades no node 1, os dois triangulos
+           coincidiriam e o espalhamento em X seria ~1 unidade (o tamanho
+           de um triangulo isolado); com ela aplicada antes da normalizacao,
+           a separacao original domina e o espalhamento final fica bem maior */
+        EXPECT((maxx - minx) > 1.5f);
+        mesh_data_free(&md);
+    }
+
+    /* .glb inexistente -> falha graciosa */
+    {
+        MeshData md;
+        int ok = mesh_import_load(L"C:\\caminho\\que\\nao\\existe.glb", 1.0f, &md);
         EXPECT(!ok);
     }
 }

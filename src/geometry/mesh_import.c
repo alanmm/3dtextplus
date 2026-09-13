@@ -9,6 +9,7 @@
 #include <math.h>
 
 #include "fast_obj.h"
+#include "cgltf.h"
 
 static int has_ext(const wchar_t *path, const wchar_t *ext)
 {
@@ -19,6 +20,9 @@ static int has_ext(const wchar_t *path, const wchar_t *ext)
         if (towlower(suffix[i]) != towlower(ext[i])) return 0;
     return 1;
 }
+
+static int load_gltf(const wchar_t *path, MeshData *out);
+static int load_gltf_pieces(const wchar_t *path, float size_scale, MeshPieceSet *out);
 
 static int load_obj(const wchar_t *path, MeshData *out)
 {
@@ -151,6 +155,9 @@ static void normalize_pieces(MeshPieceSet *out, float size_scale)
 int mesh_import_load_pieces(const wchar_t *path, float size_scale, MeshPieceSet *out)
 {
     memset(out, 0, sizeof *out);
+
+    if (has_ext(path, L".glb") || has_ext(path, L".gltf"))
+        return load_gltf_pieces(path, size_scale, out);
 
     char u8[1024];
     WideCharToMultiByte(CP_UTF8, 0, path, -1, u8, (int)sizeof u8, NULL, NULL);
@@ -359,6 +366,242 @@ static int load_stl(const wchar_t *path, MeshData *out)
     return 1;
 }
 
+typedef struct { MeshVertex *v; int n; unsigned *idx; int ni; } GltfPrimGeom;
+
+/* transforma so' a parte 3x3 (rotacao+escala) da matriz de mundo -
+   sem translacao, adequado pra normais. Nao trata escala nao-uniforme
+   corretamente (exigiria a inversa-transposta), mas essa fase nao tem
+   textura/PBR fino que dependa disso. */
+static v3 gltf_transform_normal(m4 world, v3 n)
+{
+    return (v3){
+        world.m[0]*n.x + world.m[4]*n.y + world.m[8]*n.z,
+        world.m[1]*n.x + world.m[5]*n.y + world.m[9]*n.z,
+        world.m[2]*n.x + world.m[6]*n.y + world.m[10]*n.z
+    };
+}
+
+/* extrai geometria (posicoes+normais+indices) de UM primitive, ja
+   transformada pela matriz de mundo do no que a contem. Retorna 0 se
+   o primitive nao e' TRIANGLES ou nao tem POSITION. */
+static int gltf_extract_primitive(cgltf_primitive *prim, m4 world, GltfPrimGeom *out)
+{
+    memset(out, 0, sizeof *out);
+    if (prim->type != cgltf_primitive_type_triangles) return 0;
+
+    cgltf_accessor *pos_acc = NULL, *nrm_acc = NULL;
+    for (cgltf_size i = 0; i < prim->attributes_count; ++i) {
+        if (prim->attributes[i].type == cgltf_attribute_type_position)
+            pos_acc = prim->attributes[i].data;
+        else if (prim->attributes[i].type == cgltf_attribute_type_normal)
+            nrm_acc = prim->attributes[i].data;
+    }
+    if (!pos_acc || pos_acc->count == 0) return 0;
+
+    cgltf_size nverts = pos_acc->count;
+    float *positions = (float *)malloc(nverts * 3 * sizeof(float));
+    if (!positions) return 0;
+    cgltf_accessor_unpack_floats(pos_acc, positions, nverts * 3);
+
+    float *normals = NULL;
+    if (nrm_acc && nrm_acc->count == nverts) {
+        normals = (float *)malloc(nverts * 3 * sizeof(float));
+        if (normals) cgltf_accessor_unpack_floats(nrm_acc, normals, nverts * 3);
+    }
+
+    unsigned int nidx;
+    unsigned int *idx;
+    if (prim->indices) {
+        nidx = (unsigned int)prim->indices->count;
+        idx = (unsigned int *)malloc((size_t)nidx * sizeof(unsigned int));
+        if (!idx) { free(positions); free(normals); return 0; }
+        cgltf_accessor_unpack_indices(prim->indices, idx, sizeof(unsigned int), nidx);
+    } else {
+        nidx = (unsigned int)nverts;
+        idx = (unsigned int *)malloc((size_t)nidx * sizeof(unsigned int));
+        if (!idx) { free(positions); free(normals); return 0; }
+        for (unsigned int i = 0; i < nidx; ++i) idx[i] = i;
+    }
+    if (nidx < 3 || nidx % 3 != 0) { free(positions); free(normals); free(idx); return 0; }
+
+    MeshVertex *verts = (MeshVertex *)malloc((size_t)nverts * sizeof(MeshVertex));
+    if (!verts) { free(positions); free(normals); free(idx); return 0; }
+    for (cgltf_size i = 0; i < nverts; ++i) {
+        v3 p = { positions[i*3+0], positions[i*3+1], positions[i*3+2] };
+        p = m4_mul_point(world, p);
+        v3 n = { 0.0f, 0.0f, 1.0f };
+        if (normals) {
+            v3 nraw = { normals[i*3+0], normals[i*3+1], normals[i*3+2] };
+            n = gltf_transform_normal(world, nraw);
+            float ln = v3_len(n);
+            if (ln > 1e-6f) n = v3_scale(n, 1.0f / ln);
+        }
+        verts[i] = (MeshVertex){ p.x, p.y, p.z, n.x, n.y, n.z, 0.0f };
+    }
+    free(positions);
+    free(normals);
+
+    if (!normals) {
+        for (unsigned int t = 0; t + 2 < nidx; t += 3) {
+            unsigned int i0 = idx[t], i1 = idx[t+1], i2 = idx[t+2];
+            v3 p0 = { verts[i0].px, verts[i0].py, verts[i0].pz };
+            v3 p1 = { verts[i1].px, verts[i1].py, verts[i1].pz };
+            v3 p2 = { verts[i2].px, verts[i2].py, verts[i2].pz };
+            v3 fn = v3_norm(v3_cross(v3_sub(p1, p0), v3_sub(p2, p0)));
+            verts[i0].nx = fn.x; verts[i0].ny = fn.y; verts[i0].nz = fn.z;
+            verts[i1].nx = fn.x; verts[i1].ny = fn.y; verts[i1].nz = fn.z;
+            verts[i2].nx = fn.x; verts[i2].ny = fn.y; verts[i2].nz = fn.z;
+        }
+    }
+
+    out->v = verts; out->n = (int)nverts;
+    out->idx = idx; out->ni = (int)nidx;
+    return 1;
+}
+
+typedef struct { MeshVertex *v; int n; unsigned *idx; int ni; float r, g, b; } GltfChunk;
+typedef struct { GltfChunk *c; int n, cap; } GltfChunkList;
+
+static void gltf_chunklist_push(GltfChunkList *l, GltfChunk c)
+{
+    if (l->n == l->cap) {
+        l->cap = l->cap ? l->cap * 2 : 8;
+        l->c = (GltfChunk *)realloc(l->c, (size_t)l->cap * sizeof(GltfChunk));
+    }
+    l->c[l->n++] = c;
+}
+
+static void gltf_visit_node(cgltf_node *node, GltfChunkList *out)
+{
+    if (node->mesh) {
+        float wraw[16];
+        cgltf_node_transform_world(node, wraw);
+        m4 world; memcpy(world.m, wraw, sizeof world.m);
+
+        for (cgltf_size p = 0; p < node->mesh->primitives_count; ++p) {
+            cgltf_primitive *prim = &node->mesh->primitives[p];
+            GltfPrimGeom g;
+            if (!gltf_extract_primitive(prim, world, &g)) continue;
+
+            float r = 1.0f, gg = 1.0f, b = 1.0f;
+            if (prim->material && prim->material->has_pbr_metallic_roughness) {
+                r = prim->material->pbr_metallic_roughness.base_color_factor[0];
+                gg = prim->material->pbr_metallic_roughness.base_color_factor[1];
+                b = prim->material->pbr_metallic_roughness.base_color_factor[2];
+            }
+            GltfChunk c = { g.v, g.n, g.idx, g.ni, r, gg, b };
+            gltf_chunklist_push(out, c);
+        }
+    }
+    for (cgltf_size i = 0; i < node->children_count; ++i)
+        gltf_visit_node(node->children[i], out);
+}
+
+/* percorre a cena default (ou a primeira, se nenhuma for marcada como
+   default) e devolve uma lista de pedacos de geometria ja
+   transformados por seus respectivos nos - usada tanto pelo caminho
+   fundido quanto pelo de pecas. Retorna 0 se o parse/load falhar ou
+   nao houver nenhum triangulo valido. */
+static int gltf_collect_chunks(const wchar_t *path, GltfChunkList *out)
+{
+    memset(out, 0, sizeof *out);
+
+    char u8[1024];
+    WideCharToMultiByte(CP_UTF8, 0, path, -1, u8, (int)sizeof u8, NULL, NULL);
+
+    cgltf_options options;
+    memset(&options, 0, sizeof options);
+    cgltf_data *data = NULL;
+    if (cgltf_parse_file(&options, u8, &data) != cgltf_result_success) return 0;
+    if (cgltf_load_buffers(&options, data, u8) != cgltf_result_success) {
+        cgltf_free(data);
+        return 0;
+    }
+
+    if (data->scenes_count == 0) { cgltf_free(data); return 0; }
+    cgltf_scene *scene = data->scene ? data->scene : &data->scenes[0];
+
+    for (cgltf_size i = 0; i < scene->nodes_count; ++i)
+        gltf_visit_node(scene->nodes[i], out);
+
+    cgltf_free(data);
+
+    if (out->n == 0) { free(out->c); out->c = NULL; return 0; }
+    return 1;
+}
+
+static void gltf_chunklist_free(GltfChunkList *l)
+{
+    for (int i = 0; i < l->n; ++i) { free(l->c[i].v); free(l->c[i].idx); }
+    free(l->c);
+    memset(l, 0, sizeof *l);
+}
+
+static int load_gltf(const wchar_t *path, MeshData *out)
+{
+    GltfChunkList list;
+    if (!gltf_collect_chunks(path, &list)) return 0;
+
+    unsigned int total_v = 0, total_i = 0;
+    for (int i = 0; i < list.n; ++i) {
+        total_v += (unsigned)list.c[i].n;
+        total_i += (unsigned)list.c[i].ni;
+    }
+
+    MeshVertex *verts = (MeshVertex *)malloc((size_t)total_v * sizeof(MeshVertex));
+    unsigned *idx = (unsigned *)malloc((size_t)total_i * sizeof(unsigned));
+    if (!verts || !idx) {
+        free(verts); free(idx);
+        gltf_chunklist_free(&list);
+        return 0;
+    }
+
+    unsigned int vbase = 0, ibase = 0;
+    for (int i = 0; i < list.n; ++i) {
+        GltfChunk *c = &list.c[i];
+        memcpy(verts + vbase, c->v, (size_t)c->n * sizeof(MeshVertex));
+        for (int k = 0; k < c->ni; ++k) idx[ibase + (unsigned)k] = c->idx[k] + vbase;
+        vbase += (unsigned)c->n;
+        ibase += (unsigned)c->ni;
+    }
+    gltf_chunklist_free(&list);
+
+    out->verts = verts; out->nverts = (int)total_v;
+    out->idx = idx; out->nidx = (int)total_i;
+    out->has_sdf = 0;
+    memset(&out->sdf, 0, sizeof out->sdf);
+    return 1;
+}
+
+static int load_gltf_pieces(const wchar_t *path, float size_scale, MeshPieceSet *out)
+{
+    memset(out, 0, sizeof *out);
+
+    GltfChunkList list;
+    if (!gltf_collect_chunks(path, &list)) return 0;
+
+    MeshPiece *pieces = (MeshPiece *)calloc((size_t)list.n, sizeof(MeshPiece));
+    if (!pieces) { gltf_chunklist_free(&list); return 0; }
+
+    for (int i = 0; i < list.n; ++i) {
+        pieces[i].data.verts = list.c[i].v;
+        pieces[i].data.nverts = list.c[i].n;
+        pieces[i].data.idx = list.c[i].idx;
+        pieces[i].data.nidx = list.c[i].ni;
+        pieces[i].data.has_sdf = 0;
+        memset(&pieces[i].data.sdf, 0, sizeof pieces[i].data.sdf);
+        pieces[i].r = list.c[i].r;
+        pieces[i].g = list.c[i].g;
+        pieces[i].b = list.c[i].b;
+    }
+    free(list.c);   /* os buffers v/idx de cada chunk foram passados pras pecas, nao liberar aqui */
+
+    out->pieces = pieces;
+    out->count = list.n;
+    normalize_pieces(out, size_scale);
+    return 1;
+}
+
 static void normalize_mesh(MeshData *out, float size_scale)
 {
     if (out->nverts == 0) return;
@@ -404,6 +647,8 @@ int mesh_import_load(const wchar_t *path, float size_scale, MeshData *out)
         ok = load_obj(path, out);
     else if (has_ext(path, L".stl"))
         ok = load_stl(path, out);
+    else if (has_ext(path, L".glb") || has_ext(path, L".gltf"))
+        ok = load_gltf(path, out);
     else {
         log_errorf("mesh_import: extensao desconhecida");
         return 0;
