@@ -85,6 +85,174 @@ static int load_obj(const wchar_t *path, MeshData *out)
     return 1;
 }
 
+typedef struct { MeshVertex *v; int n, cap; unsigned *idx; int ni, icap; } ObjGroupBuf;
+
+static void group_push_tri(ObjGroupBuf *g, MeshVertex a, MeshVertex b, MeshVertex c)
+{
+    if (g->n + 3 > g->cap) {
+        g->cap = g->cap ? g->cap * 2 : 64;
+        g->v = (MeshVertex *)realloc(g->v, (size_t)g->cap * sizeof(MeshVertex));
+    }
+    if (g->ni + 3 > g->icap) {
+        g->icap = g->icap ? g->icap * 2 : 64;
+        g->idx = (unsigned *)realloc(g->idx, (size_t)g->icap * sizeof(unsigned));
+    }
+    g->v[g->n] = a; g->idx[g->ni] = (unsigned)g->n; g->n++; g->ni++;
+    g->v[g->n] = b; g->idx[g->ni] = (unsigned)g->n; g->n++; g->ni++;
+    g->v[g->n] = c; g->idx[g->ni] = (unsigned)g->n; g->n++; g->ni++;
+}
+
+static void normalize_pieces(MeshPieceSet *out, float size_scale)
+{
+    v3 centroid = { 0, 0, 0 };
+    int total = 0;
+    for (int p = 0; p < out->count; ++p) {
+        MeshData *d = &out->pieces[p].data;
+        for (int i = 0; i < d->nverts; ++i) {
+            centroid = v3_add(centroid, (v3){ d->verts[i].px, d->verts[i].py, d->verts[i].pz });
+            total++;
+        }
+    }
+    if (total == 0) return;
+    centroid = v3_scale(centroid, 1.0f / (float)total);
+
+    float max_r = 0.0f;
+    for (int p = 0; p < out->count; ++p) {
+        MeshData *d = &out->pieces[p].data;
+        for (int i = 0; i < d->nverts; ++i) {
+            v3 pos = v3_sub((v3){ d->verts[i].px, d->verts[i].py, d->verts[i].pz }, centroid);
+            float r = v3_len(pos);
+            if (r > max_r) max_r = r;
+        }
+    }
+    if (max_r < 1e-6f) max_r = 1.0f;
+    float scale = size_scale / max_r;
+
+    for (int p = 0; p < out->count; ++p) {
+        MeshData *d = &out->pieces[p].data;
+        float minx = 1e30f, miny = 1e30f, minz = 1e30f, maxx = -1e30f, maxy = -1e30f, maxz = -1e30f;
+        for (int i = 0; i < d->nverts; ++i) {
+            MeshVertex *v = &d->verts[i];
+            v->px = (v->px - centroid.x) * scale;
+            v->py = (v->py - centroid.y) * scale;
+            v->pz = (v->pz - centroid.z) * scale;
+            if (v->px < minx) minx = v->px;
+            if (v->px > maxx) maxx = v->px;
+            if (v->py < miny) miny = v->py;
+            if (v->py > maxy) maxy = v->py;
+            if (v->pz < minz) minz = v->pz;
+            if (v->pz > maxz) maxz = v->pz;
+        }
+        d->minx = minx; d->miny = miny; d->minz = minz;
+        d->maxx = maxx; d->maxy = maxy; d->maxz = maxz;
+    }
+}
+
+int mesh_import_load_pieces(const wchar_t *path, float size_scale, MeshPieceSet *out)
+{
+    memset(out, 0, sizeof *out);
+
+    char u8[1024];
+    WideCharToMultiByte(CP_UTF8, 0, path, -1, u8, (int)sizeof u8, NULL, NULL);
+
+    fastObjMesh *m = fast_obj_read(u8);
+    if (!m) return 0;
+
+    int has_real_material = 0;
+    for (unsigned int i = 0; i < m->material_count; ++i)
+        if (!m->materials[i].fallback) { has_real_material = 1; break; }
+    if (!has_real_material) { fast_obj_destroy(m); return 0; }
+
+    ObjGroupBuf *groups = (ObjGroupBuf *)calloc(m->material_count, sizeof(ObjGroupBuf));
+    if (!groups) { fast_obj_destroy(m); return 0; }
+
+    unsigned int cursor = 0;
+    for (unsigned int f = 0; f < m->face_count; ++f) {
+        unsigned int fv = m->face_vertices[f];
+        if (fv < 3) { cursor += fv; continue; }
+        unsigned int matidx = m->face_materials[f];
+        if (matidx >= m->material_count) { cursor += fv; continue; }
+
+        fastObjIndex face_idx[64];
+        unsigned int use = fv > 64 ? 64 : fv;
+        for (unsigned int k = 0; k < use; ++k) face_idx[k] = m->indices[cursor + k];
+
+        v3 p0 = { m->positions[face_idx[0].p*3+0], m->positions[face_idx[0].p*3+1], m->positions[face_idx[0].p*3+2] };
+        v3 p1 = { m->positions[face_idx[1].p*3+0], m->positions[face_idx[1].p*3+1], m->positions[face_idx[1].p*3+2] };
+        v3 p2 = { m->positions[face_idx[2].p*3+0], m->positions[face_idx[2].p*3+1], m->positions[face_idx[2].p*3+2] };
+        v3 fn = v3_norm(v3_cross(v3_sub(p1, p0), v3_sub(p2, p0)));
+
+        for (unsigned int k = 1; k + 1 < use; ++k) {
+            unsigned int tri[3] = { 0, k, k + 1 };
+            MeshVertex tv[3];
+            for (int c = 0; c < 3; ++c) {
+                fastObjIndex fi = face_idx[tri[c]];
+                v3 pos = { m->positions[fi.p*3+0], m->positions[fi.p*3+1], m->positions[fi.p*3+2] };
+                v3 nrm = fn;
+                if (fi.n != 0 && m->normal_count > fi.n) {
+                    v3 fnrm = { m->normals[fi.n*3+0], m->normals[fi.n*3+1], m->normals[fi.n*3+2] };
+                    if (v3_len(fnrm) > 1e-6f) nrm = fnrm;
+                }
+                tv[c] = (MeshVertex){ pos.x, pos.y, pos.z, nrm.x, nrm.y, nrm.z, 0.0f };
+            }
+            group_push_tri(&groups[matidx], tv[0], tv[1], tv[2]);
+        }
+        cursor += fv;
+    }
+
+    int npieces = 0;
+    for (unsigned int i = 0; i < m->material_count; ++i)
+        if (groups[i].n > 0) npieces++;
+
+    if (npieces == 0) {
+        for (unsigned int i = 0; i < m->material_count; ++i) { free(groups[i].v); free(groups[i].idx); }
+        free(groups);
+        fast_obj_destroy(m);
+        return 0;
+    }
+
+    MeshPiece *pieces = (MeshPiece *)calloc((size_t)npieces, sizeof(MeshPiece));
+    if (!pieces) {
+        for (unsigned int i = 0; i < m->material_count; ++i) { free(groups[i].v); free(groups[i].idx); }
+        free(groups);
+        fast_obj_destroy(m);
+        return 0;
+    }
+
+    int pi = 0;
+    for (unsigned int i = 0; i < m->material_count; ++i) {
+        if (groups[i].n == 0) { free(groups[i].v); free(groups[i].idx); continue; }
+        pieces[pi].data.verts = groups[i].v;
+        pieces[pi].data.nverts = groups[i].n;
+        pieces[pi].data.idx = groups[i].idx;
+        pieces[pi].data.nidx = groups[i].ni;
+        pieces[pi].data.has_sdf = 0;
+        memset(&pieces[pi].data.sdf, 0, sizeof pieces[pi].data.sdf);
+        pieces[pi].r = m->materials[i].Kd[0];
+        pieces[pi].g = m->materials[i].Kd[1];
+        pieces[pi].b = m->materials[i].Kd[2];
+        pi++;
+    }
+    free(groups);
+    fast_obj_destroy(m);
+
+    out->pieces = pieces;
+    out->count = npieces;
+    normalize_pieces(out, size_scale);
+    return 1;
+}
+
+void mesh_import_pieces_free(MeshPieceSet *s)
+{
+    if (!s) return;
+    for (int i = 0; i < s->count; ++i) {
+        free(s->pieces[i].data.verts);
+        free(s->pieces[i].data.idx);
+    }
+    free(s->pieces);
+    memset(s, 0, sizeof *s);
+}
+
 static int load_stl(const wchar_t *path, MeshData *out)
 {
     HANDLE h = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);

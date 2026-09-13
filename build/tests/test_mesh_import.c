@@ -4,6 +4,7 @@
 #include <windows.h>
 #include <string.h>
 #include <math.h>
+#include <stdio.h>
 
 static void write_text_file(const char *content, const wchar_t *ext, wchar_t *out_path)
 {
@@ -50,6 +51,35 @@ static void write_binary_stl_triangle(wchar_t *out_path)
 }
 
 static int nearf(float a, float b) { return fabsf(a - b) < 1e-3f; }
+
+static void write_obj_with_mtl(const char *obj_body_fmt, const char *mtl_content,
+                               wchar_t *out_obj_path, wchar_t *out_mtl_path)
+{
+    wchar_t dir[MAX_PATH];
+    GetTempPathW(MAX_PATH, dir);
+    GetTempFileNameW(dir, L"tmp", 0, out_obj_path);
+    size_t n = wcslen(out_obj_path);
+    wcsncpy(out_obj_path + n - 3, L"obj", 3);
+
+    wcscpy(out_mtl_path, out_obj_path);
+    wcsncpy(out_mtl_path + n - 3, L"mtl", 3);
+
+    wchar_t *base = wcsrchr(out_mtl_path, L'\\');
+    char mtl_name[MAX_PATH];
+    WideCharToMultiByte(CP_UTF8, 0, base ? base + 1 : out_mtl_path, -1, mtl_name, MAX_PATH, NULL, NULL);
+
+    char obj_content[2048];
+    snprintf(obj_content, sizeof obj_content, obj_body_fmt, mtl_name);
+
+    HANDLE h1 = CreateFileW(out_mtl_path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
+    DWORD written = 0;
+    WriteFile(h1, mtl_content, (DWORD)strlen(mtl_content), &written, NULL);
+    CloseHandle(h1);
+
+    HANDLE h2 = CreateFileW(out_obj_path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
+    WriteFile(h2, obj_content, (DWORD)strlen(obj_content), &written, NULL);
+    CloseHandle(h2);
+}
 
 void run_mesh_import_tests(void)
 {
@@ -179,6 +209,46 @@ void run_mesh_import_tests(void)
     {
         MeshData md;
         int ok = mesh_import_load(L"C:\\arquivo.xyz", 1.0f, &md);
+        EXPECT(!ok);
+    }
+
+    /* .obj com 2 materiais reais (.mtl de verdade) -> 2 pecas com cores distintas */
+    {
+        const char *mtl = "newmtl vermelho\nKd 1.0 0.0 0.0\nnewmtl azul\nKd 0.0 0.0 1.0\n";
+        const char *obj_fmt =
+            "mtllib %s\n"
+            "v 0 0 0\nv 1 0 0\nv 0 1 0\n"
+            "v 2 0 0\nv 3 0 0\nv 2 1 0\n"
+            "usemtl vermelho\nf 1 2 3\n"
+            "usemtl azul\nf 4 5 6\n";
+        wchar_t obj_path[MAX_PATH], mtl_path[MAX_PATH];
+        write_obj_with_mtl(obj_fmt, mtl, obj_path, mtl_path);
+
+        MeshPieceSet ps;
+        int ok = mesh_import_load_pieces(obj_path, 1.0f, &ps);
+        DeleteFileW(obj_path);
+        DeleteFileW(mtl_path);
+
+        EXPECT(ok);
+        EXPECT(ps.count == 2);
+        if (ps.count == 2) {
+            /* ordem de declaracao no .mtl: vermelho (indice 0) primeiro */
+            EXPECT(ps.pieces[0].r > 0.9f && ps.pieces[0].g < 0.1f && ps.pieces[0].b < 0.1f);
+            EXPECT(ps.pieces[1].r < 0.1f && ps.pieces[1].g < 0.1f && ps.pieces[1].b > 0.9f);
+        }
+        mesh_import_pieces_free(&ps);
+    }
+
+    /* .obj sem mtllib/usemtl -> nenhum material real -> falha graciosa */
+    {
+        const char *obj = "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n";
+        wchar_t path[MAX_PATH];
+        write_text_file(obj, L"obj", path);
+
+        MeshPieceSet ps;
+        int ok = mesh_import_load_pieces(path, 1.0f, &ps);
+        DeleteFileW(path);
+
         EXPECT(!ok);
     }
 }
