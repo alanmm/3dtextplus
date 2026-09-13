@@ -11,6 +11,7 @@ void run_config_tests(void);
 void run_sdf_tests(void);
 void run_render_tiers_tests(void);
 void run_clockfmt_tests(void);
+void run_svg_shapes_tests(void);
 
 int main(void)
 {
@@ -23,6 +24,7 @@ int main(void)
     run_sdf_tests();
     run_render_tiers_tests();
     run_clockfmt_tests();
+    run_svg_shapes_tests();
 
     if (g_test_failures) {
         printf("\n%d assertion(s) FAILED\n", g_test_failures);
