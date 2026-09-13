@@ -66,6 +66,7 @@ typedef struct {
     wchar_t      mesh_path[512];       /* caminho do .obj ou .stl escolhido */
     float        mesh_size_scale;      /* 0..2, ajuste fino sobre o tamanho normalizado */
     int          mesh_use_file_materials; /* 0/1, so' tem efeito com .obj com material real */
+    int          ui_language;          /* 0 automatico, 1 portugues, 2 ingles */
 } Config;
 
 void config_defaults(Config *c);

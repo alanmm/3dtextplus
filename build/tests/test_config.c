@@ -33,6 +33,7 @@ void run_config_tests(void)
     EXPECT(d.mesh_path[0] == 0);
     EXPECT(nearf(d.mesh_size_scale, 1.0f));
     EXPECT(d.mesh_use_file_materials == 0);
+    EXPECT(d.ui_language == 0);
 
     /* round-trip */
     Config a;
@@ -92,6 +93,7 @@ void run_config_tests(void)
     a.content_mode = CONTENT_CLOCK;
     a.clock_show_date = 1;
     a.clock_show_seconds = 1;
+    a.ui_language = 2;
     config_save_to(&a, TESTKEY);
 
     Config b;
@@ -151,6 +153,7 @@ void run_config_tests(void)
     EXPECT(b.content_mode == CONTENT_CLOCK);
     EXPECT(b.clock_show_date == 1);
     EXPECT(b.clock_show_seconds == 1);
+    EXPECT(b.ui_language == 2);
 
     /* round-trip dedicado ao SVG - nao reusa o par a/b acima, que ja
        fixa content_mode em CONTENT_CLOCK para provar o relogio */
@@ -239,8 +242,9 @@ void run_config_tests(void)
             { L"svg_color_mode", L"9" },
             { L"mesh_size_scale", L"9" },
             { L"mesh_use_file_materials", L"5" },
+            { L"ui_language", L"9" },
         };
-        for (int i = 0; i < 27; ++i)
+        for (int i = 0; i < 28; ++i)
             RegSetValueExW(kp, kv[i].n, 0, REG_SZ, (const BYTE *)kv[i].v,
                            (DWORD)((wcslen(kv[i].v) + 1) * sizeof(wchar_t)));
         RegCloseKey(kp);
@@ -274,6 +278,7 @@ void run_config_tests(void)
     EXPECT(e.svg_color_mode == 1);                  /* 9 -> !=0 -> 1 */
     EXPECT(e.mesh_size_scale <= 2.0f);              /* 9 -> clamp */
     EXPECT(e.mesh_use_file_materials == 1);         /* 5 -> !=0 -> 1 */
+    EXPECT(e.ui_language == 0);                     /* 9 -> fora da faixa -> default (auto) */
 
     RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
 }
