@@ -69,6 +69,8 @@ void config_defaults(Config *c)
     c->particles_opacity = 1.0f;
     c->clock_show_date = 0;
     c->clock_show_seconds = 0;
+    c->svg_path[0] = 0;
+    c->svg_color_mode = 0;
 }
 
 static float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
@@ -213,6 +215,9 @@ void config_load_from(Config *c, const wchar_t *subkey)
     reg_get_i(k, L"clock_show_date", &c->clock_show_date);
     reg_get_i(k, L"clock_show_seconds", &c->clock_show_seconds);
 
+    reg_get_w(k, L"svg_path", c->svg_path, 512);
+    reg_get_i(k, L"svg_color_mode", &c->svg_color_mode);
+
     wchar_t col[16];
     if (reg_get_w(k, L"base_color", col, 16) && col[0] == L'#' && wcslen(col) >= 7) {
         unsigned rgb = (unsigned)wcstoul(col + 1, NULL, 16);
@@ -286,9 +291,10 @@ void config_load_from(Config *c, const wchar_t *subkey)
     c->particles_speed      = clampf(c->particles_speed, 0.0f, 2.0f);
     c->particles_size_scale = clampf(c->particles_size_scale, 0.0f, 2.0f);
     c->particles_opacity    = clampf(c->particles_opacity, 0.0f, 2.0f);
-    if (c->content_mode < 0 || c->content_mode > 1) c->content_mode = CONTENT_TEXT;
+    if (c->content_mode < 0 || c->content_mode > 2) c->content_mode = CONTENT_TEXT;
     c->clock_show_date = c->clock_show_date ? 1 : 0;
     c->clock_show_seconds = c->clock_show_seconds ? 1 : 0;
+    c->svg_color_mode = c->svg_color_mode ? 1 : 0;
     if (c->text[0] == 0) strcpy(c->text, "Modern 3D Text");
     if (c->font_family[0] == 0) wcscpy(c->font_family, L"Segoe UI");
 }
@@ -371,6 +377,9 @@ void config_save_to(const Config *c, const wchar_t *subkey)
 
     set_f(k, L"clock_show_date", (float)c->clock_show_date);
     set_f(k, L"clock_show_seconds", (float)c->clock_show_seconds);
+
+    set_w(k, L"svg_path", c->svg_path);
+    set_f(k, L"svg_color_mode", (float)c->svg_color_mode);
 
     wchar_t col[16];
     unsigned r = (unsigned)(c->base_r * 255.0f + 0.5f);

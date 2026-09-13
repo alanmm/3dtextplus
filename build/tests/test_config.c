@@ -28,6 +28,8 @@ void run_config_tests(void)
     EXPECT(d.content_mode == CONTENT_TEXT);
     EXPECT(d.clock_show_date == 0);
     EXPECT(d.clock_show_seconds == 0);
+    EXPECT(d.svg_path[0] == 0);
+    EXPECT(d.svg_color_mode == 0);
 
     /* round-trip */
     Config a;
@@ -147,6 +149,23 @@ void run_config_tests(void)
     EXPECT(b.clock_show_date == 1);
     EXPECT(b.clock_show_seconds == 1);
 
+    /* round-trip dedicado ao SVG - nao reusa o par a/b acima, que ja
+       fixa content_mode em CONTENT_CLOCK para provar o relogio */
+    RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
+    Config sa, sb;
+    config_defaults(&sa);
+    sa.content_mode = CONTENT_SVG;
+    wcscpy(sa.svg_path, L"C:\\icones\\logo.svg");
+    sa.svg_color_mode = 1;
+    config_save_to(&sa, TESTKEY);
+
+    config_load_from(&sb, TESTKEY);
+    EXPECT(sb.content_mode == CONTENT_SVG);
+    EXPECT(wcscmp(sb.svg_path, L"C:\\icones\\logo.svg") == 0);
+    EXPECT(sb.svg_color_mode == 1);
+
+    RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
+
     /* valor ausente -> default; fora de faixa -> clamp; lixo -> default */
     RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
     HKEY k;
@@ -196,8 +215,9 @@ void run_config_tests(void)
             { L"particles_opacity", L"9" },
             { L"content_mode", L"9" }, { L"clock_show_date", L"5" },
             { L"clock_show_seconds", L"5" },
+            { L"svg_color_mode", L"9" },
         };
-        for (int i = 0; i < 24; ++i)
+        for (int i = 0; i < 25; ++i)
             RegSetValueExW(kp, kv[i].n, 0, REG_SZ, (const BYTE *)kv[i].v,
                            (DWORD)((wcslen(kv[i].v) + 1) * sizeof(wchar_t)));
         RegCloseKey(kp);
@@ -225,9 +245,10 @@ void run_config_tests(void)
     EXPECT(e.particles_speed <= 2.0f);             /* 9 -> clamp */
     EXPECT(e.particles_size_scale >= 0.0f);        /* -1 -> clamp */
     EXPECT(e.particles_opacity <= 2.0f);           /* 9 -> clamp */
-    EXPECT(e.content_mode == CONTENT_TEXT);         /* 9 -> fora de 0..1 -> 0 */
+    EXPECT(e.content_mode == CONTENT_TEXT);         /* 9 -> fora de 0..2 -> 0 */
     EXPECT(e.clock_show_date == 1);                 /* 5 -> !=0 -> 1 */
     EXPECT(e.clock_show_seconds == 1);              /* 5 -> !=0 -> 1 */
+    EXPECT(e.svg_color_mode == 1);                  /* 9 -> !=0 -> 1 */
 
     RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
 }
