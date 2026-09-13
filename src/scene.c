@@ -6,6 +6,7 @@
 #include "util/clockfmt.h"
 #include "geometry/font_outline.h"
 #include "geometry/contour_mesh.h"
+#include "geometry/svg_shapes.h"
 #include "util/mathx.h"
 #include "util/log.h"
 
@@ -73,6 +74,13 @@ struct SceneRenderer {
 
     int content_mode;
     int clock_show_date, clock_show_seconds;
+
+    wchar_t  svg_path[512];
+    int      svg_color_mode;
+    GlMesh  *svg_meshes;
+    v3      *svg_colors;
+    int      svg_mesh_count;
+    int      have_svg_mesh;
 };
 
 static void upload_sdf(SceneRenderer *s, const Sdf *sdf)
@@ -137,6 +145,14 @@ static MeshParams scene_mesh_params(const SceneRenderer *s)
     return p;
 }
 
+static void free_svg_pieces(SceneRenderer *s)
+{
+    for (int i = 0; i < s->svg_mesh_count; ++i) gl_mesh_free(&s->svg_meshes[i]);
+    free(s->svg_meshes); s->svg_meshes = NULL;
+    free(s->svg_colors); s->svg_colors = NULL;
+    s->svg_mesh_count = 0;
+}
+
 static int rebuild_mesh(SceneRenderer *s)
 {
     float tol = s->quality <= 0 ? 0.010f : (s->quality == 1 ? 0.004f : 0.0018f);
@@ -179,6 +195,78 @@ static int rebuild_mesh(SceneRenderer *s)
     return 1;
 }
 
+static int rebuild_svg_mesh(SceneRenderer *s)
+{
+    free_svg_pieces(s);
+
+    float tol = s->quality <= 0 ? 0.010f : (s->quality == 1 ? 0.004f : 0.0018f);
+
+    SvgShapeSet svgset;
+    int loaded = s->svg_path[0] != 0 && svg_shapes_load(s->svg_path, tol, &svgset);
+    if (!loaded || svgset.count == 0) {
+        if (loaded) svg_shapes_free(&svgset);
+        strncpy(s->text, "SVG nao encontrado ou sem forma preenchida", sizeof s->text - 1);
+        s->text[sizeof s->text - 1] = 0;
+        s->have_svg_mesh = 1;
+        return rebuild_mesh(s);
+    }
+
+    s->svg_meshes = (GlMesh *)calloc((size_t)svgset.count, sizeof(GlMesh));
+    s->svg_colors = (v3 *)calloc((size_t)svgset.count, sizeof(v3));
+    if (!s->svg_meshes || !s->svg_colors) {
+        svg_shapes_free(&svgset);
+        free_svg_pieces(s);
+        return 0;
+    }
+
+    float uhx = 0.0f, uhy = 0.0f, uhz = 0.0f;
+    s->wall_cache_count = 0;
+    for (int i = 0; i < svgset.count; ++i) {
+        MeshData md;
+        if (!contour_mesh_build(&svgset.pieces[i].cs, scene_mesh_params(s), &md)) continue;
+
+        s->svg_meshes[s->svg_mesh_count] = gl_mesh_upload(md.verts, md.nverts, md.idx, md.nidx);
+        s->svg_colors[s->svg_mesh_count] =
+            (v3){ svgset.pieces[i].r, svgset.pieces[i].g, svgset.pieces[i].b };
+
+        float phx = 0.5f * (md.maxx - md.minx);
+        float phy = 0.5f * (md.maxy - md.miny);
+        float phz = 0.5f * (md.maxz - md.minz);
+        if (phx > uhx) uhx = phx;
+        if (phy > uhy) uhy = phy;
+        if (phz > uhz) uhz = phz;
+
+        for (int vi = 0; vi < md.nverts && s->wall_cache_count < 512; ++vi) {
+            if (md.verts[vi].surf == 2.0f) {
+                s->wall_pos_cache[s->wall_cache_count] =
+                    (v3){ md.verts[vi].px, md.verts[vi].py, md.verts[vi].pz };
+                s->wall_n_cache[s->wall_cache_count] =
+                    (v3){ md.verts[vi].nx, md.verts[vi].ny, md.verts[vi].nz };
+                s->wall_cache_count++;
+            }
+        }
+
+        s->svg_mesh_count++;
+        mesh_data_free(&md);
+    }
+    svg_shapes_free(&svgset);
+
+    if (s->svg_mesh_count == 0) {
+        free_svg_pieces(s);
+        strncpy(s->text, "SVG sem geometria valida", sizeof s->text - 1);
+        s->text[sizeof s->text - 1] = 0;
+        s->have_svg_mesh = 1;
+        return rebuild_mesh(s);
+    }
+
+    if (uhx < 1e-3f) uhx = 1.0f;
+    if (uhy < 1e-3f) uhy = 1.0f;
+    s->hx = uhx; s->hy = uhy; s->hz = uhz;
+    s->have_svg_mesh = 1;
+    log_infof("scene: svg '%ls' -> %d peca(s)", s->svg_path, s->svg_mesh_count);
+    return 1;
+}
+
 SceneRenderer *scene_create(const Config *cfg)
 {
     SceneRenderer *s = (SceneRenderer *)calloc(1, sizeof *s);
@@ -206,7 +294,7 @@ SceneRenderer *scene_create(const Config *cfg)
     glDisable(GL_CULL_FACE);   /* extrusao two-sided */
 
     scene_set_config(s, cfg);
-    if (!s->have_mesh) {
+    if (!s->have_mesh && s->svg_mesh_count == 0) {
         log_errorf("scene: sem malha inicial");
         material_destroy(&s->mat);
         free(s);
@@ -217,7 +305,10 @@ SceneRenderer *scene_create(const Config *cfg)
 
 void scene_set_config(SceneRenderer *s, const Config *cfg)
 {
-    int mesh_dirty = !s->have_mesh
+    int svg_relevant_change = (cfg->content_mode == CONTENT_SVG)
+        && (wcscmp(s->svg_path, cfg->svg_path) != 0 || s->svg_color_mode != cfg->svg_color_mode);
+
+    int mesh_dirty = (cfg->content_mode == CONTENT_SVG ? !s->have_svg_mesh : !s->have_mesh)
         || strcmp(s->text, cfg->text) != 0
         || wcscmp(s->font_family, cfg->font_family) != 0
         || s->bold != cfg->font_bold
@@ -230,11 +321,15 @@ void scene_set_config(SceneRenderer *s, const Config *cfg)
         || s->shell != cfg->shell
         || s->wall_thickness != cfg->wall_thickness
         || s->quality != cfg->quality
-        || s->content_mode != (int)cfg->content_mode;
+        || s->content_mode != (int)cfg->content_mode
+        || svg_relevant_change;
 
     s->content_mode = cfg->content_mode;
     s->clock_show_date = cfg->clock_show_date;
     s->clock_show_seconds = cfg->clock_show_seconds;
+    wcsncpy(s->svg_path, cfg->svg_path, 511);
+    s->svg_path[511] = 0;
+    s->svg_color_mode = cfg->svg_color_mode;
 
     strncpy(s->text, cfg->text, sizeof s->text - 1);
     s->text[sizeof s->text - 1] = 0;
@@ -282,8 +377,9 @@ void scene_set_config(SceneRenderer *s, const Config *cfg)
     }
 
     if (mesh_dirty) {
-        if (!rebuild_mesh(s))
-            log_errorf("scene: rebuild_mesh falhou (text='%s' font='%ls')", s->text, s->font_family);
+        int ok = (s->content_mode == CONTENT_SVG) ? rebuild_svg_mesh(s) : rebuild_mesh(s);
+        if (!ok)
+            log_errorf("scene: rebuild falhou (content_mode=%d)", s->content_mode);
     }
 
     particles_set_config(s->particles, cfg, s->hx, s->hy, s->hz,
@@ -387,7 +483,7 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h, int particles_
     gl_fullscreen_draw(&s->bg_vao);
     glDepthMask(GL_TRUE);
 
-    if (!s->have_mesh) return;
+    if (!s->have_mesh && s->svg_mesh_count == 0) return;
 
     float aspect = (float)fb_w / (float)fb_h;
     float fovy = m3dt_radians(35.0f);
@@ -439,7 +535,15 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h, int particles_
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glDepthMask(GL_FALSE);
     }
-    gl_mesh_draw(&s->mesh);
+    if (s->content_mode == CONTENT_SVG && s->svg_mesh_count > 0) {
+        for (int i = 0; i < s->svg_mesh_count; ++i) {
+            v3 piece_color = (s->svg_color_mode == 0) ? s->svg_colors[i] : s->base_color;
+            material_set_piece_color(&s->mat, piece_color);
+            gl_mesh_draw(&s->svg_meshes[i]);
+        }
+    } else {
+        gl_mesh_draw(&s->mesh);
+    }
     if (glass) {
         glDepthMask(GL_TRUE);
         glDisable(GL_BLEND);
@@ -455,6 +559,7 @@ void scene_destroy(SceneRenderer *s)
 {
     if (!s) return;
     if (s->have_mesh) gl_mesh_free(&s->mesh);
+    free_svg_pieces(s);
     particles_destroy(s->particles);
     if (s->sdf_tex) glDeleteTextures(1, &s->sdf_tex);
     if (s->bg_tex) glDeleteTextures(1, &s->bg_tex);

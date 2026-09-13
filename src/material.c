@@ -54,6 +54,12 @@ void material_set_style(const Material *m, int mode, float metalness, float roug
     }
 }
 
+void material_set_piece_color(const Material *m, v3 color)
+{
+    glUseProgram(m->prog);
+    glUniform3f(m->uBaseColor, color.x, color.y, color.z);
+}
+
 void material_set_bevel(const Material *m, int bevel_mode, float bevel_size, float half_depth,
                         v2 sdf_min, v2 sdf_size, unsigned sdf_tex)
 {
