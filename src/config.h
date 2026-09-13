@@ -2,7 +2,7 @@
 #define M3DT_CONFIG_H
 #include <wchar.h>
 
-typedef enum { CONTENT_TEXT = 0, CONTENT_CLOCK = 1, CONTENT_SVG = 2 } ContentMode;
+typedef enum { CONTENT_TEXT = 0, CONTENT_CLOCK = 1, CONTENT_SVG = 2, CONTENT_MESH = 3 } ContentMode;
 
 typedef struct {
     int          version;              /* schema; atual = 1 */
@@ -63,6 +63,8 @@ typedef struct {
     int          clock_show_seconds;   /* 0/1 */
     wchar_t      svg_path[512];        /* caminho do arquivo .svg escolhido */
     int          svg_color_mode;       /* 0 preservar cores do arquivo, 1 cor unica do material */
+    wchar_t      mesh_path[512];       /* caminho do .obj ou .stl escolhido */
+    float        mesh_size_scale;      /* 0..2, ajuste fino sobre o tamanho normalizado */
 } Config;
 
 void config_defaults(Config *c);
