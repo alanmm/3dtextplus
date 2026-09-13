@@ -1,0 +1,159 @@
+# Modern 3D Text - UI strings (English)
+# Format: key=value. Lines starting with # are comments. \n inside a
+# value becomes a real line break; \\ becomes a literal backslash.
+
+# common
+btn.cancel=Cancel
+btn.apply=Apply
+tab.content=Content
+tab.motion=Motion
+tab.material=Material
+tab.geometry=Geometry
+tab.effects=Effects
+tab.perf=Performance
+tab.post=Post
+tab.bg=Background
+tab.particles=Particles
+common.choose=Choose...
+common.clear=Clear
+common.choose_color=Choose color...
+common.file_label=File:
+placeholder.none_m=(none)
+
+# Content tab
+content.mode_label=Mode:
+content.mode.text=Text
+content.mode.clock=Clock
+content.mode.svg=SVG
+content.mode.mesh=3D Mesh
+content.text_label=Text:
+content.font_label=Font:
+content.svg_colors_label=Colors:
+content.svg_color.preserve=Preserve from file
+content.svg_color.single=Single (material)
+content.mesh_scale_label=Scale:
+content.mesh_usemat=Use file materials
+content.bold=Bold
+content.italic=Italic
+content.clock_date=Show date
+content.clock_seconds=Show seconds
+content.color_label=Color:
+
+# Motion tab
+motion.angle_label=Max angle (degrees):
+motion.tilt_label=X tilt (degrees):
+motion.period_label=Period (s):
+
+# Material tab
+material.label=Material:
+material.mode.classic=Classic
+material.mode.metallic=Metallic
+material.mode.glass=Glass
+material.mode.matte=Matte
+material.metalness_label=Metalness:
+material.roughness_label=Roughness:
+material.env_label=Environment image (optional):
+placeholder.procedural=(procedural)
+
+# Geometry tab
+geometry.depth_label=Depth:
+geometry.bevel_label=Bevel:
+geometry.bevel.shading=Shaded
+geometry.bevel.geometric=Geometric
+geometry.bevel.off=Off
+geometry.bsize_label=Size:
+geometry.bdepth_label=Bevel depth:
+geometry.bseg_label=Segments (geometric mode):
+geometry.shell=Hollow shell
+geometry.wall_label=Wall thickness:
+geometry.quality_label=Quality:
+geometry.quality.low=Low
+geometry.quality.medium=Medium
+geometry.quality.high=High
+
+# Effects tab
+effects.bloom=Bloom (glare)
+effects.threshold_label=Threshold (bloom and streaks):
+effects.bloom_intensity_label=Intensity:
+effects.spread_label=Spread:
+effects.streaks_label=Streaks (diffraction):
+effects.streaks.off=Off
+effects.streaks.starburst=Starburst
+effects.streaks.anamorphic=Anamorphic
+effects.streaks_intensity_label=Intensity:
+effects.length_label=Length:
+effects.hint=Bloom and streaks act on the HDR render, before tonemapping,\nand share the same Threshold (above) - each can be toggled\nindependently of the other.
+
+# Performance tab
+perf.fps_label=FPS limit:
+perf.fps.unlimited=Unlimited
+perf.vsync=VSync
+perf.msaa_label=Anti-aliasing (MSAA):
+perf.msaa.off=Off
+perf.rscale_label=Render scale:
+perf.autoq=Automatic quality
+perf.hint=With automatic quality on, the values above are the starting\npoint; the screensaver scales itself down if the GPU can't keep up.
+perf.language_label=Language:
+perf.language.auto=Automatic
+perf.language.pt=Portuguese
+perf.language.en=English
+
+# Post tab
+post.chroma=Chromatic aberration
+post.chroma_intensity_label=Intensity:
+post.vignette=Vignette
+post.vignette_intensity_label=Intensity:
+post.fxaa=FXAA (anti-aliasing)
+post.hint=Chromatic aberration and vignette act before tonemapping; FXAA\nis the last pass, after tonemapping.
+
+# Background tab
+bg.type_label=Background type:
+bg.type.solid=Solid
+bg.type.gradient=Gradient
+bg.type.image=Image
+bg.type.nebula=Nebula
+bg.color1_label=Color 1:
+bg.color2_label=Color 2:
+bg.angle_label=Gradient angle (degrees):
+bg.image_label=Background image:
+placeholder.none_f=(none)
+bg.fit_label=Fit:
+bg.fit.cover=Cover
+bg.fit.contain=Contain
+bg.fit.tile=Tile
+bg.pan_label=Pan speed:
+bg.nebula_label=Nebula:
+bg.nebula_color1_btn=Color 1...
+bg.nebula_color2_btn=Color 2...
+
+# Particles tab
+particles.enable=Enable particles
+particles.kind_label=Kind:
+particles.kind.dust=Dust
+particles.kind.bokeh=Bokeh
+particles.kind.sparks=Sparks
+particles.kind.stars=Stars
+particles.density_label=Density:
+particles.speed_label=Speed:
+particles.size_label=Size:
+particles.opacity_label=Opacity:
+
+# file picker filters
+filter.svg=SVG
+filter.images=Images
+filter.all_short=All
+filter.mesh_all=3D Mesh (*.obj, *.stl, *.glb, *.gltf)
+filter.obj=OBJ files (*.obj)
+filter.stl=STL files (*.stl)
+filter.glb=GLB files (*.glb)
+filter.gltf=glTF files (*.gltf)
+filter.all_long=All files
+
+# large file warning
+msg.file_too_big_text=This file is over 10MB and will not be accepted - choose a smaller mesh.
+msg.file_too_big_title=File too large
+
+# error plaque (scene.c)
+error.mesh_invalid=Mesh not\nfound or\ninvalid
+error.svg_no_shape=SVG not\nfound or no\nfilled shape
+error.svg_empty=SVG has no\nvalid geometry
