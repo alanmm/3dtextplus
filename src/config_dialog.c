@@ -1501,6 +1501,57 @@ static void select_tab(int sel)
     }
 }
 
+/* destroi e recria os 9 sub-dialogos das abas - reaproveita 100% da
+   logica de carregamento ja existente em cada *_proc's WM_INITDIALOG
+   (sliders/radios/combos/labels a partir de g_work), sem precisar
+   duplicar essa logica numa mensagem nova. Usado depois de aplicar
+   um preset, quando varios campos de g_work mudam de uma vez. */
+static void reload_all_tabs(HWND dlg)
+{
+    HWND tabs = GetDlgItem(dlg, IDC_TABS);
+
+    DestroyWindow(g_content);
+    DestroyWindow(g_motion);
+    DestroyWindow(g_material);
+    DestroyWindow(g_geometry);
+    DestroyWindow(g_effects);
+    DestroyWindow(g_perf);
+    DestroyWindow(g_post);
+    DestroyWindow(g_bg);
+    DestroyWindow(g_particles);
+
+    g_content = CreateDialogW(GetModuleHandleW(NULL),
+                              MAKEINTRESOURCEW(IDD_TAB_CONTENT), dlg, content_proc);
+    g_motion = CreateDialogW(GetModuleHandleW(NULL),
+                             MAKEINTRESOURCEW(IDD_TAB_MOTION), dlg, motion_proc);
+    g_material = CreateDialogW(GetModuleHandleW(NULL),
+                              MAKEINTRESOURCEW(IDD_TAB_MATERIAL), dlg, material_proc);
+    g_geometry = CreateDialogW(GetModuleHandleW(NULL),
+                               MAKEINTRESOURCEW(IDD_TAB_GEOMETRY), dlg, geometry_proc);
+    g_effects = CreateDialogW(GetModuleHandleW(NULL),
+                              MAKEINTRESOURCEW(IDD_TAB_EFFECTS), dlg, effects_proc);
+    g_perf = CreateDialogW(GetModuleHandleW(NULL),
+                           MAKEINTRESOURCEW(IDD_TAB_PERF), dlg, perf_proc);
+    g_post = CreateDialogW(GetModuleHandleW(NULL),
+                           MAKEINTRESOURCEW(IDD_TAB_POST), dlg, post_proc);
+    g_bg = CreateDialogW(GetModuleHandleW(NULL),
+                         MAKEINTRESOURCEW(IDD_TAB_BG), dlg, bg_proc);
+    g_particles = CreateDialogW(GetModuleHandleW(NULL),
+                                MAKEINTRESOURCEW(IDD_TAB_PARTICLES), dlg, particles_proc);
+
+    place_tab_child(dlg, tabs, g_content);
+    place_tab_child(dlg, tabs, g_motion);
+    place_tab_child(dlg, tabs, g_material);
+    place_tab_child(dlg, tabs, g_geometry);
+    place_tab_child(dlg, tabs, g_effects);
+    place_tab_child(dlg, tabs, g_perf);
+    place_tab_child(dlg, tabs, g_post);
+    place_tab_child(dlg, tabs, g_bg);
+    place_tab_child(dlg, tabs, g_particles);
+
+    select_tab(g_cur_tab);   /* mantem a aba atual selecionada, marca o preview sujo */
+}
+
 static void apply_language_change(void)
 {
     i18n_init(g_work.ui_language);
