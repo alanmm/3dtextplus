@@ -27,6 +27,7 @@ void config_defaults(Config *c)
     c->material_mode = 1;
     c->metalness = 0.9f;
     c->roughness = 0.5f;
+    c->env_mode = 0;
     c->env_path[0] = 0;
     c->bevel_mode = 1;
     c->bevel_size = 0.005f;
@@ -163,6 +164,9 @@ void config_load_from(Config *c, const wchar_t *subkey)
     reg_get_i(k, L"content_mode", (int *)&c->content_mode);
     reg_get_i(k, L"material_mode", &c->material_mode);
     reg_get_w(k, L"env_path", c->env_path, 512);
+    int had_env_mode = reg_get_i(k, L"env_mode", &c->env_mode);
+    if (!had_env_mode && c->env_path[0])
+        c->env_mode = 1;   /* config salvo antes desta fase, com imagem propria -> preserva */
     reg_get_i(k, L"bevel_mode", &c->bevel_mode);
     reg_get_i(k, L"bevel_segments", &c->bevel_segments);
     reg_get_i(k, L"shell", &c->shell);
@@ -269,6 +273,7 @@ void config_load_from(Config *c, const wchar_t *subkey)
     if (c->material_mode < 0 || c->material_mode > 3) c->material_mode = 0;
     c->metalness = clampf(c->metalness, 0.0f, 1.0f);
     c->roughness = clampf(c->roughness, 0.0f, 1.0f);
+    if (c->env_mode < 0 || c->env_mode > 2) c->env_mode = 0;
     if (c->bevel_mode < 0 || c->bevel_mode > 2) c->bevel_mode = 0;
     if (c->bevel_segments < 2) c->bevel_segments = 2;
     if (c->bevel_segments > 8) c->bevel_segments = 8;
@@ -370,6 +375,7 @@ void config_save_to(const Config *c, const wchar_t *subkey)
     set_f(k, L"material_mode", (float)c->material_mode);
     set_f(k, L"metalness", c->metalness);
     set_f(k, L"roughness", c->roughness);
+    set_f(k, L"env_mode", (float)c->env_mode);
     set_w(k, L"env_path", c->env_path);
     set_f(k, L"bevel_mode", (float)c->bevel_mode);
     set_f(k, L"bevel_size", c->bevel_size);

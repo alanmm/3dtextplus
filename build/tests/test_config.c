@@ -83,6 +83,7 @@ void run_config_tests(void)
     EXPECT(nearf(d.mesh_size_scale, 1.0f));
     EXPECT(d.mesh_use_file_materials == 0);
     EXPECT(d.ui_language == 0);
+    EXPECT(d.env_mode == 0);
 
     /* round-trip */
     Config a;
@@ -99,6 +100,7 @@ void run_config_tests(void)
     a.material_mode = 2;
     a.metalness = 0.4f;
     a.roughness = 0.7f;
+    a.env_mode = 1;
     wcscpy(a.env_path, L"C:\\img\\studio.jpg");
     a.bevel_mode = 1;
     a.bevel_size = 0.08f;
@@ -164,6 +166,7 @@ void run_config_tests(void)
     EXPECT(b.material_mode == 2);
     EXPECT(nearf(b.metalness, 0.4f));
     EXPECT(nearf(b.roughness, 0.7f));
+    EXPECT(b.env_mode == 1);
     EXPECT(wcscmp(b.env_path, L"C:\\img\\studio.jpg") == 0);
     EXPECT(b.bevel_mode == 1);
     EXPECT(nearf(b.bevel_size, 0.08f));
@@ -322,8 +325,9 @@ void run_config_tests(void)
             { L"particles_sparks_opacity", L"-1" },
             { L"particles_stars_density", L"9" }, { L"particles_stars_size", L"-1" },
             { L"particles_stars_opacity", L"9" },
+            { L"env_mode", L"9" },
         };
-        for (int i = 0; i < 42; ++i)
+        for (int i = 0; i < 43; ++i)
             RegSetValueExW(kp, kv[i].n, 0, REG_SZ, (const BYTE *)kv[i].v,
                            (DWORD)((wcslen(kv[i].v) + 1) * sizeof(wchar_t)));
         RegCloseKey(kp);
@@ -372,6 +376,24 @@ void run_config_tests(void)
     EXPECT(e.particles_stars_density <= 1.0f);      /* 9 -> clamp */
     EXPECT(e.particles_stars_size >= 0.0f);         /* -1 -> clamp */
     EXPECT(e.particles_stars_opacity <= 2.0f);      /* 9 -> clamp */
+    EXPECT(e.env_mode == 0);                        /* 9 -> fora de 0..2 -> 0 */
+
+    RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
+
+    /* migracao: config salvo antes desta fase (env_path presente, sem
+       env_mode) deve assumir "personalizada", nao "embutida" */
+    {
+        HKEY km;
+        RegCreateKeyExW(HKEY_CURRENT_USER, TESTKEY, 0, NULL, 0, KEY_WRITE, NULL, &km, NULL);
+        const wchar_t *path = L"C:\\img\\studio.jpg";
+        RegSetValueExW(km, L"env_path", 0, REG_SZ, (const BYTE *)path,
+                       (DWORD)((wcslen(path) + 1) * sizeof(wchar_t)));
+        RegCloseKey(km);
+    }
+    Config em;
+    config_load_from(&em, TESTKEY);
+    EXPECT(em.env_mode == 1);
+    EXPECT(wcscmp(em.env_path, L"C:\\img\\studio.jpg") == 0);
 
     RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
 }

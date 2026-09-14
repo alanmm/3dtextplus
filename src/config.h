@@ -19,6 +19,7 @@ typedef struct {
     int          material_mode;        /* 0 classico, 1 metalico, 2 vidro, 3 fosco */
     float        metalness;            /* 0..1 */
     float        roughness;            /* 0..1 */
+    int          env_mode;             /* 0 embutida, 1 personalizada, 2 nenhuma */
     wchar_t      env_path[512];        /* vazio = ambiente procedural */
     int          bevel_mode;           /* 0 sombreado, 1 geometrico, 2 desligado */
     float        bevel_size;           /* 0 .. 0.2 (em) */
