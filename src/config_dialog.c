@@ -1552,6 +1552,40 @@ static int prompt_preset_name(HWND owner, wchar_t *out, int outCap)
                             owner, preset_name_proc, 0) == IDOK;
 }
 
+static int g_preset_sel = -1;   /* -1 = nenhum preset selecionado ainda */
+
+/* repopula o combo: os 4 embutidos primeiro (traduzidos), depois os
+   salvos em ordem alfabetica. Preserva a selecao visual em g_preset_sel
+   se ainda for valida, senao limpa. */
+static void preset_refresh_combo(HWND dlg)
+{
+    HWND cb = GetDlgItem(dlg, IDC_PRESET_COMBO);
+    SendMessageW(cb, CB_RESETCONTENT, 0, 0);
+
+    for (int i = 0; i < BUILTIN_PRESET_COUNT; ++i)
+        SendMessageW(cb, CB_ADDSTRING, 0, (LPARAM)i18n_str(g_builtin_presets[i].name));
+
+    wchar_t names[64][PRESET_NAME_MAX];
+    int n = preset_user_list(names, 64);
+    for (int i = 0; i < n; ++i)
+        SendMessageW(cb, CB_ADDSTRING, 0, (LPARAM)names[i]);
+
+    int total = BUILTIN_PRESET_COUNT + n;
+    if (g_preset_sel >= total) g_preset_sel = -1;
+    SendMessageW(cb, CB_SETCURSEL, g_preset_sel, 0);
+    EnableWindow(GetDlgItem(dlg, IDC_PRESET_DELETE), g_preset_sel >= BUILTIN_PRESET_COUNT);
+}
+
+static void preset_apply_i18n(HWND dlg)
+{
+    SetDlgItemTextW(dlg, IDC_PRESET_LABEL, i18n_str(STR_PRESET_LABEL));
+    SetDlgItemTextW(dlg, IDC_PRESET_SAVE, i18n_str(STR_PRESET_SAVE_BTN));
+    SetDlgItemTextW(dlg, IDC_PRESET_DELETE, i18n_str(STR_PRESET_DELETE_BTN));
+    SetDlgItemTextW(dlg, IDC_PRESET_IMPORT, i18n_str(STR_PRESET_IMPORT_BTN));
+    SetDlgItemTextW(dlg, IDC_PRESET_EXPORT, i18n_str(STR_PRESET_EXPORT_BTN));
+    preset_refresh_combo(dlg);
+}
+
 /* destroi e recria os 9 sub-dialogos das abas - reaproveita 100% da
    logica de carregamento ja existente em cada *_proc's WM_INITDIALOG
    (sliders/radios/combos/labels a partir de g_work), sem precisar
@@ -1631,6 +1665,8 @@ static void apply_language_change(void)
             ti.pszText = (wchar_t *)i18n_str(tab_ids[i]);
             TabCtrl_SetItem(tabs, i, &ti);
         }
+
+        preset_apply_i18n(g_dlg);
     }
 }
 
@@ -1656,6 +1692,8 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             SetDlgItemTextW(h, IDCANCEL, i18n_str(STR_BTN_CANCEL));
             SetDlgItemTextW(h, IDC_APPLY, i18n_str(STR_BTN_APPLY));
             EnableWindow(GetDlgItem(h, IDC_APPLY), FALSE);
+            g_preset_sel = -1;
+            preset_apply_i18n(h);
 
             g_content = CreateDialogW(GetModuleHandleW(NULL),
                                       MAKEINTRESOURCEW(IDD_TAB_CONTENT), h, content_proc);
@@ -1796,6 +1834,172 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     EnableWindow(GetDlgItem(h, IDC_APPLY), FALSE);
                     return TRUE;
                 case IDCANCEL:  preview_teardown(h); EndDialog(h, IDCANCEL); return TRUE;
+                case IDC_PRESET_COMBO: {
+                    if (HIWORD(w) != CBN_SELCHANGE) break;
+                    HWND cb = GetDlgItem(h, IDC_PRESET_COMBO);
+                    int sel = (int)SendMessageW(cb, CB_GETCURSEL, 0, 0);
+                    if (sel < 0 || sel == g_preset_sel) break;
+
+                    wchar_t display[PRESET_NAME_MAX];
+                    SendMessageW(cb, CB_GETLBTEXT, sel, (LPARAM)display);
+
+                    wchar_t msg[256];
+                    swprintf(msg, 256, i18n_str(STR_PRESET_APPLY_CONFIRM), display);
+                    if (MessageBoxW(h, msg, i18n_str(STR_PRESET_APPLY_CONFIRM_TITLE),
+                                    MB_YESNO | MB_ICONQUESTION) != IDYES) {
+                        SendMessageW(cb, CB_SETCURSEL, g_preset_sel, 0);
+                        break;
+                    }
+
+                    Config tmp;
+                    if (sel < BUILTIN_PRESET_COUNT) {
+                        g_builtin_presets[sel].build(&tmp);
+                    } else {
+                        wchar_t names[64][PRESET_NAME_MAX];
+                        int n = preset_user_list(names, 64);
+                        int idx = sel - BUILTIN_PRESET_COUNT;
+                        if (idx >= n || !preset_user_load(names[idx], &tmp)) break;
+                    }
+                    preset_scope_copy(&g_work, &tmp);
+                    g_preset_sel = sel;
+                    EnableWindow(GetDlgItem(h, IDC_PRESET_DELETE), sel >= BUILTIN_PRESET_COUNT);
+                    reload_all_tabs(h);
+                    EnableWindow(GetDlgItem(h, IDC_APPLY), TRUE);
+                    break;
+                }
+                case IDC_PRESET_SAVE: {
+                    wchar_t name[PRESET_NAME_MAX];
+                    if (!prompt_preset_name(h, name, PRESET_NAME_MAX)) break;
+
+                    int is_builtin_name = 0;
+                    for (int i = 0; i < BUILTIN_PRESET_COUNT; ++i)
+                        if (wcscmp(name, i18n_str(g_builtin_presets[i].name)) == 0) is_builtin_name = 1;
+                    if (is_builtin_name) {
+                        wchar_t msg[256];
+                        swprintf(msg, 256, i18n_str(STR_PRESET_CANT_OVERWRITE_BUILTIN), name);
+                        MessageBoxW(h, msg, i18n_str(STR_PRESET_CANT_OVERWRITE_BUILTIN_TITLE), MB_OK | MB_ICONWARNING);
+                        break;
+                    }
+
+                    Config existing;
+                    if (preset_user_load(name, &existing)) {
+                        wchar_t msg[256];
+                        swprintf(msg, 256, i18n_str(STR_PRESET_OVERWRITE_CONFIRM), name);
+                        if (MessageBoxW(h, msg, i18n_str(STR_PRESET_OVERWRITE_CONFIRM_TITLE),
+                                        MB_YESNO | MB_ICONQUESTION) != IDYES)
+                            break;
+                    }
+
+                    preset_user_save(name, &g_work);
+                    preset_refresh_combo(h);
+
+                    wchar_t names[64][PRESET_NAME_MAX];
+                    int n = preset_user_list(names, 64);
+                    for (int i = 0; i < n; ++i)
+                        if (wcscmp(names[i], name) == 0) { g_preset_sel = BUILTIN_PRESET_COUNT + i; break; }
+                    SendMessageW(GetDlgItem(h, IDC_PRESET_COMBO), CB_SETCURSEL, g_preset_sel, 0);
+                    EnableWindow(GetDlgItem(h, IDC_PRESET_DELETE), TRUE);
+                    break;
+                }
+                case IDC_PRESET_DELETE: {
+                    if (g_preset_sel < BUILTIN_PRESET_COUNT) break;
+                    wchar_t names[64][PRESET_NAME_MAX];
+                    int n = preset_user_list(names, 64);
+                    int idx = g_preset_sel - BUILTIN_PRESET_COUNT;
+                    if (idx >= n) break;
+
+                    wchar_t msg[256];
+                    swprintf(msg, 256, i18n_str(STR_PRESET_DELETE_CONFIRM), names[idx]);
+                    if (MessageBoxW(h, msg, i18n_str(STR_PRESET_DELETE_CONFIRM_TITLE),
+                                    MB_YESNO | MB_ICONQUESTION) != IDYES)
+                        break;
+
+                    preset_user_delete(names[idx]);
+                    g_preset_sel = -1;
+                    preset_refresh_combo(h);
+                    break;
+                }
+                case IDC_PRESET_IMPORT: {
+                    wchar_t file[512] = L"";
+                    OPENFILENAMEW ofn;
+                    memset(&ofn, 0, sizeof ofn);
+                    ofn.lStructSize = sizeof ofn;
+                    ofn.hwndOwner = h;
+                    wchar_t filter[128]; int fp = 0;
+                    filter_append(filter, &fp, 128, i18n_str(STR_FILTER_INI));
+                    filter_append(filter, &fp, 128, L"*.ini");
+                    filter[fp] = 0;
+                    ofn.lpstrFilter = filter;
+                    ofn.lpstrFile = file;
+                    ofn.nMaxFile = 512;
+                    ofn.lpstrDefExt = L"ini";
+                    ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+                    if (!GetOpenFileNameW(&ofn)) break;
+
+                    Config imported;
+                    if (!preset_import_file(file, &imported)) {
+                        MessageBoxW(h, i18n_str(STR_PRESET_IMPORT_FAILED),
+                                    i18n_str(STR_PRESET_IMPORT_FAILED_TITLE), MB_OK | MB_ICONERROR);
+                        break;
+                    }
+
+                    wchar_t name[PRESET_NAME_MAX];
+                    if (!prompt_preset_name(h, name, PRESET_NAME_MAX)) break;
+
+                    int is_builtin_name = 0;
+                    for (int i = 0; i < BUILTIN_PRESET_COUNT; ++i)
+                        if (wcscmp(name, i18n_str(g_builtin_presets[i].name)) == 0) is_builtin_name = 1;
+                    if (is_builtin_name) {
+                        wchar_t msg[256];
+                        swprintf(msg, 256, i18n_str(STR_PRESET_CANT_OVERWRITE_BUILTIN), name);
+                        MessageBoxW(h, msg, i18n_str(STR_PRESET_CANT_OVERWRITE_BUILTIN_TITLE), MB_OK | MB_ICONWARNING);
+                        break;
+                    }
+                    Config existing;
+                    if (preset_user_load(name, &existing)) {
+                        wchar_t msg[256];
+                        swprintf(msg, 256, i18n_str(STR_PRESET_OVERWRITE_CONFIRM), name);
+                        if (MessageBoxW(h, msg, i18n_str(STR_PRESET_OVERWRITE_CONFIRM_TITLE),
+                                        MB_YESNO | MB_ICONQUESTION) != IDYES)
+                            break;
+                    }
+
+                    preset_user_save(name, &imported);
+                    preset_refresh_combo(h);
+                    break;
+                }
+                case IDC_PRESET_EXPORT: {
+                    if (g_preset_sel < 0) break;
+                    wchar_t file[512] = L"";
+                    OPENFILENAMEW ofn;
+                    memset(&ofn, 0, sizeof ofn);
+                    ofn.lStructSize = sizeof ofn;
+                    ofn.hwndOwner = h;
+                    wchar_t filter[128]; int fp = 0;
+                    filter_append(filter, &fp, 128, i18n_str(STR_FILTER_INI));
+                    filter_append(filter, &fp, 128, L"*.ini");
+                    filter[fp] = 0;
+                    ofn.lpstrFilter = filter;
+                    ofn.lpstrFile = file;
+                    ofn.nMaxFile = 512;
+                    ofn.lpstrDefExt = L"ini";
+                    ofn.Flags = OFN_OVERWRITEPROMPT;
+                    if (!GetSaveFileNameW(&ofn)) break;
+
+                    Config tmp;
+                    if (g_preset_sel < BUILTIN_PRESET_COUNT) {
+                        g_builtin_presets[g_preset_sel].build(&tmp);
+                    } else {
+                        wchar_t names[64][PRESET_NAME_MAX];
+                        int n = preset_user_list(names, 64);
+                        int idx = g_preset_sel - BUILTIN_PRESET_COUNT;
+                        if (idx >= n || !preset_user_load(names[idx], &tmp)) break;
+                    }
+                    if (!preset_export_file(file, &tmp))
+                        MessageBoxW(h, i18n_str(STR_PRESET_EXPORT_FAILED),
+                                    i18n_str(STR_PRESET_EXPORT_FAILED_TITLE), MB_OK | MB_ICONERROR);
+                    break;
+                }
             }
             break;
         case WM_CLOSE:
