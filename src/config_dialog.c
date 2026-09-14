@@ -1031,18 +1031,73 @@ static void bg_labels(HWND h)
     SetDlgItemTextW(h, IDC_BGIMGPATH, g_work.bg_image_path[0] ? g_work.bg_image_path : i18n_str(STR_PLACEHOLDER_NONE_F));
 }
 
-static void bg_enable(HWND h)
+/* 4 blocos da aba Fundo, na ordem em que ja aparecem no .rc - Cor 1 e'
+   compartilhada entre Solido e Gradiente (unico campo com conflito
+   real de valor-alvo entre tipos, ver spec), os demais sao exclusivos
+   de um tipo so */
+typedef struct { int id; int x, rel_y; } BgCtrl;
+
+static BgCtrl g_bg_blocks[4][9] = {
+    { { IDC_BGCOLOR1_LABEL, 0, 0 }, { IDC_BGCOLOR1, 0, 0 } },
+    { { IDC_BGCOLOR2_LABEL, 0, 0 }, { IDC_BGCOLOR2, 0, 0 },
+      { IDC_BGANGLE_LABEL, 0, 0 }, { IDC_BGANGLE_VAL, 0, 0 }, { IDC_BGANGLE, 0, 0 } },
+    { { IDC_BGIMAGE_LABEL, 0, 0 }, { IDC_BGIMGPATH, 0, 0 }, { IDC_BGIMGPICK, 0, 0 },
+      { IDC_BGIMGCLEAR, 0, 0 }, { IDC_BGFIT_LABEL, 0, 0 }, { IDC_BGFIT, 0, 0 },
+      { IDC_BGPAN_LABEL, 0, 0 }, { IDC_BGPAN_VAL, 0, 0 }, { IDC_BGPAN, 0, 0 } },
+    { { IDC_BGNEBULA_LABEL, 0, 0 }, { IDC_BGNEBCOLOR1, 0, 0 }, { IDC_BGNEBCOLOR2, 0, 0 } },
+};
+static const int BG_BLOCK_N[4] = { 2, 5, 9, 3 };
+static int g_bg_block_top[4];
+static int g_bg_block_h[4];
+static int g_bg_gap_after[3];
+static int g_bg_layout_ready = 0;
+
+static void bg_layout_capture(HWND h)
+{
+    if (g_bg_layout_ready) return;
+
+    for (int b = 0; b < 4; ++b) {
+        int top = 0x7fffffff, bottom = -0x7fffffff;
+        for (int i = 0; i < BG_BLOCK_N[b]; ++i) {
+            RECT r;
+            HWND ctrl = GetDlgItem(h, g_bg_blocks[b][i].id);
+            GetWindowRect(ctrl, &r);
+            MapWindowPoints(NULL, h, (POINT *)&r, 2);
+            g_bg_blocks[b][i].x = r.left;
+            g_bg_blocks[b][i].rel_y = r.top;
+            if (r.top < top) top = r.top;
+            if (r.bottom > bottom) bottom = r.bottom;
+        }
+        g_bg_block_top[b] = top;
+        g_bg_block_h[b] = bottom - top;
+        for (int i = 0; i < BG_BLOCK_N[b]; ++i)
+            g_bg_blocks[b][i].rel_y -= top;
+    }
+    for (int b = 0; b < 3; ++b)
+        g_bg_gap_after[b] = g_bg_block_top[b + 1] - (g_bg_block_top[b] + g_bg_block_h[b]);
+    g_bg_layout_ready = 1;
+}
+
+static void bg_layout_apply(HWND h)
 {
     int t = g_work.background_type;
-    EnableWindow(GetDlgItem(h, IDC_BGCOLOR1), t == 0 || t == 1);
-    EnableWindow(GetDlgItem(h, IDC_BGCOLOR2), t == 1);
-    EnableWindow(GetDlgItem(h, IDC_BGANGLE), t == 1);
-    EnableWindow(GetDlgItem(h, IDC_BGIMGPICK), t == 2);
-    EnableWindow(GetDlgItem(h, IDC_BGIMGCLEAR), t == 2);
-    EnableWindow(GetDlgItem(h, IDC_BGFIT), t == 2);
-    EnableWindow(GetDlgItem(h, IDC_BGPAN), t == 2);
-    EnableWindow(GetDlgItem(h, IDC_BGNEBCOLOR1), t == 3);
-    EnableWindow(GetDlgItem(h, IDC_BGNEBCOLOR2), t == 3);
+    int visible[4] = { t == 0 || t == 1, t == 1, t == 2, t == 3 };
+
+    int cursor = g_bg_block_top[0];
+    for (int b = 0; b < 4; ++b) {
+        if (!visible[b]) {
+            for (int i = 0; i < BG_BLOCK_N[b]; ++i)
+                ShowWindow(GetDlgItem(h, g_bg_blocks[b][i].id), SW_HIDE);
+            continue;
+        }
+        for (int i = 0; i < BG_BLOCK_N[b]; ++i) {
+            HWND ctrl = GetDlgItem(h, g_bg_blocks[b][i].id);
+            SetWindowPos(ctrl, NULL, g_bg_blocks[b][i].x, cursor + g_bg_blocks[b][i].rel_y,
+                         0, 0, SWP_NOSIZE | SWP_NOZORDER);
+            ShowWindow(ctrl, SW_SHOW);
+        }
+        cursor += g_bg_block_h[b] + (b < 3 ? g_bg_gap_after[b] : 0);
+    }
 }
 
 static void bg_apply_i18n(HWND h)
@@ -1090,7 +1145,8 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             set_slider(h, IDC_BGANGLE, 0, 360, (int)(g_work.bg_grad_angle + 0.5f));
             set_slider(h, IDC_BGPAN, 0, 100, (int)(g_work.bg_pan_speed * 100.0f + 0.5f));
             bg_apply_i18n(h);
-            bg_enable(h);
+            bg_layout_capture(h);
+            bg_layout_apply(h);
             return TRUE;
         }
         case WM_HSCROLL:
@@ -1104,7 +1160,16 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                 case IDC_BGTYPE:
                     if (HIWORD(w) == CBN_SELCHANGE) {
                         g_work.background_type = (int)SendDlgItemMessageW(h, IDC_BGTYPE, CB_GETCURSEL, 0, 0);
-                        bg_enable(h);
+                        if (g_work.background_type == 0 && !g_work.bg_solid_customized) {
+                            g_work.bg_color1_r = 0.05490f;
+                            g_work.bg_color1_g = 0.04706f;
+                            g_work.bg_color1_b = 0.04706f;
+                        } else if (g_work.background_type == 1 && !g_work.bg_gradient_customized) {
+                            g_work.bg_color1_r = 0.06275f;
+                            g_work.bg_color1_g = 0.03922f;
+                            g_work.bg_color1_b = 0.03922f;
+                        }
+                        bg_layout_apply(h);
                         preview_dirty(h);
                     }
                     break;
@@ -1129,6 +1194,8 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                         g_work.bg_color1_r = GetRValue(cc.rgbResult) / 255.0f;
                         g_work.bg_color1_g = GetGValue(cc.rgbResult) / 255.0f;
                         g_work.bg_color1_b = GetBValue(cc.rgbResult) / 255.0f;
+                        if (g_work.background_type == 0) g_work.bg_solid_customized = 1;
+                        else if (g_work.background_type == 1) g_work.bg_gradient_customized = 1;
                         preview_dirty(h);
                     }
                     break;
