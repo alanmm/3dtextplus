@@ -69,10 +69,10 @@ typedef struct {
     int          ui_language;          /* 0 automatico, 1 portugues, 2 ingles */
     int          bg_solid_customized;   /* 0/1 - Cor 1 do fundo Solido ja foi ajustada manualmente */
     int          bg_gradient_customized; /* 0/1 - Cor 1 do fundo Gradiente ja foi ajustada manualmente */
-    int          particles_dust_customized;   /* 0/1 - Densidade/Tamanho/Opacidade do tipo Poeira ja foram ajustados manualmente */
-    int          particles_bokeh_customized;  /* 0/1 - idem, tipo Bokeh */
-    int          particles_sparks_customized; /* 0/1 - idem, tipo Faiscas */
-    int          particles_stars_customized;  /* 0/1 - idem, tipo Estrelas */
+    float        particles_dust_density, particles_dust_size, particles_dust_opacity;     /* memoria por tipo - Poeira */
+    float        particles_bokeh_density, particles_bokeh_size, particles_bokeh_opacity;   /* idem, Bokeh */
+    float        particles_sparks_density, particles_sparks_size, particles_sparks_opacity; /* idem, Faiscas */
+    float        particles_stars_density, particles_stars_size, particles_stars_opacity;   /* idem, Estrelas */
 } Config;
 
 void config_defaults(Config *c);

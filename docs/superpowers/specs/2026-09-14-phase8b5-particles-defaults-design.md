@@ -28,20 +28,45 @@ precisam mesmo de uma flag "customizado" por tipo.
 
 ## 3. Arquitetura
 
-**4 campos novos na `Config`** (`int`, `0/1`, padrão `0`):
-`particles_dust_customized`, `particles_bokeh_customized`,
-`particles_sparks_customized`, `particles_stars_customized`.
+> **Correção (pós-implementação):** o desenho original abaixo (4 flags
+> booleanas `*_customized` apontando pra um ÚNICO slot compartilhado
+> `particles_density/size_scale/opacity`) foi testado com captura real e
+> **falhou**: como o slot é compartilhado entre os 4 tipos, ao voltar
+> pra um tipo já "customizado" a tela mostrava os valores que sobraram
+> do ÚLTIMO tipo visitado, não o ajuste manual daquele tipo (ex.:
+> editei Densidade da Poeira pra 0.20, visitei Bokeh, voltei pra Poeira
+> — mostrou 0.43/0.81/0.42, os valores do Bokeh). Isso viola a promessa
+> deste documento ("sem nunca sobrescrever um ajuste manual já feito").
+> Diferente do Fundo (fase 8b-4), onde só 2 estados compartilham 1 slot
+> e a limitação foi documentada e aceita, aqui são 4 tipos — matemat­i­
+> camente impossível preservar 4 valores independentes num slot só.
+> **Correção aplicada:** substituídas as 4 flags por **12 campos**
+> (Densidade/Tamanho/Opacidade × 4 tipos), cada tipo com memória
+> própria. Ver seção 3-bis abaixo. Velocidade continua sem tratamento
+> (sem conflito, 0.76 em todos).
 
-**Regra**: ao selecionar um tipo (combo `IDC_PARTKIND`) com a flag
-daquele tipo ainda em `0`, aplica os valores de Densidade/Velocidade/
-Tamanho/Opacidade daquele tipo (Velocidade sempre 0.76, aplicada junto
-por simplicidade — é o mesmo valor de qualquer forma, não custa nada
-reaplicá-la), atualiza a posição dos 4 sliders e os rótulos numéricos
-na hora. Mexer manualmente em QUALQUER um dos 4 sliders marca a flag
-do tipo ATUALMENTE selecionado como customizada — não precisa de
-discriminação por `HWND` control-a-control (ao contrário de Efeitos/
-Pós, esta aba não hospeda sliders de mais de um "grupo" ao mesmo
-tempo, então qualquer slider mexido aqui pertence ao mesmo tipo ativo).
+**(Desenho original, substituído — mantido como registro):** 4 campos
+`int` (`0/1`) `particles_dust_customized` etc., reaplicando o padrão do
+tipo só na primeira vez que sua flag estivesse zerada.
+
+## 3-bis. Arquitetura corrigida
+
+**12 campos novos na `Config`** (`float`), um trio (Densidade/Tamanho/
+Opacidade) por tipo: `particles_dust_density/size/opacity`,
+`particles_bokeh_density/size/opacity`,
+`particles_sparks_density/size/opacity`,
+`particles_stars_density/size/opacity`. `config_defaults()` semeia cada
+trio com o valor-alvo do próprio tipo (tabela da seção 4).
+
+**Regra**: ao selecionar um tipo (combo `IDC_PARTKIND`), os valores
+"atuais" (`particles_density/size_scale/opacity`, os mesmos já lidos
+pelo renderer) são carregados a partir do trio de memória daquele
+tipo — sempre, incondicionalmente, sem precisar checar se é a primeira
+vez. Mexer em qualquer um dos 4 sliders grava o novo valor tanto nos
+campos "atuais" quanto no trio de memória do tipo ATUALMENTE
+selecionado (sem discriminação por `HWND`, mesmo raciocínio do desenho
+original — só um tipo ativo por vez nesta aba). Velocidade permanece
+um campo único compartilhado, sem memória por tipo.
 
 ## 4. Valores por tipo (referência)
 

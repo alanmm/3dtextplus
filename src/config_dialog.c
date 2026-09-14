@@ -1334,6 +1334,44 @@ static void particles_apply_i18n(HWND h)
     particles_labels(h);
 }
 
+/* Carrega, nos campos "atuais" (usados pelo renderer), a memoria propria
+ * do tipo selecionado - cada tipo guarda sua propria Densidade/Tamanho/
+ * Opacidade, entao um ajuste manual num tipo nunca e' sobrescrito ao
+ * visitar outro tipo e voltar. Velocidade nao tem memoria por tipo (e'
+ * 0.76 em todos, sem conflito). */
+static void particles_apply_kind_default(HWND h)
+{
+    switch (g_work.particles_kind) {
+        case 0: /* Poeira */
+            g_work.particles_density = g_work.particles_dust_density;
+            g_work.particles_size_scale = g_work.particles_dust_size;
+            g_work.particles_opacity = g_work.particles_dust_opacity;
+            break;
+        case 1: /* Bokeh */
+            g_work.particles_density = g_work.particles_bokeh_density;
+            g_work.particles_size_scale = g_work.particles_bokeh_size;
+            g_work.particles_opacity = g_work.particles_bokeh_opacity;
+            break;
+        case 2: /* Faiscas */
+            g_work.particles_density = g_work.particles_sparks_density;
+            g_work.particles_size_scale = g_work.particles_sparks_size;
+            g_work.particles_opacity = g_work.particles_sparks_opacity;
+            break;
+        case 3: /* Estrelas */
+            g_work.particles_density = g_work.particles_stars_density;
+            g_work.particles_size_scale = g_work.particles_stars_size;
+            g_work.particles_opacity = g_work.particles_stars_opacity;
+            break;
+        default:
+            return;
+    }
+    set_slider(h, IDC_PARTDENS, 0, 100, (int)(g_work.particles_density * 100.0f + 0.5f));
+    set_slider(h, IDC_PARTSPEED, 0, 200, (int)(g_work.particles_speed * 100.0f + 0.5f));
+    set_slider(h, IDC_PARTSIZE, 0, 200, (int)(g_work.particles_size_scale * 100.0f + 0.5f));
+    set_slider(h, IDC_PARTOPACITY, 0, 200, (int)(g_work.particles_opacity * 100.0f + 0.5f));
+    particles_labels(h);
+}
+
 static INT_PTR CALLBACK particles_proc(HWND h, UINT m, WPARAM w, LPARAM l)
 {
     (void)l;
@@ -1353,6 +1391,28 @@ static INT_PTR CALLBACK particles_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             g_work.particles_speed      = (float)SendDlgItemMessageW(h, IDC_PARTSPEED, TBM_GETPOS, 0, 0) / 100.0f;
             g_work.particles_size_scale = (float)SendDlgItemMessageW(h, IDC_PARTSIZE, TBM_GETPOS, 0, 0) / 100.0f;
             g_work.particles_opacity    = (float)SendDlgItemMessageW(h, IDC_PARTOPACITY, TBM_GETPOS, 0, 0) / 100.0f;
+            switch (g_work.particles_kind) {
+                case 0:
+                    g_work.particles_dust_density = g_work.particles_density;
+                    g_work.particles_dust_size = g_work.particles_size_scale;
+                    g_work.particles_dust_opacity = g_work.particles_opacity;
+                    break;
+                case 1:
+                    g_work.particles_bokeh_density = g_work.particles_density;
+                    g_work.particles_bokeh_size = g_work.particles_size_scale;
+                    g_work.particles_bokeh_opacity = g_work.particles_opacity;
+                    break;
+                case 2:
+                    g_work.particles_sparks_density = g_work.particles_density;
+                    g_work.particles_sparks_size = g_work.particles_size_scale;
+                    g_work.particles_sparks_opacity = g_work.particles_opacity;
+                    break;
+                case 3:
+                    g_work.particles_stars_density = g_work.particles_density;
+                    g_work.particles_stars_size = g_work.particles_size_scale;
+                    g_work.particles_stars_opacity = g_work.particles_opacity;
+                    break;
+            }
             particles_labels(h);
             preview_dirty(h);
             return TRUE;
@@ -1366,6 +1426,7 @@ static INT_PTR CALLBACK particles_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                 case IDC_PARTKIND:
                     if (HIWORD(w) == CBN_SELCHANGE) {
                         g_work.particles_kind = (int)SendDlgItemMessageW(h, IDC_PARTKIND, CB_GETCURSEL, 0, 0);
+                        particles_apply_kind_default(h);
                         preview_dirty(h);
                     }
                     break;

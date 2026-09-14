@@ -56,10 +56,18 @@ void run_config_tests(void)
     EXPECT(nearf(d.bg_neb_color2_r, 0.24706f) && nearf(d.bg_neb_color2_g, 0.09804f) && nearf(d.bg_neb_color2_b, 0.34902f));
     EXPECT(d.bg_solid_customized == 0);
     EXPECT(d.bg_gradient_customized == 0);
-    EXPECT(d.particles_dust_customized == 0);
-    EXPECT(d.particles_bokeh_customized == 0);
-    EXPECT(d.particles_sparks_customized == 0);
-    EXPECT(d.particles_stars_customized == 0);
+    EXPECT(nearf(d.particles_dust_density, 0.43f));
+    EXPECT(nearf(d.particles_dust_size, 0.80f));
+    EXPECT(nearf(d.particles_dust_opacity, 0.50f));
+    EXPECT(nearf(d.particles_bokeh_density, 0.43f));
+    EXPECT(nearf(d.particles_bokeh_size, 0.81f));
+    EXPECT(nearf(d.particles_bokeh_opacity, 0.42f));
+    EXPECT(nearf(d.particles_sparks_density, 0.42f));
+    EXPECT(nearf(d.particles_sparks_size, 0.72f));
+    EXPECT(nearf(d.particles_sparks_opacity, 0.42f));
+    EXPECT(nearf(d.particles_stars_density, 0.90f));
+    EXPECT(nearf(d.particles_stars_size, 0.70f));
+    EXPECT(nearf(d.particles_stars_opacity, 0.78f));
     EXPECT(d.particles_on == 1);
     EXPECT(d.particles_kind == 0);
     EXPECT(nearf(d.particles_density, 0.43f));
@@ -137,10 +145,10 @@ void run_config_tests(void)
     a.ui_language = 2;
     a.bg_solid_customized = 1;
     a.bg_gradient_customized = 1;
-    a.particles_dust_customized = 1;
-    a.particles_bokeh_customized = 1;
-    a.particles_sparks_customized = 0;
-    a.particles_stars_customized = 1;
+    a.particles_dust_density = 0.11f;   a.particles_dust_size = 0.22f;   a.particles_dust_opacity = 0.33f;
+    a.particles_bokeh_density = 0.44f;  a.particles_bokeh_size = 0.55f;  a.particles_bokeh_opacity = 0.66f;
+    a.particles_sparks_density = 0.77f; a.particles_sparks_size = 0.88f; a.particles_sparks_opacity = 0.99f;
+    a.particles_stars_density = 0.15f;  a.particles_stars_size = 0.25f;  a.particles_stars_opacity = 0.35f;
     config_save_to(&a, TESTKEY);
 
     Config b;
@@ -203,10 +211,18 @@ void run_config_tests(void)
     EXPECT(b.ui_language == 2);
     EXPECT(b.bg_solid_customized == 1);
     EXPECT(b.bg_gradient_customized == 1);
-    EXPECT(b.particles_dust_customized == 1);
-    EXPECT(b.particles_bokeh_customized == 1);
-    EXPECT(b.particles_sparks_customized == 0);
-    EXPECT(b.particles_stars_customized == 1);
+    EXPECT(nearf(b.particles_dust_density, 0.11f));
+    EXPECT(nearf(b.particles_dust_size, 0.22f));
+    EXPECT(nearf(b.particles_dust_opacity, 0.33f));
+    EXPECT(nearf(b.particles_bokeh_density, 0.44f));
+    EXPECT(nearf(b.particles_bokeh_size, 0.55f));
+    EXPECT(nearf(b.particles_bokeh_opacity, 0.66f));
+    EXPECT(nearf(b.particles_sparks_density, 0.77f));
+    EXPECT(nearf(b.particles_sparks_size, 0.88f));
+    EXPECT(nearf(b.particles_sparks_opacity, 0.99f));
+    EXPECT(nearf(b.particles_stars_density, 0.15f));
+    EXPECT(nearf(b.particles_stars_size, 0.25f));
+    EXPECT(nearf(b.particles_stars_opacity, 0.35f));
 
     /* round-trip dedicado ao SVG - nao reusa o par a/b acima, que ja
        fixa content_mode em CONTENT_CLOCK para provar o relogio */
@@ -298,12 +314,16 @@ void run_config_tests(void)
             { L"ui_language", L"9" },
             { L"bg_solid_customized", L"5" },
             { L"bg_gradient_customized", L"7" },
-            { L"particles_dust_customized", L"5" },
-            { L"particles_bokeh_customized", L"7" },
-            { L"particles_sparks_customized", L"5" },
-            { L"particles_stars_customized", L"7" },
+            { L"particles_dust_density", L"-1" }, { L"particles_dust_size", L"9" },
+            { L"particles_dust_opacity", L"-1" },
+            { L"particles_bokeh_density", L"9" }, { L"particles_bokeh_size", L"-1" },
+            { L"particles_bokeh_opacity", L"9" },
+            { L"particles_sparks_density", L"-1" }, { L"particles_sparks_size", L"9" },
+            { L"particles_sparks_opacity", L"-1" },
+            { L"particles_stars_density", L"9" }, { L"particles_stars_size", L"-1" },
+            { L"particles_stars_opacity", L"9" },
         };
-        for (int i = 0; i < 34; ++i)
+        for (int i = 0; i < 42; ++i)
             RegSetValueExW(kp, kv[i].n, 0, REG_SZ, (const BYTE *)kv[i].v,
                            (DWORD)((wcslen(kv[i].v) + 1) * sizeof(wchar_t)));
         RegCloseKey(kp);
@@ -340,10 +360,18 @@ void run_config_tests(void)
     EXPECT(e.ui_language == 0);                     /* 9 -> fora da faixa -> default (auto) */
     EXPECT(e.bg_solid_customized == 1);              /* 5 -> !=0 -> 1 */
     EXPECT(e.bg_gradient_customized == 1);           /* 7 -> !=0 -> 1 */
-    EXPECT(e.particles_dust_customized == 1);        /* 5 -> !=0 -> 1 */
-    EXPECT(e.particles_bokeh_customized == 1);       /* 7 -> !=0 -> 1 */
-    EXPECT(e.particles_sparks_customized == 1);      /* 5 -> !=0 -> 1 */
-    EXPECT(e.particles_stars_customized == 1);       /* 7 -> !=0 -> 1 */
+    EXPECT(e.particles_dust_density >= 0.0f);       /* -1 -> clamp */
+    EXPECT(e.particles_dust_size <= 2.0f);          /* 9 -> clamp */
+    EXPECT(e.particles_dust_opacity >= 0.0f);       /* -1 -> clamp */
+    EXPECT(e.particles_bokeh_density <= 1.0f);      /* 9 -> clamp */
+    EXPECT(e.particles_bokeh_size >= 0.0f);         /* -1 -> clamp */
+    EXPECT(e.particles_bokeh_opacity <= 2.0f);      /* 9 -> clamp */
+    EXPECT(e.particles_sparks_density >= 0.0f);     /* -1 -> clamp */
+    EXPECT(e.particles_sparks_size <= 2.0f);        /* 9 -> clamp */
+    EXPECT(e.particles_sparks_opacity >= 0.0f);     /* -1 -> clamp */
+    EXPECT(e.particles_stars_density <= 1.0f);      /* 9 -> clamp */
+    EXPECT(e.particles_stars_size >= 0.0f);         /* -1 -> clamp */
+    EXPECT(e.particles_stars_opacity <= 2.0f);      /* 9 -> clamp */
 
     RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
 }

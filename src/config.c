@@ -77,10 +77,10 @@ void config_defaults(Config *c)
     c->ui_language = 0;
     c->bg_solid_customized = 0;
     c->bg_gradient_customized = 0;
-    c->particles_dust_customized = 0;
-    c->particles_bokeh_customized = 0;
-    c->particles_sparks_customized = 0;
-    c->particles_stars_customized = 0;
+    c->particles_dust_density = 0.43f;   c->particles_dust_size = 0.80f;   c->particles_dust_opacity = 0.50f;
+    c->particles_bokeh_density = 0.43f;  c->particles_bokeh_size = 0.81f;  c->particles_bokeh_opacity = 0.42f;
+    c->particles_sparks_density = 0.42f; c->particles_sparks_size = 0.72f; c->particles_sparks_opacity = 0.42f;
+    c->particles_stars_density = 0.90f;  c->particles_stars_size = 0.70f;  c->particles_stars_opacity = 0.78f;
 }
 
 static float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
@@ -234,10 +234,18 @@ void config_load_from(Config *c, const wchar_t *subkey)
     reg_get_i(k, L"ui_language", &c->ui_language);
     reg_get_i(k, L"bg_solid_customized", &c->bg_solid_customized);
     reg_get_i(k, L"bg_gradient_customized", &c->bg_gradient_customized);
-    reg_get_i(k, L"particles_dust_customized", &c->particles_dust_customized);
-    reg_get_i(k, L"particles_bokeh_customized", &c->particles_bokeh_customized);
-    reg_get_i(k, L"particles_sparks_customized", &c->particles_sparks_customized);
-    reg_get_i(k, L"particles_stars_customized", &c->particles_stars_customized);
+    if (reg_get_f(k, L"particles_dust_density", &f))   c->particles_dust_density = f;
+    if (reg_get_f(k, L"particles_dust_size", &f))       c->particles_dust_size = f;
+    if (reg_get_f(k, L"particles_dust_opacity", &f))    c->particles_dust_opacity = f;
+    if (reg_get_f(k, L"particles_bokeh_density", &f))   c->particles_bokeh_density = f;
+    if (reg_get_f(k, L"particles_bokeh_size", &f))      c->particles_bokeh_size = f;
+    if (reg_get_f(k, L"particles_bokeh_opacity", &f))   c->particles_bokeh_opacity = f;
+    if (reg_get_f(k, L"particles_sparks_density", &f))  c->particles_sparks_density = f;
+    if (reg_get_f(k, L"particles_sparks_size", &f))     c->particles_sparks_size = f;
+    if (reg_get_f(k, L"particles_sparks_opacity", &f))  c->particles_sparks_opacity = f;
+    if (reg_get_f(k, L"particles_stars_density", &f))   c->particles_stars_density = f;
+    if (reg_get_f(k, L"particles_stars_size", &f))      c->particles_stars_size = f;
+    if (reg_get_f(k, L"particles_stars_opacity", &f))   c->particles_stars_opacity = f;
 
     wchar_t col[16];
     if (reg_get_w(k, L"base_color", col, 16) && col[0] == L'#' && wcslen(col) >= 7) {
@@ -321,10 +329,18 @@ void config_load_from(Config *c, const wchar_t *subkey)
     if (c->ui_language < 0 || c->ui_language > 2) c->ui_language = 0;
     c->bg_solid_customized = c->bg_solid_customized ? 1 : 0;
     c->bg_gradient_customized = c->bg_gradient_customized ? 1 : 0;
-    c->particles_dust_customized = c->particles_dust_customized ? 1 : 0;
-    c->particles_bokeh_customized = c->particles_bokeh_customized ? 1 : 0;
-    c->particles_sparks_customized = c->particles_sparks_customized ? 1 : 0;
-    c->particles_stars_customized = c->particles_stars_customized ? 1 : 0;
+    c->particles_dust_density   = clampf(c->particles_dust_density, 0.0f, 1.0f);
+    c->particles_dust_size      = clampf(c->particles_dust_size, 0.0f, 2.0f);
+    c->particles_dust_opacity   = clampf(c->particles_dust_opacity, 0.0f, 2.0f);
+    c->particles_bokeh_density  = clampf(c->particles_bokeh_density, 0.0f, 1.0f);
+    c->particles_bokeh_size     = clampf(c->particles_bokeh_size, 0.0f, 2.0f);
+    c->particles_bokeh_opacity  = clampf(c->particles_bokeh_opacity, 0.0f, 2.0f);
+    c->particles_sparks_density = clampf(c->particles_sparks_density, 0.0f, 1.0f);
+    c->particles_sparks_size    = clampf(c->particles_sparks_size, 0.0f, 2.0f);
+    c->particles_sparks_opacity = clampf(c->particles_sparks_opacity, 0.0f, 2.0f);
+    c->particles_stars_density  = clampf(c->particles_stars_density, 0.0f, 1.0f);
+    c->particles_stars_size     = clampf(c->particles_stars_size, 0.0f, 2.0f);
+    c->particles_stars_opacity  = clampf(c->particles_stars_opacity, 0.0f, 2.0f);
     if (c->text[0] == 0) strcpy(c->text, "Modern 3D Text");
     if (c->font_family[0] == 0) wcscpy(c->font_family, L"Segoe UI");
 }
@@ -417,10 +433,18 @@ void config_save_to(const Config *c, const wchar_t *subkey)
     set_f(k, L"ui_language", (float)c->ui_language);
     set_f(k, L"bg_solid_customized", (float)c->bg_solid_customized);
     set_f(k, L"bg_gradient_customized", (float)c->bg_gradient_customized);
-    set_f(k, L"particles_dust_customized", (float)c->particles_dust_customized);
-    set_f(k, L"particles_bokeh_customized", (float)c->particles_bokeh_customized);
-    set_f(k, L"particles_sparks_customized", (float)c->particles_sparks_customized);
-    set_f(k, L"particles_stars_customized", (float)c->particles_stars_customized);
+    set_f(k, L"particles_dust_density", c->particles_dust_density);
+    set_f(k, L"particles_dust_size", c->particles_dust_size);
+    set_f(k, L"particles_dust_opacity", c->particles_dust_opacity);
+    set_f(k, L"particles_bokeh_density", c->particles_bokeh_density);
+    set_f(k, L"particles_bokeh_size", c->particles_bokeh_size);
+    set_f(k, L"particles_bokeh_opacity", c->particles_bokeh_opacity);
+    set_f(k, L"particles_sparks_density", c->particles_sparks_density);
+    set_f(k, L"particles_sparks_size", c->particles_sparks_size);
+    set_f(k, L"particles_sparks_opacity", c->particles_sparks_opacity);
+    set_f(k, L"particles_stars_density", c->particles_stars_density);
+    set_f(k, L"particles_stars_size", c->particles_stars_size);
+    set_f(k, L"particles_stars_opacity", c->particles_stars_opacity);
 
     wchar_t col[16];
     unsigned r = (unsigned)(c->base_r * 255.0f + 0.5f);
