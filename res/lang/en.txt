@@ -52,7 +52,10 @@ material.mode.glass=Glass
 material.mode.matte=Matte
 material.metalness_label=Metalness:
 material.roughness_label=Roughness:
-material.env_label=Environment image (optional):
+material.env_label=Environment image:
+material.env_mode.embedded=Embedded
+material.env_mode.custom=Custom
+material.env_mode.none=None
 placeholder.procedural=(procedural)
 
 # Geometry tab

@@ -70,6 +70,9 @@
 #define IDC_METAL_LABEL    1309
 #define IDC_ROUGH_LABEL    1310
 #define IDC_ENV_LABEL      1311
+#define IDC_ENVMODE_EMBED  1312
+#define IDC_ENVMODE_CUSTOM 1313
+#define IDC_ENVMODE_NONE   1314
 
 /* aba Geometria */
 #define IDC_BEVELMODE     1400

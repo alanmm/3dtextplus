@@ -509,6 +509,9 @@ static void material_apply_i18n(HWND h)
     SetDlgItemTextW(h, IDC_METAL_LABEL, i18n_str(STR_MATERIAL_METALNESS_LABEL));
     SetDlgItemTextW(h, IDC_ROUGH_LABEL, i18n_str(STR_MATERIAL_ROUGHNESS_LABEL));
     SetDlgItemTextW(h, IDC_ENV_LABEL, i18n_str(STR_MATERIAL_ENV_LABEL));
+    SetDlgItemTextW(h, IDC_ENVMODE_EMBED, i18n_str(STR_MATERIAL_ENV_MODE_EMBEDDED));
+    SetDlgItemTextW(h, IDC_ENVMODE_CUSTOM, i18n_str(STR_MATERIAL_ENV_MODE_CUSTOM));
+    SetDlgItemTextW(h, IDC_ENVMODE_NONE, i18n_str(STR_MATERIAL_ENV_MODE_NONE));
     SetDlgItemTextW(h, IDC_ENVPICK, i18n_str(STR_COMMON_CHOOSE));
     SetDlgItemTextW(h, IDC_ENVCLEAR, i18n_str(STR_COMMON_CLEAR));
 
@@ -529,15 +532,16 @@ static void material_apply_i18n(HWND h)
    tambem) no Vidro, verificado direto no shaders/model.frag */
 typedef struct { int id; int x, rel_y; } MatCtrl;
 
-static MatCtrl g_mat_blocks[3][4] = {
+static MatCtrl g_mat_blocks[4][4] = {
     { { IDC_METAL_LABEL, 0, 0 }, { IDC_METAL_VAL, 0, 0 }, { IDC_METAL, 0, 0 } },
     { { IDC_ROUGH_LABEL, 0, 0 }, { IDC_ROUGH_VAL, 0, 0 }, { IDC_ROUGH, 0, 0 } },
-    { { IDC_ENV_LABEL, 0, 0 }, { IDC_ENVPATH, 0, 0 }, { IDC_ENVPICK, 0, 0 }, { IDC_ENVCLEAR, 0, 0 } },
+    { { IDC_ENV_LABEL, 0, 0 }, { IDC_ENVMODE_EMBED, 0, 0 }, { IDC_ENVMODE_CUSTOM, 0, 0 }, { IDC_ENVMODE_NONE, 0, 0 } },
+    { { IDC_ENVPATH, 0, 0 }, { IDC_ENVPICK, 0, 0 }, { IDC_ENVCLEAR, 0, 0 } },
 };
-static const int MAT_BLOCK_N[3] = { 3, 3, 4 };
-static int g_mat_block_top[3];
-static int g_mat_block_h[3];
-static int g_mat_gap_after[2];
+static const int MAT_BLOCK_N[4] = { 3, 3, 4, 3 };
+static int g_mat_block_top[4];
+static int g_mat_block_h[4];
+static int g_mat_gap_after[3];
 static int g_mat_layout_ready = 0;
 
 /* captura a posicao ORIGINAL (em pixels, ja resolvida do .rc) de cada
@@ -547,7 +551,7 @@ static void material_layout_capture(HWND h)
 {
     if (g_mat_layout_ready) return;
 
-    for (int b = 0; b < 3; ++b) {
+    for (int b = 0; b < 4; ++b) {
         int top = 0x7fffffff, bottom = -0x7fffffff;
         for (int i = 0; i < MAT_BLOCK_N[b]; ++i) {
             RECT r;
@@ -566,6 +570,7 @@ static void material_layout_capture(HWND h)
     }
     g_mat_gap_after[0] = g_mat_block_top[1] - (g_mat_block_top[0] + g_mat_block_h[0]);
     g_mat_gap_after[1] = g_mat_block_top[2] - (g_mat_block_top[1] + g_mat_block_h[1]);
+    g_mat_gap_after[2] = g_mat_block_top[3] - (g_mat_block_top[2] + g_mat_block_h[2]);
     g_mat_layout_ready = 1;
 }
 
@@ -574,13 +579,14 @@ static void material_layout_capture(HWND h)
    espacamento entre blocos que o .rc ja tinha */
 static void material_layout_apply(HWND h)
 {
-    int vis_metal = (g_work.material_mode == 1);
-    int vis_rough = (g_work.material_mode == 1 || g_work.material_mode == 2);
-    int vis_env   = (g_work.material_mode == 1 || g_work.material_mode == 2);
-    int visible[3] = { vis_metal, vis_rough, vis_env };
+    int vis_metal    = (g_work.material_mode == 1);
+    int vis_rough    = (g_work.material_mode == 1 || g_work.material_mode == 2);
+    int vis_env_hdr  = (g_work.material_mode == 1 || g_work.material_mode == 2);
+    int vis_env_pick = vis_env_hdr && (g_work.env_mode == 1);
+    int visible[4] = { vis_metal, vis_rough, vis_env_hdr, vis_env_pick };
 
     int cursor = g_mat_block_top[0];
-    for (int b = 0; b < 3; ++b) {
+    for (int b = 0; b < 4; ++b) {
         if (!visible[b]) {
             for (int i = 0; i < MAT_BLOCK_N[b]; ++i)
                 ShowWindow(GetDlgItem(h, g_mat_blocks[b][i].id), SW_HIDE);
@@ -592,7 +598,7 @@ static void material_layout_apply(HWND h)
                          0, 0, SWP_NOSIZE | SWP_NOZORDER);
             ShowWindow(ctrl, SW_SHOW);
         }
-        cursor += g_mat_block_h[b] + (b < 2 ? g_mat_gap_after[b] : 0);
+        cursor += g_mat_block_h[b] + (b < 3 ? g_mat_gap_after[b] : 0);
     }
 }
 
@@ -604,6 +610,9 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             set_slider(h, IDC_METAL, 0, 100, (int)(g_work.metalness * 100.0f + 0.5f));
             set_slider(h, IDC_ROUGH, 0, 100, (int)(g_work.roughness * 100.0f + 0.5f));
             material_apply_i18n(h);
+            CheckRadioButton(h, IDC_ENVMODE_EMBED, IDC_ENVMODE_NONE,
+                              g_work.env_mode == 1 ? IDC_ENVMODE_CUSTOM :
+                              g_work.env_mode == 2 ? IDC_ENVMODE_NONE : IDC_ENVMODE_EMBED);
             material_layout_capture(h);
             material_layout_apply(h);
             return TRUE;
@@ -650,6 +659,25 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                 }
                 case IDC_ENVCLEAR:
                     g_work.env_path[0] = 0;
+                    material_labels(h);
+                    preview_dirty(h);
+                    break;
+                case IDC_ENVMODE_EMBED:
+                    g_work.env_mode = 0;
+                    material_layout_apply(h);
+                    material_labels(h);
+                    preview_dirty(h);
+                    break;
+                case IDC_ENVMODE_CUSTOM:
+                    g_work.env_mode = 1;
+                    material_layout_apply(h);
+                    material_labels(h);
+                    preview_dirty(h);
+                    break;
+                case IDC_ENVMODE_NONE:
+                    g_work.env_mode = 2;
+                    g_work.env_path[0] = 0;
+                    material_layout_apply(h);
                     material_labels(h);
                     preview_dirty(h);
                     break;

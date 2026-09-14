@@ -80,10 +80,13 @@ BEGIN
     LTEXT      "Rugosidade:", IDC_ROUGH_LABEL, 8, 80, 90, 9
     LTEXT      "", IDC_ROUGH_VAL, 182, 80, 50, 9
     CONTROL    "", IDC_ROUGH, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 90, 224, 18
-    LTEXT      "Imagem de ambiente (opcional):", IDC_ENV_LABEL, 8, 116, 200, 9
-    LTEXT      "(procedural)", IDC_ENVPATH, 8, 128, 224, 9, SS_PATHELLIPSIS
-    PUSHBUTTON "Escolher...", IDC_ENVPICK, 8, 140, 60, 14
-    PUSHBUTTON "Limpar",      IDC_ENVCLEAR, 72, 140, 50, 14
+    LTEXT      "Imagem de ambiente:", IDC_ENV_LABEL, 8, 116, 200, 9
+    CONTROL    "Embutida", IDC_ENVMODE_EMBED, "Button", BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 8, 128, 62, 10
+    CONTROL    "Personalizada", IDC_ENVMODE_CUSTOM, "Button", BS_AUTORADIOBUTTON | WS_TABSTOP, 74, 128, 78, 10
+    CONTROL    "Nenhuma", IDC_ENVMODE_NONE, "Button", BS_AUTORADIOBUTTON | WS_TABSTOP, 156, 128, 60, 10
+    LTEXT      "(procedural)", IDC_ENVPATH, 8, 142, 224, 9, SS_PATHELLIPSIS
+    PUSHBUTTON "Escolher...", IDC_ENVPICK, 8, 154, 60, 14
+    PUSHBUTTON "Limpar",      IDC_ENVCLEAR, 72, 154, 50, 14
 END
 
 IDD_TAB_GEOMETRY DIALOGEX 0, 0, 240, 200
