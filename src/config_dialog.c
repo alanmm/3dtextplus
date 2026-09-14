@@ -174,14 +174,15 @@ static void content_mesh_label(HWND h)
 
 static void content_enable(HWND h)
 {
-    int is_text = g_work.content_mode == CONTENT_TEXT;
-    int is_svg  = g_work.content_mode == CONTENT_SVG;
-    int is_mesh = g_work.content_mode == CONTENT_MESH;
+    int is_text  = g_work.content_mode == CONTENT_TEXT;
+    int is_clock = g_work.content_mode == CONTENT_CLOCK;
+    int is_svg   = g_work.content_mode == CONTENT_SVG;
+    int is_mesh  = g_work.content_mode == CONTENT_MESH;
 
     ShowWindow(GetDlgItem(h, IDC_TEXTLABEL), is_text ? SW_SHOW : SW_HIDE);
     ShowWindow(GetDlgItem(h, IDC_TEXT),      is_text ? SW_SHOW : SW_HIDE);
-    ShowWindow(GetDlgItem(h, IDC_FONTLABEL), is_text ? SW_SHOW : SW_HIDE);
-    ShowWindow(GetDlgItem(h, IDC_FONT),      is_text ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(h, IDC_FONTLABEL), (is_text || is_clock) ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(h, IDC_FONT),      (is_text || is_clock) ? SW_SHOW : SW_HIDE);
 
     ShowWindow(GetDlgItem(h, IDC_SVGPATHLABEL),  is_svg ? SW_SHOW : SW_HIDE);
     ShowWindow(GetDlgItem(h, IDC_SVGPATH),       is_svg ? SW_SHOW : SW_HIDE);
