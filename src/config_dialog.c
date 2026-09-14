@@ -1777,6 +1777,21 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             SetDlgItemTextW(h, IDC_APPLY, i18n_str(STR_BTN_APPLY));
             EnableWindow(GetDlgItem(h, IDC_APPLY), FALSE);
             SetDlgItemTextW(h, IDC_MENU_BUTTON, L"⋮");   /* elipse vertical - simbolo, sem i18n */
+            {
+                /* negrito so' no rotulo do menu, pra destacar sem mudar a
+                   fonte do resto do dialogo - .rc so' tem 1 fonte por
+                   template, entao isso precisa ser feito por codigo */
+                static HFONT s_menu_font;
+                if (!s_menu_font) {
+                    HWND lbl = GetDlgItem(h, IDC_MENU_BUTTON);
+                    LOGFONTW lf;
+                    GetObjectW((HFONT)SendMessageW(lbl, WM_GETFONT, 0, 0), sizeof lf, &lf);
+                    lf.lfWeight = FW_BOLD;
+                    s_menu_font = CreateFontIndirectW(&lf);
+                }
+                if (s_menu_font)
+                    SendDlgItemMessageW(h, IDC_MENU_BUTTON, WM_SETFONT, (WPARAM)s_menu_font, TRUE);
+            }
             g_preset_sel = -1;
             preset_apply_i18n(h);
 
