@@ -16,15 +16,48 @@ void run_config_tests(void)
     /* defaults */
     Config d;
     config_defaults(&d);
-    EXPECT(strcmp(d.text, "Modern 3D Text") == 0);
+    EXPECT(strcmp(d.text, "3D Text+") == 0);
     EXPECT(wcscmp(d.font_family, L"Segoe UI") == 0);
-    EXPECT(nearf(d.depth, 0.30f));
+    EXPECT(d.font_bold == 1);
+    EXPECT(d.font_italic == 0);
+    EXPECT(nearf(d.depth, 0.10f));
+    EXPECT(nearf(d.max_angle_y, 42.0f));
+    EXPECT(nearf(d.tilt_x, 8.0f));
+    EXPECT(nearf(d.period, 9.0f));
+    EXPECT(nearf(d.base_r, 0.72157f) && nearf(d.base_g, 0.74118f) && nearf(d.base_b, 0.78039f));
     EXPECT(d.version == 2);
-    EXPECT(d.background_type == 0);
-    EXPECT(nearf(d.bg_color1_r, 0.02f) && nearf(d.bg_color1_g, 0.03f) && nearf(d.bg_color1_b, 0.05f));
-    EXPECT(d.particles_on == 0);
-    EXPECT(nearf(d.particles_density, 0.5f));
-    EXPECT(nearf(d.particles_opacity, 1.0f));
+    EXPECT(d.material_mode == 1);
+    EXPECT(nearf(d.metalness, 0.9f));
+    EXPECT(nearf(d.roughness, 0.5f));
+    EXPECT(d.bevel_mode == 1);
+    EXPECT(nearf(d.bevel_size, 0.005f));
+    EXPECT(nearf(d.bevel_depth, 0.007f));
+    EXPECT(d.bevel_segments == 6);
+    EXPECT(d.shell == 0);
+    EXPECT(nearf(d.wall_thickness, 0.015f));
+    EXPECT(d.quality == 2);
+    EXPECT(d.bloom_on == 1);
+    EXPECT(nearf(d.bloom_threshold, 0.64f));
+    EXPECT(nearf(d.bloom_intensity, 0.65f));
+    EXPECT(nearf(d.bloom_radius, 0.27f));
+    EXPECT(d.streaks_mode == 2);
+    EXPECT(nearf(d.streaks_intensity, 0.76f));
+    EXPECT(nearf(d.streaks_length, 0.14f));
+    EXPECT(d.chroma_on == 1);
+    EXPECT(nearf(d.chroma_strength, 0.52f));
+    EXPECT(d.vignette_on == 1);
+    EXPECT(nearf(d.vignette_amount, 0.35f));
+    EXPECT(d.fxaa_on == 1);
+    EXPECT(d.background_type == 1);
+    EXPECT(nearf(d.bg_color1_r, 0.06275f) && nearf(d.bg_color1_g, 0.03922f) && nearf(d.bg_color1_b, 0.03922f));
+    EXPECT(nearf(d.bg_color2_r, 0.04706f) && nearf(d.bg_color2_g, 0.07451f) && nearf(d.bg_color2_b, 0.13725f));
+    EXPECT(nearf(d.bg_grad_angle, 101.0f));
+    EXPECT(d.particles_on == 1);
+    EXPECT(d.particles_kind == 0);
+    EXPECT(nearf(d.particles_density, 0.43f));
+    EXPECT(nearf(d.particles_speed, 0.76f));
+    EXPECT(nearf(d.particles_size_scale, 0.8f));
+    EXPECT(nearf(d.particles_opacity, 0.5f));
     EXPECT(d.content_mode == CONTENT_TEXT);
     EXPECT(d.clock_show_date == 0);
     EXPECT(d.clock_show_seconds == 0);
@@ -210,7 +243,7 @@ void run_config_tests(void)
     config_load_from(&c, TESTKEY);
     EXPECT(c.depth >= 0.02f && c.depth <= 2.0f);
     EXPECT(nearf(c.period, 9.0f));
-    EXPECT(strcmp(c.text, "Modern 3D Text") == 0);
+    EXPECT(strcmp(c.text, "3D Text+") == 0);
     EXPECT(c.material_mode == 0);              /* 7 fora de 0..3 -> 0 */
     EXPECT(c.metalness >= 0.0f && c.metalness <= 1.0f);   /* 5 -> clamp */
     EXPECT(c.bevel_mode == 0);                 /* 9 -> 0 */
