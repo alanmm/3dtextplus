@@ -182,6 +182,7 @@
 #define IDC_PARTOPACITY_LABEL  1924
 
 #define IDD_PRESET_NAME    119
+#define IDD_ABOUT          120
 
 #define IDC_PRESET_LABEL      2000
 #define IDC_PRESET_COMBO      2001
@@ -191,5 +192,18 @@
 #define IDC_PRESET_EXPORT     2005
 #define IDC_PRESET_NAME_LABEL 2006
 #define IDC_PRESET_NAME_EDIT  2007
+#define IDC_MENU_BUTTON       2008
+
+#define IDC_ABOUT_NAME     2100
+#define IDC_ABOUT_VERSION  2101
+#define IDC_ABOUT_AUTHOR   2102
+#define IDC_ABOUT_LINK     2103
+
+#define IDM_ABOUT           2020
+#define IDM_MENU_IMPORT     2021
+#define IDM_MENU_EXPORT     2022
+#define IDM_LANG_AUTO       2023
+#define IDM_LANG_PT         2024
+#define IDM_LANG_EN         2025
 
 #endif

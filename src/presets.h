@@ -4,7 +4,7 @@
 #include "i18n.h"
 
 #define PRESET_NAME_MAX 64
-#define BUILTIN_PRESET_COUNT 4
+#define BUILTIN_PRESET_COUNT 5
 
 typedef struct {
     StrId name;

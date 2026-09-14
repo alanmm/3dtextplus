@@ -61,6 +61,13 @@ void preset_scope_copy(Config *dst, const Config *src)
     dst->quality = src->quality;
 }
 
+/* "Inicial" = exatamente o padrao de fabrica estabelecido na Fase 8b-1
+   (config_defaults() ja e' esse baseline - nenhum campo extra a sobrescrever) */
+static void preset_inicial(Config *out)
+{
+    config_defaults(out);
+}
+
 static void preset_classico(Config *out)
 {
     config_defaults(out);
@@ -152,6 +159,7 @@ static void preset_suave(Config *out)
 }
 
 const BuiltinPreset g_builtin_presets[BUILTIN_PRESET_COUNT] = {
+    { STR_PRESET_NAME_INICIAL,  preset_inicial },
     { STR_PRESET_NAME_CLASSICO, preset_classico },
     { STR_PRESET_NAME_CINEMA,   preset_cinema },
     { STR_PRESET_NAME_NEON,     preset_neon },

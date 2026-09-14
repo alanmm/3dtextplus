@@ -80,11 +80,15 @@ static const char *const KEY_NAMES[STR_COUNT] = {
     "preset.delete_confirm_title", "preset.delete_confirm",
     "preset.overwrite_confirm_title", "preset.overwrite_confirm",
     "preset.cant_overwrite_builtin_title", "preset.cant_overwrite_builtin",
+    "preset.name.inicial",
     "preset.name.classico", "preset.name.cinema",
     "preset.name.neon", "preset.name.suave",
     "filter.ini",
     "preset.import_failed_title", "preset.import_failed",
-    "preset.export_failed_title", "preset.export_failed"
+    "preset.export_failed_title", "preset.export_failed",
+
+    "menu.about", "menu.import_presets", "menu.export_presets",
+    "menu.language", "about.title", "about.version_fmt"
 };
 
 static wchar_t *g_pt[STR_COUNT];

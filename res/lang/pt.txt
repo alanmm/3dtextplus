@@ -163,8 +163,8 @@ error.svg_empty=SVG sem\ngeometria\nválida
 
 # presets
 preset.label=Preset:
-preset.save_btn=Salvar
-preset.delete_btn=Apagar
+preset.save_btn=+
+preset.delete_btn=−
 preset.import_btn=Importar...
 preset.export_btn=Exportar...
 preset.name_title=Nome do preset
@@ -177,6 +177,7 @@ preset.overwrite_confirm_title=Sobrescrever preset
 preset.overwrite_confirm=Já existe um preset chamado '%ls'. Sobrescrever?
 preset.cant_overwrite_builtin_title=Nome reservado
 preset.cant_overwrite_builtin='%ls' é um preset fixo e não pode ser sobrescrito. Escolha outro nome.
+preset.name.inicial=Inicial
 preset.name.classico=Clássico
 preset.name.cinema=Cinema
 preset.name.neon=Néon
@@ -186,3 +187,11 @@ preset.import_failed_title=Falha ao importar
 preset.import_failed=Não foi possível ler o arquivo selecionado.
 preset.export_failed_title=Falha ao exportar
 preset.export_failed=Não foi possível gravar o arquivo selecionado.
+
+# menu e about
+menu.about=Sobre
+menu.import_presets=Importar presets...
+menu.export_presets=Exportar presets...
+menu.language=Idioma
+about.title=Sobre
+about.version_fmt=Versão %ls

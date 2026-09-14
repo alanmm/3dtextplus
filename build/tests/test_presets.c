@@ -12,9 +12,22 @@ static int nearf_color(float a, float b) { return fabsf(a - b) < 0.006f; }
 
 void run_presets_tests(void)
 {
-    Config c;
+    Config c, d;
 
-    g_builtin_presets[0].build(&c);   /* Classico */
+    g_builtin_presets[0].build(&c);   /* Inicial - deve ser identico a config_defaults() */
+    config_defaults(&d);
+    EXPECT(c.material_mode == d.material_mode);
+    EXPECT(nearf(c.metalness, d.metalness) && nearf(c.roughness, d.roughness));
+    EXPECT(c.env_mode == d.env_mode);
+    EXPECT(c.bevel_mode == d.bevel_mode);
+    EXPECT(c.background_type == d.background_type);
+    EXPECT(nearf(c.bg_grad_angle, d.bg_grad_angle));
+    EXPECT(c.bloom_on == d.bloom_on && nearf(c.bloom_threshold, d.bloom_threshold));
+    EXPECT(c.streaks_mode == d.streaks_mode);
+    EXPECT(c.particles_on == d.particles_on && c.particles_kind == d.particles_kind);
+    EXPECT(c.quality == d.quality);
+
+    g_builtin_presets[1].build(&c);   /* Classico */
     EXPECT(c.material_mode == 0);
     EXPECT(c.bevel_mode == 0);
     EXPECT(nearf(c.bg_grad_angle, 101.0f));
@@ -25,7 +38,7 @@ void run_presets_tests(void)
     EXPECT(c.particles_on == 0);
     EXPECT(c.quality == 2);
 
-    g_builtin_presets[1].build(&c);   /* Cinema */
+    g_builtin_presets[2].build(&c);   /* Cinema */
     EXPECT(c.material_mode == 1);
     EXPECT(nearf(c.metalness, 0.9f) && nearf(c.roughness, 0.5f));
     EXPECT(c.env_mode == 0);
@@ -35,7 +48,7 @@ void run_presets_tests(void)
     EXPECT(c.particles_on == 1 && c.particles_kind == 1);
     EXPECT(nearf(c.particles_size_scale, 0.81f));
 
-    g_builtin_presets[2].build(&c);   /* Neon */
+    g_builtin_presets[3].build(&c);   /* Neon */
     EXPECT(c.material_mode == 0);
     EXPECT(c.background_type == 0);
     EXPECT(nearf(c.base_r, 1.0f) && nearf(c.base_g, 0.1f) && nearf(c.base_b, 0.6f));
@@ -43,7 +56,7 @@ void run_presets_tests(void)
     EXPECT(nearf(c.bloom_intensity, 1.3f));
     EXPECT(c.particles_kind == 2);
 
-    g_builtin_presets[3].build(&c);   /* Suave */
+    g_builtin_presets[4].build(&c);   /* Suave */
     EXPECT(c.material_mode == 3);
     EXPECT(c.background_type == 1);
     EXPECT(nearf(c.bg_color1_r, 0.85f));

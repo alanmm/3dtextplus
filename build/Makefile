@@ -30,7 +30,7 @@ endif
 
 LDFLAGS := -mwindows -municode -static -static-libgcc -s
 LIBS    := -lopengl32 -lgdi32 -luser32 -lkernel32 -lcomdlg32 -lcomctl32 \
-           -lshell32 -lole32 -ladvapi32 -ldwmapi -lwinmm
+           -lshell32 -lole32 -ladvapi32 -ldwmapi -lwinmm -lversion
 
 SRC_C := src/main.c src/cmdline.c src/util/log.c src/util/mathx.c src/util/clockfmt.c src/gl_core.c \
          src/gl_window.c src/host_win32.c src/config_dialog.c src/config.c src/presets.c \

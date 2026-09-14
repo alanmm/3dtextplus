@@ -9,6 +9,8 @@
 
 #include <windows.h>
 #include <commctrl.h>
+#include <shellapi.h>
+#include <winver.h>
 #include <glad/gl.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -888,7 +890,6 @@ static void perf_apply_i18n(HWND h)
     SetDlgItemTextW(h, IDC_RSCALE_LABEL, i18n_str(STR_PERF_RSCALE_LABEL));
     SetDlgItemTextW(h, IDC_AUTOQ, i18n_str(STR_PERF_AUTOQ));
     SetDlgItemTextW(h, IDC_PERF_HINT, i18n_str(STR_PERF_HINT));
-    SetDlgItemTextW(h, IDC_LANGUAGE_LABEL, i18n_str(STR_PERF_LANGUAGE_LABEL));
 
     HWND fps = GetDlgItem(h, IDC_FPSCAP);
     int cur = (int)SendMessageW(fps, CB_GETCURSEL, 0, 0);
@@ -907,14 +908,6 @@ static void perf_apply_i18n(HWND h)
     SendMessageW(msaa, CB_ADDSTRING, 0, (LPARAM)L"4x");
     SendMessageW(msaa, CB_ADDSTRING, 0, (LPARAM)L"8x");
     SendMessageW(msaa, CB_SETCURSEL, cur < 0 ? 2 : cur, 0);
-
-    HWND lang = GetDlgItem(h, IDC_LANGUAGE);
-    cur = (int)SendMessageW(lang, CB_GETCURSEL, 0, 0);
-    SendMessageW(lang, CB_RESETCONTENT, 0, 0);
-    SendMessageW(lang, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_PERF_LANGUAGE_AUTO));
-    SendMessageW(lang, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_PERF_LANGUAGE_PT));
-    SendMessageW(lang, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_PERF_LANGUAGE_EN));
-    SendMessageW(lang, CB_SETCURSEL, cur < 0 ? g_work.ui_language : cur, 0);
 
     perf_labels(h);
 }
@@ -968,14 +961,6 @@ static INT_PTR CALLBACK perf_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                 case IDC_AUTOQ:
                     g_work.auto_quality = (IsDlgButtonChecked(h, IDC_AUTOQ) == BST_CHECKED);
                     preview_dirty(h);
-                    break;
-                case IDC_LANGUAGE:
-                    if (HIWORD(w) == CBN_SELCHANGE) {
-                        g_work.ui_language =
-                            (int)SendDlgItemMessageW(h, IDC_LANGUAGE, CB_GETCURSEL, 0, 0);
-                        apply_language_change();
-                        preview_dirty(h);
-                    }
                     break;
             }
             return TRUE;
@@ -1502,6 +1487,105 @@ static void select_tab(int sel)
     }
 }
 
+/* le a versao (FILEVERSION) do proprio .scr via a API de version info do
+   Windows, pra nao duplicar o numero de versao num 2o lugar alem do
+   VERSIONINFO do .rc */
+static void about_get_version(wchar_t *out, int cap)
+{
+    wcsncpy(out, L"?", (size_t)cap - 1);
+    out[cap - 1] = 0;
+
+    wchar_t path[MAX_PATH];
+    if (!GetModuleFileNameW(NULL, path, MAX_PATH)) return;
+
+    DWORD dummy;
+    DWORD sz = GetFileVersionInfoSizeW(path, &dummy);
+    if (sz == 0) return;
+
+    void *buf = malloc(sz);
+    if (!buf) return;
+
+    if (GetFileVersionInfoW(path, 0, sz, buf)) {
+        VS_FIXEDFILEINFO *ffi = NULL;
+        UINT ffiLen = 0;
+        if (VerQueryValueW(buf, L"\\", (LPVOID *)&ffi, &ffiLen) && ffi) {
+            swprintf(out, cap, L"%u.%u.%u.%u",
+                     HIWORD(ffi->dwFileVersionMS), LOWORD(ffi->dwFileVersionMS),
+                     HIWORD(ffi->dwFileVersionLS), LOWORD(ffi->dwFileVersionLS));
+        }
+    }
+    free(buf);
+}
+
+static INT_PTR CALLBACK about_proc(HWND h, UINT m, WPARAM w, LPARAM l)
+{
+    switch (m) {
+        case WM_INITDIALOG: {
+            SetWindowTextW(h, i18n_str(STR_ABOUT_TITLE));
+            wchar_t ver[32];
+            about_get_version(ver, 32);
+            wchar_t line[64];
+            swprintf(line, 64, i18n_str(STR_ABOUT_VERSION_FMT), ver);
+            SetDlgItemTextW(h, IDC_ABOUT_VERSION, line);
+            return TRUE;
+        }
+        case WM_NOTIFY: {
+            NMHDR *nm = (NMHDR *)l;
+            if (nm->idFrom == IDC_ABOUT_LINK && (nm->code == NM_CLICK || nm->code == NM_RETURN)) {
+                ShellExecuteW(h, L"open", L"https://github.com/alanmm/modern3dtext",
+                              NULL, NULL, SW_SHOWNORMAL);
+                return TRUE;
+            }
+            return FALSE;
+        }
+        case WM_COMMAND:
+            if (LOWORD(w) == IDOK || LOWORD(w) == IDCANCEL) {
+                EndDialog(h, IDOK);
+                return TRUE;
+            }
+            return TRUE;
+        case WM_CLOSE:
+            EndDialog(h, IDOK);
+            return TRUE;
+    }
+    return FALSE;
+}
+
+static void show_about_dialog(HWND owner)
+{
+    DialogBoxParamW(GetModuleHandleW(NULL), MAKEINTRESOURCEW(IDD_ABOUT), owner, about_proc, 0);
+}
+
+/* monta e exibe o menu popup do botao "..." (Sobre / Importar / Exportar /
+   Idioma>) - as selecoes chegam de volta como WM_COMMAND normal pro
+   dialogo principal (comportamento padrao do TrackPopupMenu sem
+   TPM_RETURNCMD), tratadas no switch de dlg_proc como qualquer outro
+   controle. */
+static void show_main_menu(HWND dlg, HWND button)
+{
+    RECT r;
+    GetWindowRect(button, &r);
+
+    HMENU menu = CreatePopupMenu();
+    AppendMenuW(menu, MF_STRING, IDM_ABOUT, i18n_str(STR_MENU_ABOUT));
+    AppendMenuW(menu, MF_SEPARATOR, 0, NULL);
+    AppendMenuW(menu, MF_STRING, IDM_MENU_IMPORT, i18n_str(STR_MENU_IMPORT_PRESETS));
+    AppendMenuW(menu, MF_STRING, IDM_MENU_EXPORT, i18n_str(STR_MENU_EXPORT_PRESETS));
+    AppendMenuW(menu, MF_SEPARATOR, 0, NULL);
+
+    HMENU langMenu = CreatePopupMenu();
+    AppendMenuW(langMenu, MF_STRING | (g_work.ui_language == 0 ? MF_CHECKED : 0),
+                IDM_LANG_AUTO, i18n_str(STR_PERF_LANGUAGE_AUTO));
+    AppendMenuW(langMenu, MF_STRING | (g_work.ui_language == 1 ? MF_CHECKED : 0),
+                IDM_LANG_PT, i18n_str(STR_PERF_LANGUAGE_PT));
+    AppendMenuW(langMenu, MF_STRING | (g_work.ui_language == 2 ? MF_CHECKED : 0),
+                IDM_LANG_EN, i18n_str(STR_PERF_LANGUAGE_EN));
+    AppendMenuW(menu, MF_POPUP, (UINT_PTR)langMenu, i18n_str(STR_MENU_LANGUAGE));
+
+    TrackPopupMenu(menu, TPM_LEFTALIGN | TPM_TOPALIGN, r.left, r.bottom, 0, dlg, NULL);
+    DestroyMenu(menu);
+}
+
 static wchar_t *g_preset_name_out;
 static int      g_preset_name_cap;
 
@@ -1692,6 +1776,7 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             SetDlgItemTextW(h, IDCANCEL, i18n_str(STR_BTN_CANCEL));
             SetDlgItemTextW(h, IDC_APPLY, i18n_str(STR_BTN_APPLY));
             EnableWindow(GetDlgItem(h, IDC_APPLY), FALSE);
+            SetDlgItemTextW(h, IDC_MENU_BUTTON, L"⋮");   /* elipse vertical - simbolo, sem i18n */
             g_preset_sel = -1;
             preset_apply_i18n(h);
 
@@ -1834,6 +1919,20 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     EnableWindow(GetDlgItem(h, IDC_APPLY), FALSE);
                     return TRUE;
                 case IDCANCEL:  preview_teardown(h); EndDialog(h, IDCANCEL); return TRUE;
+                case IDC_MENU_BUTTON:
+                    show_main_menu(h, GetDlgItem(h, IDC_MENU_BUTTON));
+                    break;
+                case IDM_ABOUT:
+                    show_about_dialog(h);
+                    break;
+                case IDM_LANG_AUTO:
+                case IDM_LANG_PT:
+                case IDM_LANG_EN:
+                    g_work.ui_language = (LOWORD(w) == IDM_LANG_AUTO) ? 0 :
+                                          (LOWORD(w) == IDM_LANG_PT)   ? 1 : 2;
+                    apply_language_change();
+                    preview_dirty(h);
+                    break;
                 case IDC_PRESET_COMBO: {
                     if (HIWORD(w) != CBN_SELCHANGE) break;
                     HWND cb = GetDlgItem(h, IDC_PRESET_COMBO);
@@ -1919,6 +2018,7 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     preset_refresh_combo(h);
                     break;
                 }
+                case IDM_MENU_IMPORT:
                 case IDC_PRESET_IMPORT: {
                     wchar_t file[512] = L"";
                     OPENFILENAMEW ofn;
@@ -1968,6 +2068,7 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     preset_refresh_combo(h);
                     break;
                 }
+                case IDM_MENU_EXPORT:
                 case IDC_PRESET_EXPORT: {
                     if (g_preset_sel < 0) break;
                     wchar_t file[512] = L"";
@@ -2013,7 +2114,7 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
 int config_dialog_run(HINSTANCE hInst, HWND parent)
 {
     INITCOMMONCONTROLSEX icc = {
-        sizeof icc, ICC_STANDARD_CLASSES | ICC_BAR_CLASSES | ICC_TAB_CLASSES
+        sizeof icc, ICC_STANDARD_CLASSES | ICC_BAR_CLASSES | ICC_TAB_CLASSES | ICC_LINK_CLASS
     };
     InitCommonControlsEx(&icc);
 

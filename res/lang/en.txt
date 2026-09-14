@@ -163,8 +163,8 @@ error.svg_empty=SVG has no\nvalid geometry
 
 # presets
 preset.label=Preset:
-preset.save_btn=Save
-preset.delete_btn=Delete
+preset.save_btn=+
+preset.delete_btn=−
 preset.import_btn=Import...
 preset.export_btn=Export...
 preset.name_title=Preset name
@@ -177,6 +177,7 @@ preset.overwrite_confirm_title=Overwrite preset
 preset.overwrite_confirm=A preset named '%ls' already exists. Overwrite?
 preset.cant_overwrite_builtin_title=Reserved name
 preset.cant_overwrite_builtin='%ls' is a built-in preset and cannot be overwritten. Choose another name.
+preset.name.inicial=Initial
 preset.name.classico=Classic
 preset.name.cinema=Cinema
 preset.name.neon=Neon
@@ -186,3 +187,11 @@ preset.import_failed_title=Import failed
 preset.import_failed=Could not read the selected file.
 preset.export_failed_title=Export failed
 preset.export_failed=Could not write the selected file.
+
+# menu and about
+menu.about=About
+menu.import_presets=Import presets...
+menu.export_presets=Export presets...
+menu.language=Language
+about.title=About
+about.version_fmt=Version %ls
