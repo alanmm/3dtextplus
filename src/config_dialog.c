@@ -1525,6 +1525,7 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             }
             SetDlgItemTextW(h, IDCANCEL, i18n_str(STR_BTN_CANCEL));
             SetDlgItemTextW(h, IDC_APPLY, i18n_str(STR_BTN_APPLY));
+            EnableWindow(GetDlgItem(h, IDC_APPLY), FALSE);
 
             g_content = CreateDialogW(GetModuleHandleW(NULL),
                                       MAKEINTRESOURCEW(IDD_TAB_CONTENT), h, content_proc);
@@ -1638,6 +1639,7 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             break;
         case WM_PREVIEW_DIRTY:
             g_dirty = true;   /* aplicado no proximo tick do preview (debounce natural) */
+            EnableWindow(GetDlgItem(h, IDC_APPLY), TRUE);
             return TRUE;
         case WM_MOUSEWHEEL: {
             /* WM_MOUSEWHEEL so chega a janela com foco - a do preview nunca
@@ -1659,7 +1661,10 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
         case WM_COMMAND:
             switch (LOWORD(w)) {
                 case IDOK:      config_save(&g_work); preview_teardown(h); EndDialog(h, IDOK); return TRUE;
-                case IDC_APPLY: config_save(&g_work); return TRUE;
+                case IDC_APPLY:
+                    config_save(&g_work);
+                    EnableWindow(GetDlgItem(h, IDC_APPLY), FALSE);
+                    return TRUE;
                 case IDCANCEL:  preview_teardown(h); EndDialog(h, IDCANCEL); return TRUE;
             }
             break;
