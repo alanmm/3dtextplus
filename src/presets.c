@@ -157,3 +157,71 @@ const BuiltinPreset g_builtin_presets[BUILTIN_PRESET_COUNT] = {
     { STR_PRESET_NAME_NEON,     preset_neon },
     { STR_PRESET_NAME_SUAVE,    preset_suave },
 };
+
+static const wchar_t *PRESETS_BASE = L"Software\\Modern3DText\\Presets";
+
+static int wcscmp_qsort(const void *a, const void *b)
+{
+    return wcscmp((const wchar_t *)a, (const wchar_t *)b);
+}
+
+void preset_user_save_to(const wchar_t *base, const wchar_t *name, const Config *from)
+{
+    Config tmp;
+    config_defaults(&tmp);
+    preset_scope_copy(&tmp, from);
+
+    wchar_t path[600];
+    swprintf(path, 600, L"%ls\\%ls", base, name);
+    config_save_to(&tmp, path);
+}
+
+int preset_user_load_from(const wchar_t *base, const wchar_t *name, Config *out)
+{
+    wchar_t path[600];
+    swprintf(path, 600, L"%ls\\%ls", base, name);
+
+    HKEY k;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, path, 0, KEY_READ, &k) != ERROR_SUCCESS)
+        return 0;
+    RegCloseKey(k);
+
+    Config tmp;
+    config_load_from(&tmp, path);
+    preset_scope_copy(out, &tmp);
+    return 1;
+}
+
+void preset_user_delete_from(const wchar_t *base, const wchar_t *name)
+{
+    wchar_t path[600];
+    swprintf(path, 600, L"%ls\\%ls", base, name);
+    RegDeleteKeyW(HKEY_CURRENT_USER, path);
+}
+
+int preset_user_list_from(const wchar_t *base, wchar_t names[][PRESET_NAME_MAX], int max)
+{
+    HKEY k;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, base, 0, KEY_READ, &k) != ERROR_SUCCESS)
+        return 0;
+
+    int n = 0;
+    for (DWORD i = 0; n < max; ++i) {
+        wchar_t name[PRESET_NAME_MAX];
+        DWORD cch = PRESET_NAME_MAX;
+        if (RegEnumKeyExW(k, i, name, &cch, NULL, NULL, NULL, NULL) != ERROR_SUCCESS)
+            break;
+        wcsncpy(names[n], name, PRESET_NAME_MAX - 1);
+        names[n][PRESET_NAME_MAX - 1] = 0;
+        ++n;
+    }
+    RegCloseKey(k);
+    if (n > 1)
+        qsort(names, (size_t)n, PRESET_NAME_MAX * sizeof(wchar_t), wcscmp_qsort);
+    return n;
+}
+
+void preset_user_save(const wchar_t *name, const Config *from) { preset_user_save_to(PRESETS_BASE, name, from); }
+int  preset_user_load(const wchar_t *name, Config *out) { return preset_user_load_from(PRESETS_BASE, name, out); }
+void preset_user_delete(const wchar_t *name) { preset_user_delete_from(PRESETS_BASE, name); }
+int  preset_user_list(wchar_t names[][PRESET_NAME_MAX], int max) { return preset_user_list_from(PRESETS_BASE, names, max); }
