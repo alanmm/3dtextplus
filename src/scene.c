@@ -45,6 +45,8 @@ struct SceneRenderer {
     float    metalness, roughness;
     wchar_t  env_path[512];
     unsigned env_tex;
+    int      env_mode;
+    int      env_loaded;   /* forca 1a carga mesmo quando env_mode==0 bate com o calloc inicial */
 
     int      bevel_mode;
     float    bevel_size, bevel_depth, wall_thickness;
@@ -552,11 +554,18 @@ void scene_set_config(SceneRenderer *s, const Config *cfg)
     s->wall_thickness = cfg->wall_thickness;
     s->quality = cfg->quality;
 
-    if (wcscmp(s->env_path, cfg->env_path) != 0) {
+    if (!s->env_loaded || s->env_mode != cfg->env_mode ||
+        (cfg->env_mode == 1 && wcscmp(s->env_path, cfg->env_path) != 0)) {
         env_free(s->env_tex);
+        s->env_mode = cfg->env_mode;
         wcsncpy(s->env_path, cfg->env_path, 511);
         s->env_path[511] = 0;
-        s->env_tex = env_load_texture(s->env_path);
+        s->env_loaded = 1;
+        switch (cfg->env_mode) {
+            case 0:  s->env_tex = env_load_texture_from_memory(EMBED_env_default_jpg, EMBED_env_default_jpg_len); break;
+            case 1:  s->env_tex = env_load_texture(s->env_path); break;
+            default: s->env_tex = 0; break;   /* 2 = nenhuma -> ambiente procedural */
+        }
     }
 
     s->background_type = cfg->background_type;
