@@ -140,7 +140,7 @@ particles.opacity_label=Opacity:
 
 # file picker filters
 filter.svg=SVG
-filter.images=Images
+filter.images=Images (*.jpg, *.png)
 filter.all_short=All
 filter.mesh_all=3D Mesh (*.obj, *.stl, *.glb, *.gltf)
 filter.obj=OBJ files (*.obj)

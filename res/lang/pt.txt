@@ -5,15 +5,15 @@
 # comum
 btn.cancel=Cancelar
 btn.apply=Aplicar
-tab.content=Conteudo
+tab.content=Conteúdo
 tab.motion=Movimento
 tab.material=Material
 tab.geometry=Geometria
 tab.effects=Efeitos
 tab.perf=Desempenho
-tab.post=Pos
+tab.post=Pós-Processamento
 tab.bg=Fundo
-tab.particles=Particulas
+tab.particles=Partículas
 common.choose=Escolher...
 common.clear=Limpar
 common.choose_color=Escolher cor...
@@ -23,14 +23,14 @@ placeholder.none_m=(nenhum)
 # aba Conteudo
 content.mode_label=Modo:
 content.mode.text=Texto
-content.mode.clock=Relogio
+content.mode.clock=Relógio
 content.mode.svg=SVG
-content.mode.mesh=Malha 3D
+content.mode.mesh=Modelo 3D
 content.text_label=Texto:
 content.font_label=Fonte:
 content.svg_colors_label=Cores:
 content.svg_color.preserve=Preservar do arquivo
-content.svg_color.single=Unica (material)
+content.svg_color.single=Única (material)
 content.mesh_scale_label=Escala:
 content.mesh_usemat=Usar materiais do arquivo
 content.bold=Negrito
@@ -40,30 +40,30 @@ content.clock_seconds=Mostrar segundos
 content.color_label=Cor:
 
 # aba Movimento
-motion.angle_label=Angulo max. (graus):
-motion.tilt_label=Inclinacao X (graus):
-motion.period_label=Periodo (s):
+motion.angle_label=Ângulo max. (graus):
+motion.tilt_label=Inclinação X (graus):
+motion.period_label=Período (s):
 
 # aba Material
 material.label=Material:
-material.mode.classic=Classico
-material.mode.metallic=Metalico
+material.mode.classic=Clássico
+material.mode.metallic=Metálico
 material.mode.glass=Vidro
 material.mode.matte=Fosco
-material.metalness_label=Metalizacao:
-material.roughness_label=Rugosidade:
+material.metalness_label=Metalização:
+material.roughness_label=Aspereza:
 material.env_label=Imagem de ambiente (opcional):
 placeholder.procedural=(procedural)
 
 # aba Geometria
 geometry.depth_label=Profundidade:
-geometry.bevel_label=Bevel:
+geometry.bevel_label=Chanfro:
 geometry.bevel.shading=Sombreado
-geometry.bevel.geometric=Geometrico
+geometry.bevel.geometric=Geométrico
 geometry.bevel.off=Desligado
 geometry.bsize_label=Tamanho:
 geometry.bdepth_label=Profundidade do chanfro:
-geometry.bseg_label=Segmentos (modo geometrico):
+geometry.bseg_label=Segmentos (modo geométrico):
 geometry.shell=Casca oca
 geometry.wall_label=Espessura da parede:
 geometry.quality_label=Qualidade:
@@ -76,7 +76,7 @@ effects.bloom=Bloom (glare)
 effects.threshold_label=Limiar (bloom e streaks):
 effects.bloom_intensity_label=Intensidade:
 effects.spread_label=Espalhamento:
-effects.streaks_label=Streaks (difracao):
+effects.streaks_label=Streaks (difração):
 effects.streaks.off=Desligado
 effects.streaks.starburst=Starburst
 effects.streaks.anamorphic=Anamorfico
@@ -91,30 +91,30 @@ perf.vsync=VSync
 perf.msaa_label=Anti-serrilhado (MSAA):
 perf.msaa.off=Desligado
 perf.rscale_label=Escala de render:
-perf.autoq=Qualidade automatica
-perf.hint=Com a qualidade automatica ligada os valores acima sao o ponto\nde partida; o screensaver reduz sozinho se a GPU nao acompanhar.
+perf.autoq=Qualidade automática
+perf.hint=Com a qualidade automática ligada os valores acima são o ponto\nde partida; o screensaver reduz sozinho se a GPU não acompanhar.
 perf.language_label=Idioma:
-perf.language.auto=Automatico
-perf.language.pt=Portugues
-perf.language.en=Ingles
+perf.language.auto=Automático
+perf.language.pt=Português
+perf.language.en=Inglês
 
 # aba Pos
-post.chroma=Aberracao cromatica
+post.chroma=Aberracao cromática
 post.chroma_intensity_label=Intensidade:
-post.vignette=Vinheta
+post.vignette=Bordas sombreadas
 post.vignette_intensity_label=Intensidade:
 post.fxaa=FXAA (anti-serrilhado)
-post.hint=Aberracao cromatica e vinheta agem antes do tonemap; o FXAA e o\nultimo passe, depois do tonemap.
+post.hint=Aberracao cromática e sombreamento agem antes do tonemap;\no FXAA e o último passe, depois do tonemap.
 
 # aba Fundo
 bg.type_label=Tipo de fundo:
-bg.type.solid=Solido
+bg.type.solid=Sólido
 bg.type.gradient=Gradiente
 bg.type.image=Imagem
 bg.type.nebula=Nebulosa
 bg.color1_label=Cor 1:
 bg.color2_label=Cor 2:
-bg.angle_label=Angulo do gradiente (graus):
+bg.angle_label=Ângulo do gradiente (graus):
 bg.image_label=Imagem de fundo:
 placeholder.none_f=(nenhuma)
 bg.fit_label=Ajuste:
@@ -127,11 +127,11 @@ bg.nebula_color1_btn=Cor 1...
 bg.nebula_color2_btn=Cor 2...
 
 # aba Particulas
-particles.enable=Ativar particulas
+particles.enable=Ativar partículas
 particles.kind_label=Tipo:
 particles.kind.dust=Poeira
 particles.kind.bokeh=Bokeh
-particles.kind.sparks=Faiscas
+particles.kind.sparks=Faíscas
 particles.kind.stars=Estrelas
 particles.density_label=Densidade:
 particles.speed_label=Velocidade:
@@ -140,7 +140,7 @@ particles.opacity_label=Opacidade:
 
 # filtros de seletor de arquivo
 filter.svg=SVG
-filter.images=Imagens
+filter.images=Imagens (*.jpg, *.png)
 filter.all_short=Todos
 filter.mesh_all=Malha 3D (*.obj, *.stl, *.glb, *.gltf)
 filter.obj=Arquivos OBJ (*.obj)
@@ -150,10 +150,10 @@ filter.gltf=Arquivos glTF (*.gltf)
 filter.all_long=Todos os arquivos
 
 # aviso de arquivo grande
-msg.file_too_big_text=Este arquivo passa de 10MB e nao sera aceito - escolha uma malha menor.
+msg.file_too_big_text=Este arquivo ultrapassa 10MB e não pode ser analisado - escolha uma malha menor.
 msg.file_too_big_title=Arquivo muito grande
 
 # placa de erro (scene.c)
-error.mesh_invalid=Malha nao\nencontrada\nou invalida
-error.svg_no_shape=SVG nao\nencontrado ou\nsem forma\npreenchida
-error.svg_empty=SVG sem\ngeometria\nvalida
+error.mesh_invalid=Malha não\nencontrada\nou inválida
+error.svg_no_shape=SVG não\nencontrado ou\nsem forma\npreenchida
+error.svg_empty=SVG sem\ngeometria\nválida
