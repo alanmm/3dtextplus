@@ -225,3 +225,90 @@ void preset_user_save(const wchar_t *name, const Config *from) { preset_user_sav
 int  preset_user_load(const wchar_t *name, Config *out) { return preset_user_load_from(PRESETS_BASE, name, out); }
 void preset_user_delete(const wchar_t *name) { preset_user_delete_from(PRESETS_BASE, name); }
 int  preset_user_list(wchar_t names[][PRESET_NAME_MAX], int max) { return preset_user_list_from(PRESETS_BASE, names, max); }
+
+int preset_export_file(const wchar_t *path, const Config *from)
+{
+    FILE *f = _wfopen(path, L"w, ccs=UTF-8");
+    if (!f) return 0;
+
+    unsigned r = (unsigned)(from->base_r * 255.0f + 0.5f);
+    unsigned g = (unsigned)(from->base_g * 255.0f + 0.5f);
+    unsigned bl = (unsigned)(from->base_b * 255.0f + 0.5f);
+
+    fwprintf(f, L"[Preset]\r\n");
+    fwprintf(f, L"material_mode=%d\r\n", from->material_mode);
+    fwprintf(f, L"metalness=%.5f\r\n", (double)from->metalness);
+    fwprintf(f, L"roughness=%.5f\r\n", (double)from->roughness);
+    fwprintf(f, L"env_mode=%d\r\n", from->env_mode);
+    fwprintf(f, L"bevel_mode=%d\r\n", from->bevel_mode);
+    fwprintf(f, L"background_type=%d\r\n", from->background_type);
+    fwprintf(f, L"bg_color1_r=%.5f\r\n", (double)from->bg_color1_r);
+    fwprintf(f, L"bg_color1_g=%.5f\r\n", (double)from->bg_color1_g);
+    fwprintf(f, L"bg_color1_b=%.5f\r\n", (double)from->bg_color1_b);
+    fwprintf(f, L"bg_color2_r=%.5f\r\n", (double)from->bg_color2_r);
+    fwprintf(f, L"bg_color2_g=%.5f\r\n", (double)from->bg_color2_g);
+    fwprintf(f, L"bg_color2_b=%.5f\r\n", (double)from->bg_color2_b);
+    fwprintf(f, L"bg_grad_angle=%.5f\r\n", (double)from->bg_grad_angle);
+    fwprintf(f, L"bg_neb_color1_r=%.5f\r\n", (double)from->bg_neb_color1_r);
+    fwprintf(f, L"bg_neb_color1_g=%.5f\r\n", (double)from->bg_neb_color1_g);
+    fwprintf(f, L"bg_neb_color1_b=%.5f\r\n", (double)from->bg_neb_color1_b);
+    fwprintf(f, L"bg_neb_color2_r=%.5f\r\n", (double)from->bg_neb_color2_r);
+    fwprintf(f, L"bg_neb_color2_g=%.5f\r\n", (double)from->bg_neb_color2_g);
+    fwprintf(f, L"bg_neb_color2_b=%.5f\r\n", (double)from->bg_neb_color2_b);
+    fwprintf(f, L"bloom_on=%d\r\n", from->bloom_on);
+    fwprintf(f, L"bloom_threshold=%.5f\r\n", (double)from->bloom_threshold);
+    fwprintf(f, L"bloom_intensity=%.5f\r\n", (double)from->bloom_intensity);
+    fwprintf(f, L"bloom_radius=%.5f\r\n", (double)from->bloom_radius);
+    fwprintf(f, L"streaks_mode=%d\r\n", from->streaks_mode);
+    fwprintf(f, L"streaks_intensity=%.5f\r\n", (double)from->streaks_intensity);
+    fwprintf(f, L"streaks_length=%.5f\r\n", (double)from->streaks_length);
+    fwprintf(f, L"chroma_on=%d\r\n", from->chroma_on);
+    fwprintf(f, L"chroma_strength=%.5f\r\n", (double)from->chroma_strength);
+    fwprintf(f, L"vignette_on=%d\r\n", from->vignette_on);
+    fwprintf(f, L"vignette_amount=%.5f\r\n", (double)from->vignette_amount);
+    fwprintf(f, L"fxaa_on=%d\r\n", from->fxaa_on);
+    fwprintf(f, L"particles_on=%d\r\n", from->particles_on);
+    fwprintf(f, L"particles_kind=%d\r\n", from->particles_kind);
+    fwprintf(f, L"particles_density=%.5f\r\n", (double)from->particles_density);
+    fwprintf(f, L"particles_speed=%.5f\r\n", (double)from->particles_speed);
+    fwprintf(f, L"particles_size_scale=%.5f\r\n", (double)from->particles_size_scale);
+    fwprintf(f, L"particles_opacity=%.5f\r\n", (double)from->particles_opacity);
+    fwprintf(f, L"base_color=#%02X%02X%02X\r\n", r & 0xFF, g & 0xFF, bl & 0xFF);
+    fwprintf(f, L"quality=%d\r\n", from->quality);
+
+    fclose(f);
+    return 1;
+}
+
+int preset_import_file(const wchar_t *path, Config *out)
+{
+    FILE *f = _wfopen(path, L"r, ccs=UTF-8");
+    if (!f) return 0;
+
+    const wchar_t *tmpkey = L"Software\\Modern3DText\\Presets\\_import_tmp";
+    HKEY k;
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, tmpkey, 0, NULL, 0, KEY_WRITE, NULL, &k, NULL) != ERROR_SUCCESS) {
+        fclose(f);
+        return 0;
+    }
+
+    wchar_t line[256];
+    while (fgetws(line, 256, f)) {
+        wchar_t *eq = wcschr(line, L'=');
+        if (!eq) continue;
+        *eq = 0;
+        wchar_t *val = eq + 1;
+        size_t vlen = wcslen(val);
+        while (vlen > 0 && (val[vlen - 1] == L'\n' || val[vlen - 1] == L'\r')) val[--vlen] = 0;
+        RegSetValueExW(k, line, 0, REG_SZ, (const BYTE *)val, (DWORD)((vlen + 1) * sizeof(wchar_t)));
+    }
+    fclose(f);
+    RegCloseKey(k);
+
+    Config tmp;
+    config_load_from(&tmp, tmpkey);
+    RegDeleteKeyW(HKEY_CURRENT_USER, tmpkey);
+
+    preset_scope_copy(out, &tmp);
+    return 1;
+}

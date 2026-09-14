@@ -118,4 +118,35 @@ void run_presets_tests(void)
     preset_user_delete_from(TBASE, L"Zulu");
     n = preset_user_list_from(TBASE, names, 8);
     EXPECT(n == 0);
+
+    /* import/export via arquivo temporario */
+    wchar_t tmpdir[MAX_PATH], tmpfile[MAX_PATH];
+    GetTempPathW(MAX_PATH, tmpdir);
+    swprintf(tmpfile, MAX_PATH, L"%lsm3dt_preset_test.ini", tmpdir);
+
+    Config ea;
+    config_defaults(&ea);
+    ea.material_mode = 1;
+    ea.background_type = 3;
+    ea.bg_neb_color1_r = 0.5f; ea.bg_neb_color1_g = 0.25f; ea.bg_neb_color1_b = 0.75f;
+    ea.particles_on = 1; ea.particles_kind = 3;
+    ea.particles_density = 0.6f; ea.particles_speed = 0.7f;
+    ea.particles_size_scale = 0.8f; ea.particles_opacity = 0.9f;
+    ea.base_r = 0.2f; ea.base_g = 0.4f; ea.base_b = 0.6f;
+    ea.quality = 0;
+
+    EXPECT(preset_export_file(tmpfile, &ea) == 1);
+
+    Config eb;
+    EXPECT(preset_import_file(tmpfile, &eb) == 1);
+    EXPECT(eb.material_mode == 1);
+    EXPECT(eb.background_type == 3);
+    EXPECT(nearf(eb.bg_neb_color1_r, 0.5f) && nearf(eb.bg_neb_color1_g, 0.25f) && nearf(eb.bg_neb_color1_b, 0.75f));
+    EXPECT(eb.particles_kind == 3);
+    EXPECT(nearf(eb.particles_stars_density, 0.6f));
+    EXPECT(nearf_color(eb.base_r, 0.2f) && nearf_color(eb.base_g, 0.4f) && nearf_color(eb.base_b, 0.6f));
+    EXPECT(eb.quality == 0);
+
+    DeleteFileW(tmpfile);
+    EXPECT(preset_import_file(tmpfile, &eb) == 0);   /* arquivo nao existe mais */
 }
