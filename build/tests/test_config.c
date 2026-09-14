@@ -52,6 +52,10 @@ void run_config_tests(void)
     EXPECT(nearf(d.bg_color1_r, 0.06275f) && nearf(d.bg_color1_g, 0.03922f) && nearf(d.bg_color1_b, 0.03922f));
     EXPECT(nearf(d.bg_color2_r, 0.04706f) && nearf(d.bg_color2_g, 0.07451f) && nearf(d.bg_color2_b, 0.13725f));
     EXPECT(nearf(d.bg_grad_angle, 101.0f));
+    EXPECT(nearf(d.bg_neb_color1_r, 0.02745f) && nearf(d.bg_neb_color1_g, 0.01961f) && nearf(d.bg_neb_color1_b, 0.07843f));
+    EXPECT(nearf(d.bg_neb_color2_r, 0.24706f) && nearf(d.bg_neb_color2_g, 0.09804f) && nearf(d.bg_neb_color2_b, 0.34902f));
+    EXPECT(d.bg_solid_customized == 0);
+    EXPECT(d.bg_gradient_customized == 0);
     EXPECT(d.particles_on == 1);
     EXPECT(d.particles_kind == 0);
     EXPECT(nearf(d.particles_density, 0.43f));
@@ -127,6 +131,8 @@ void run_config_tests(void)
     a.clock_show_date = 1;
     a.clock_show_seconds = 1;
     a.ui_language = 2;
+    a.bg_solid_customized = 1;
+    a.bg_gradient_customized = 1;
     config_save_to(&a, TESTKEY);
 
     Config b;
@@ -187,6 +193,8 @@ void run_config_tests(void)
     EXPECT(b.clock_show_date == 1);
     EXPECT(b.clock_show_seconds == 1);
     EXPECT(b.ui_language == 2);
+    EXPECT(b.bg_solid_customized == 1);
+    EXPECT(b.bg_gradient_customized == 1);
 
     /* round-trip dedicado ao SVG - nao reusa o par a/b acima, que ja
        fixa content_mode em CONTENT_CLOCK para provar o relogio */
@@ -276,8 +284,10 @@ void run_config_tests(void)
             { L"mesh_size_scale", L"9" },
             { L"mesh_use_file_materials", L"5" },
             { L"ui_language", L"9" },
+            { L"bg_solid_customized", L"5" },
+            { L"bg_gradient_customized", L"7" },
         };
-        for (int i = 0; i < 28; ++i)
+        for (int i = 0; i < 30; ++i)
             RegSetValueExW(kp, kv[i].n, 0, REG_SZ, (const BYTE *)kv[i].v,
                            (DWORD)((wcslen(kv[i].v) + 1) * sizeof(wchar_t)));
         RegCloseKey(kp);
@@ -312,6 +322,8 @@ void run_config_tests(void)
     EXPECT(e.mesh_size_scale <= 2.0f);              /* 9 -> clamp */
     EXPECT(e.mesh_use_file_materials == 1);         /* 5 -> !=0 -> 1 */
     EXPECT(e.ui_language == 0);                     /* 9 -> fora da faixa -> default (auto) */
+    EXPECT(e.bg_solid_customized == 1);              /* 5 -> !=0 -> 1 */
+    EXPECT(e.bg_gradient_customized == 1);           /* 7 -> !=0 -> 1 */
 
     RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
 }
