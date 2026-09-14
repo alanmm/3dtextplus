@@ -56,6 +56,10 @@ void run_config_tests(void)
     EXPECT(nearf(d.bg_neb_color2_r, 0.24706f) && nearf(d.bg_neb_color2_g, 0.09804f) && nearf(d.bg_neb_color2_b, 0.34902f));
     EXPECT(d.bg_solid_customized == 0);
     EXPECT(d.bg_gradient_customized == 0);
+    EXPECT(d.particles_dust_customized == 0);
+    EXPECT(d.particles_bokeh_customized == 0);
+    EXPECT(d.particles_sparks_customized == 0);
+    EXPECT(d.particles_stars_customized == 0);
     EXPECT(d.particles_on == 1);
     EXPECT(d.particles_kind == 0);
     EXPECT(nearf(d.particles_density, 0.43f));
@@ -133,6 +137,10 @@ void run_config_tests(void)
     a.ui_language = 2;
     a.bg_solid_customized = 1;
     a.bg_gradient_customized = 1;
+    a.particles_dust_customized = 1;
+    a.particles_bokeh_customized = 1;
+    a.particles_sparks_customized = 0;
+    a.particles_stars_customized = 1;
     config_save_to(&a, TESTKEY);
 
     Config b;
@@ -195,6 +203,10 @@ void run_config_tests(void)
     EXPECT(b.ui_language == 2);
     EXPECT(b.bg_solid_customized == 1);
     EXPECT(b.bg_gradient_customized == 1);
+    EXPECT(b.particles_dust_customized == 1);
+    EXPECT(b.particles_bokeh_customized == 1);
+    EXPECT(b.particles_sparks_customized == 0);
+    EXPECT(b.particles_stars_customized == 1);
 
     /* round-trip dedicado ao SVG - nao reusa o par a/b acima, que ja
        fixa content_mode em CONTENT_CLOCK para provar o relogio */
@@ -286,8 +298,12 @@ void run_config_tests(void)
             { L"ui_language", L"9" },
             { L"bg_solid_customized", L"5" },
             { L"bg_gradient_customized", L"7" },
+            { L"particles_dust_customized", L"5" },
+            { L"particles_bokeh_customized", L"7" },
+            { L"particles_sparks_customized", L"5" },
+            { L"particles_stars_customized", L"7" },
         };
-        for (int i = 0; i < 30; ++i)
+        for (int i = 0; i < 34; ++i)
             RegSetValueExW(kp, kv[i].n, 0, REG_SZ, (const BYTE *)kv[i].v,
                            (DWORD)((wcslen(kv[i].v) + 1) * sizeof(wchar_t)));
         RegCloseKey(kp);
@@ -324,6 +340,10 @@ void run_config_tests(void)
     EXPECT(e.ui_language == 0);                     /* 9 -> fora da faixa -> default (auto) */
     EXPECT(e.bg_solid_customized == 1);              /* 5 -> !=0 -> 1 */
     EXPECT(e.bg_gradient_customized == 1);           /* 7 -> !=0 -> 1 */
+    EXPECT(e.particles_dust_customized == 1);        /* 5 -> !=0 -> 1 */
+    EXPECT(e.particles_bokeh_customized == 1);       /* 7 -> !=0 -> 1 */
+    EXPECT(e.particles_sparks_customized == 1);      /* 5 -> !=0 -> 1 */
+    EXPECT(e.particles_stars_customized == 1);       /* 7 -> !=0 -> 1 */
 
     RegDeleteKeyW(HKEY_CURRENT_USER, TESTKEY);
 }

@@ -77,6 +77,10 @@ void config_defaults(Config *c)
     c->ui_language = 0;
     c->bg_solid_customized = 0;
     c->bg_gradient_customized = 0;
+    c->particles_dust_customized = 0;
+    c->particles_bokeh_customized = 0;
+    c->particles_sparks_customized = 0;
+    c->particles_stars_customized = 0;
 }
 
 static float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
@@ -230,6 +234,10 @@ void config_load_from(Config *c, const wchar_t *subkey)
     reg_get_i(k, L"ui_language", &c->ui_language);
     reg_get_i(k, L"bg_solid_customized", &c->bg_solid_customized);
     reg_get_i(k, L"bg_gradient_customized", &c->bg_gradient_customized);
+    reg_get_i(k, L"particles_dust_customized", &c->particles_dust_customized);
+    reg_get_i(k, L"particles_bokeh_customized", &c->particles_bokeh_customized);
+    reg_get_i(k, L"particles_sparks_customized", &c->particles_sparks_customized);
+    reg_get_i(k, L"particles_stars_customized", &c->particles_stars_customized);
 
     wchar_t col[16];
     if (reg_get_w(k, L"base_color", col, 16) && col[0] == L'#' && wcslen(col) >= 7) {
@@ -313,6 +321,10 @@ void config_load_from(Config *c, const wchar_t *subkey)
     if (c->ui_language < 0 || c->ui_language > 2) c->ui_language = 0;
     c->bg_solid_customized = c->bg_solid_customized ? 1 : 0;
     c->bg_gradient_customized = c->bg_gradient_customized ? 1 : 0;
+    c->particles_dust_customized = c->particles_dust_customized ? 1 : 0;
+    c->particles_bokeh_customized = c->particles_bokeh_customized ? 1 : 0;
+    c->particles_sparks_customized = c->particles_sparks_customized ? 1 : 0;
+    c->particles_stars_customized = c->particles_stars_customized ? 1 : 0;
     if (c->text[0] == 0) strcpy(c->text, "Modern 3D Text");
     if (c->font_family[0] == 0) wcscpy(c->font_family, L"Segoe UI");
 }
@@ -405,6 +417,10 @@ void config_save_to(const Config *c, const wchar_t *subkey)
     set_f(k, L"ui_language", (float)c->ui_language);
     set_f(k, L"bg_solid_customized", (float)c->bg_solid_customized);
     set_f(k, L"bg_gradient_customized", (float)c->bg_gradient_customized);
+    set_f(k, L"particles_dust_customized", (float)c->particles_dust_customized);
+    set_f(k, L"particles_bokeh_customized", (float)c->particles_bokeh_customized);
+    set_f(k, L"particles_sparks_customized", (float)c->particles_sparks_customized);
+    set_f(k, L"particles_stars_customized", (float)c->particles_stars_customized);
 
     wchar_t col[16];
     unsigned r = (unsigned)(c->base_r * 255.0f + 0.5f);
