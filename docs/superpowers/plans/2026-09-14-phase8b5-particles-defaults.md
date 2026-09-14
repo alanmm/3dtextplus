@@ -1,5 +1,14 @@
 # Fase 8b-5 — Partículas: Valor Padrão por Tipo — Plano de Implementação
 
+> **Nota pós-execução:** as Tasks 1 e 2 abaixo foram executadas como
+> escrito e depois **corrigidas** após verificação com captura real
+> revelar que o design de "4 flags + 1 slot compartilhado" não
+> preserva edições manuais entre os 4 tipos (ver a correção registrada
+> no spec, seção 3-bis). O código final substitui as 4 flags
+> `particles_*_customized` por 12 campos `float` de memória por tipo —
+> commit `837faa2`. As tasks abaixo ficam como registro do que foi
+> planejado originalmente.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Ao trocar o tipo de partícula (Poeira/Bokeh/Faíscas/Estrelas) pela
