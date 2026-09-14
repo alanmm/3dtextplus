@@ -71,7 +71,20 @@ static const char *const KEY_NAMES[STR_COUNT] = {
 
     "msg.file_too_big_text", "msg.file_too_big_title",
 
-    "error.mesh_invalid", "error.svg_no_shape", "error.svg_empty"
+    "error.mesh_invalid", "error.svg_no_shape", "error.svg_empty",
+
+    "preset.label", "preset.save_btn", "preset.delete_btn",
+    "preset.import_btn", "preset.export_btn",
+    "preset.name_title", "preset.name_label",
+    "preset.apply_confirm_title", "preset.apply_confirm",
+    "preset.delete_confirm_title", "preset.delete_confirm",
+    "preset.overwrite_confirm_title", "preset.overwrite_confirm",
+    "preset.cant_overwrite_builtin_title", "preset.cant_overwrite_builtin",
+    "preset.name.classico", "preset.name.cinema",
+    "preset.name.neon", "preset.name.suave",
+    "filter.ini",
+    "preset.import_failed_title", "preset.import_failed",
+    "preset.export_failed_title", "preset.export_failed"
 };
 
 static wchar_t *g_pt[STR_COUNT];
