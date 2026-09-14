@@ -1776,7 +1776,7 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             SetDlgItemTextW(h, IDCANCEL, i18n_str(STR_BTN_CANCEL));
             SetDlgItemTextW(h, IDC_APPLY, i18n_str(STR_BTN_APPLY));
             EnableWindow(GetDlgItem(h, IDC_APPLY), FALSE);
-            SetDlgItemTextW(h, IDC_MENU_BUTTON, L"⋮");   /* elipse vertical - simbolo, sem i18n */
+            SetDlgItemTextW(h, IDC_MENU_BUTTON, L"≡");   /* "identical to" - hamburger, ja existe no Segoe UI, sem i18n */
             {
                 /* negrito so' no rotulo do menu, pra destacar sem mudar a
                    fonte do resto do dialogo - .rc so' tem 1 fonte por
