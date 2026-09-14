@@ -523,6 +523,78 @@ static void material_apply_i18n(HWND h)
     material_labels(h);
 }
 
+/* 3 blocos da aba Material, na ordem em que ja aparecem no .rc -
+   Metalizacao/Rugosidade so tem efeito no Metalico e (Rugosidade
+   tambem) no Vidro, verificado direto no shaders/model.frag */
+typedef struct { int id; int x, rel_y; } MatCtrl;
+
+static MatCtrl g_mat_blocks[3][4] = {
+    { { IDC_METAL_LABEL, 0, 0 }, { IDC_METAL_VAL, 0, 0 }, { IDC_METAL, 0, 0 } },
+    { { IDC_ROUGH_LABEL, 0, 0 }, { IDC_ROUGH_VAL, 0, 0 }, { IDC_ROUGH, 0, 0 } },
+    { { IDC_ENV_LABEL, 0, 0 }, { IDC_ENVPATH, 0, 0 }, { IDC_ENVPICK, 0, 0 }, { IDC_ENVCLEAR, 0, 0 } },
+};
+static const int MAT_BLOCK_N[3] = { 3, 3, 4 };
+static int g_mat_block_top[3];
+static int g_mat_block_h[3];
+static int g_mat_gap_after[2];
+static int g_mat_layout_ready = 0;
+
+/* captura a posicao ORIGINAL (em pixels, ja resolvida do .rc) de cada
+   controle - roda uma unica vez, antes de qualquer ocultacao, entao
+   sempre reflete a disposicao estatica original do .rc */
+static void material_layout_capture(HWND h)
+{
+    if (g_mat_layout_ready) return;
+
+    for (int b = 0; b < 3; ++b) {
+        int top = 0x7fffffff, bottom = -0x7fffffff;
+        for (int i = 0; i < MAT_BLOCK_N[b]; ++i) {
+            RECT r;
+            HWND ctrl = GetDlgItem(h, g_mat_blocks[b][i].id);
+            GetWindowRect(ctrl, &r);
+            MapWindowPoints(NULL, h, (POINT *)&r, 2);
+            g_mat_blocks[b][i].x = r.left;
+            g_mat_blocks[b][i].rel_y = r.top;   /* vira relativo ao bloco no passo seguinte */
+            if (r.top < top) top = r.top;
+            if (r.bottom > bottom) bottom = r.bottom;
+        }
+        g_mat_block_top[b] = top;
+        g_mat_block_h[b] = bottom - top;
+        for (int i = 0; i < MAT_BLOCK_N[b]; ++i)
+            g_mat_blocks[b][i].rel_y -= top;
+    }
+    g_mat_gap_after[0] = g_mat_block_top[1] - (g_mat_block_top[0] + g_mat_block_h[0]);
+    g_mat_gap_after[1] = g_mat_block_top[2] - (g_mat_block_top[1] + g_mat_block_h[1]);
+    g_mat_layout_ready = 1;
+}
+
+/* esconde os blocos irrelevantes pro modo atual e empilha os visiveis
+   a partir do topo original do primeiro bloco, preservando o mesmo
+   espacamento entre blocos que o .rc ja tinha */
+static void material_layout_apply(HWND h)
+{
+    int vis_metal = (g_work.material_mode == 1);
+    int vis_rough = (g_work.material_mode == 1 || g_work.material_mode == 2);
+    int vis_env   = (g_work.material_mode == 1 || g_work.material_mode == 2);
+    int visible[3] = { vis_metal, vis_rough, vis_env };
+
+    int cursor = g_mat_block_top[0];
+    for (int b = 0; b < 3; ++b) {
+        if (!visible[b]) {
+            for (int i = 0; i < MAT_BLOCK_N[b]; ++i)
+                ShowWindow(GetDlgItem(h, g_mat_blocks[b][i].id), SW_HIDE);
+            continue;
+        }
+        for (int i = 0; i < MAT_BLOCK_N[b]; ++i) {
+            HWND ctrl = GetDlgItem(h, g_mat_blocks[b][i].id);
+            SetWindowPos(ctrl, NULL, g_mat_blocks[b][i].x, cursor + g_mat_blocks[b][i].rel_y,
+                         0, 0, SWP_NOSIZE | SWP_NOZORDER);
+            ShowWindow(ctrl, SW_SHOW);
+        }
+        cursor += g_mat_block_h[b] + (b < 2 ? g_mat_gap_after[b] : 0);
+    }
+}
+
 static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
 {
     (void)l;
@@ -531,6 +603,8 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             set_slider(h, IDC_METAL, 0, 100, (int)(g_work.metalness * 100.0f + 0.5f));
             set_slider(h, IDC_ROUGH, 0, 100, (int)(g_work.roughness * 100.0f + 0.5f));
             material_apply_i18n(h);
+            material_layout_capture(h);
+            material_layout_apply(h);
             return TRUE;
         }
         case WM_HSCROLL:
@@ -545,6 +619,7 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     if (HIWORD(w) == CBN_SELCHANGE) {
                         g_work.material_mode =
                             (int)SendDlgItemMessageW(h, IDC_MATMODE, CB_GETCURSEL, 0, 0);
+                        material_layout_apply(h);
                         preview_dirty(h);
                     }
                     break;
