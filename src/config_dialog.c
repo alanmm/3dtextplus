@@ -5,6 +5,7 @@
 #include "util/log.h"
 #include "geometry/mesh_import.h"
 #include "i18n.h"
+#include "presets.h"
 
 #include <windows.h>
 #include <commctrl.h>
@@ -1499,6 +1500,56 @@ static void select_tab(int sel)
         g_pv_zoom = (sel == 2 || sel == 3) ? 4.4f : 2.0f;
         gl_window_set_zoom(g_preview, g_pv_zoom);
     }
+}
+
+static wchar_t *g_preset_name_out;
+static int      g_preset_name_cap;
+
+static INT_PTR CALLBACK preset_name_proc(HWND h, UINT m, WPARAM w, LPARAM l)
+{
+    (void)l;
+    switch (m) {
+        case WM_INITDIALOG:
+            SetWindowTextW(h, i18n_str(STR_PRESET_NAME_TITLE));
+            SetDlgItemTextW(h, IDC_PRESET_NAME_LABEL, i18n_str(STR_PRESET_NAME_LABEL));
+            SetDlgItemTextW(h, IDCANCEL, i18n_str(STR_BTN_CANCEL));
+            /* IDOK fica "OK" fixo, sem traducao - mesma convencao ja usada
+               no dialogo principal (apply_language_change nunca retraduz
+               IDOK, so IDCANCEL/IDC_APPLY). */
+            return TRUE;
+        case WM_COMMAND:
+            switch (LOWORD(w)) {
+                case IDOK: {
+                    wchar_t buf[PRESET_NAME_MAX];
+                    GetDlgItemTextW(h, IDC_PRESET_NAME_EDIT, buf, PRESET_NAME_MAX);
+                    if (buf[0] == 0 || wcschr(buf, L'\\')) {
+                        MessageBeep(MB_ICONWARNING);
+                        return TRUE;   /* nome vazio ou com \\ - nao fecha */
+                    }
+                    wcsncpy(g_preset_name_out, buf, (size_t)g_preset_name_cap - 1);
+                    g_preset_name_out[g_preset_name_cap - 1] = 0;
+                    EndDialog(h, IDOK);
+                    return TRUE;
+                }
+                case IDCANCEL:
+                    EndDialog(h, IDCANCEL);
+                    return TRUE;
+            }
+            return TRUE;
+    }
+    return FALSE;
+}
+
+/* pede um nome de preset ao usuario; devolve 1 e preenche out[0..outCap)
+   se confirmado, 0 se cancelado. Rejeita nome vazio ou com '\\' (quebraria
+   o caminho da subchave do registro). */
+static int prompt_preset_name(HWND owner, wchar_t *out, int outCap)
+{
+    g_preset_name_out = out;
+    g_preset_name_cap = outCap;
+    out[0] = 0;
+    return DialogBoxParamW(GetModuleHandleW(NULL), MAKEINTRESOURCEW(IDD_PRESET_NAME),
+                            owner, preset_name_proc, 0) == IDOK;
 }
 
 /* destroi e recria os 9 sub-dialogos das abas - reaproveita 100% da
