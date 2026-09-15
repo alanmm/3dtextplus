@@ -45,6 +45,8 @@ struct SceneRenderer {
     float    metalness, roughness;
     v3       emissive_color;
     float    emissive_amount;
+    float    refraction;
+    GlFbo    grab;          /* fundo capturado p/ refracao do Vidro - so' criado quando usado */
     wchar_t  env_path[512];
     unsigned env_tex;
     int      env_mode;
@@ -519,6 +521,7 @@ void scene_set_config(SceneRenderer *s, const Config *cfg)
     s->roughness = cfg->roughness;
     s->emissive_color = (v3){ cfg->emissive_r, cfg->emissive_g, cfg->emissive_b };
     s->emissive_amount = cfg->emissive_amount;
+    s->refraction = cfg->refraction;
     s->bevel_mode = cfg->bevel_mode;
     s->bevel_size = cfg->bevel_size;
     s->bevel_depth = cfg->bevel_depth;
@@ -600,6 +603,21 @@ void scene_pan(SceneRenderer *s, float dx, float dy)
     }
     s->man_pan_x += dx;
     s->man_pan_y += dy;
+}
+
+/* cria (ou recria, se o tamanho mudou) a textura de captura do fundo
+   pro Vidro - RGBA16F sem depth (so' recebe um blit de copia, nunca e'
+   destino de desenho real), com mipmaps habilitados manualmente pra
+   textureLod() funcionar (gl_fbo_color16f nao habilita mipmap por
+   padrao, e' usado tambem por post.c pra alvos que nunca precisam). */
+static void ensure_grab_fbo(SceneRenderer *s, int w, int h)
+{
+    if (s->grab.fbo && s->grab.w == w && s->grab.h == h) return;
+    if (s->grab.fbo) gl_fbo_free(&s->grab);
+    s->grab = gl_fbo_color16f(w, h, 0);
+    glBindTexture(GL_TEXTURE_2D, s->grab.color);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h, int particles_active)
@@ -707,9 +725,25 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h, int particles_
     }
     m4 model = m4_mul(m4_rotate_y(m3dt_radians(ay)), m4_rotate_x(m3dt_radians(ax)));
 
-    material_begin(&s->mat, view, proj, eye, s->base_color);
+    if (s->material_mode == 2 && s->refraction > 0.0f) {
+        ensure_grab_fbo(s, fb_w, fb_h);
+        GLint prev_fbo = 0;
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prev_fbo);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)prev_fbo);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s->grab.fbo);
+        glBlitFramebuffer(0, 0, fb_w, fb_h, 0, 0, fb_w, fb_h,
+                           GL_COLOR_BUFFER_BIT, GL_LINEAR);
+        glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
+        glBindTexture(GL_TEXTURE_2D, s->grab.color);
+        glGenerateMipmap(GL_TEXTURE_2D);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, s->grab.color);
+        glActiveTexture(GL_TEXTURE0);
+    }
+
+    material_begin(&s->mat, view, proj, eye, s->base_color, fb_w, fb_h);
     material_set_style(&s->mat, s->material_mode, s->metalness, s->roughness, s->env_tex,
-                        s->emissive_color, s->emissive_amount);
+                        s->emissive_color, s->emissive_amount, s->refraction);
     material_set_model(&s->mat, model);
 
     int glass = (s->material_mode == 2);
@@ -759,6 +793,7 @@ void scene_destroy(SceneRenderer *s)
     if (s->bg_tex) glDeleteTextures(1, &s->bg_tex);
     if (s->bg_prog) glDeleteProgram(s->bg_prog);
     env_free(s->env_tex);
+    gl_fbo_free(&s->grab);
     material_destroy(&s->mat);
     free(s);
 }

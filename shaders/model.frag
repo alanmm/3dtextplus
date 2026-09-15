@@ -14,6 +14,9 @@ uniform vec3  uEmissiveColor;
 uniform float uEmissiveAmount;  // 0..1 - classico, vidro e fosco (nao metalico)
 uniform sampler2D uEnvTex;
 uniform int   uHasEnv;       // 0/1
+uniform sampler2D uGrabTex;     // fundo capturado antes do vidro ser desenhado (so' usado se uRefraction > 0)
+uniform float uRefraction;      // 0..1 - so' vidro. 0 = desliga (uGrabTex nem e' amostrado)
+uniform vec2  uScreenSize;      // resolucao em pixels, pra converter gl_FragCoord em UV 0..1
 
 out vec4 fragColor;
 
@@ -126,6 +129,18 @@ void main()
     if (uMode == 2) {                         // vidro (passe transparente)
         vec3 env  = sample_env(R, uRoughness * 0.5);
         vec3 refr = base * 0.6;
+        if (uRefraction > 0.0) {
+            // desloca a amostra do fundo capturado com base na normal -
+            // faces de frente pra camera (N.xy pequeno) desviam pouco,
+            // bordas/chanfros (N mais inclinado) desviam mais - da o
+            // "efeito lupa" nas bordas sem ser fisicamente correto.
+            // LOD escala com a aspereza: vidro liso fica nitido, vidro
+            // aspero borra (mipmaps gerados no momento da captura).
+            vec2 screenUV = gl_FragCoord.xy / uScreenSize;
+            vec2 duv = clamp(screenUV + N.xy * uRefraction * 0.12, 0.002, 0.998);
+            vec3 behind = textureLod(uGrabTex, duv, uRoughness * 5.0).rgb;
+            refr = mix(refr, behind * mix(vec3(1.0), base, 0.4), 0.85);
+        }
         // vidro liso (aspereza baixa) deveria parecer bem mais espelhado/
         // polido mesmo olhando de frente, nao so nas bordas (fresnel);
         // vidro aspero fica mais opaco/fosco mesmo de frente.
