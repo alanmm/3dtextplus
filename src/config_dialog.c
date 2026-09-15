@@ -155,12 +155,13 @@ static int CALLBACK enum_fonts_cb(const LOGFONTW *lf, const TEXTMETRICW *tm, DWO
        (familias variaveis como "Playfair Display" reportam Black/ExtraBold/
        Medium/SemiBold separadamente, todas com o mesmo lfFaceName) -> deduplica
        antes de adicionar, senao a combo fica cheia de repetidos. Tambem tira da
-       lista fontes variaveis cujo negrito/italico o GDI classico nao consegue
-       selecionar de verdade (ver font_supports_bold_italic) - marcar Negrito
-       nelas nao teria efeito visual nenhum, entao nem oferece a escolha. */
+       lista fontes que nao renderizariam o que dizem ser (ver font_is_usable):
+       variaveis, cujo negrito/italico o GDI classico nao consegue selecionar
+       de verdade, ou com dados inconsistentes o bastante pra cair num
+       fallback silencioso (ou pior, derrubar o processo). */
     if (lf->lfFaceName[0] != L'@' &&   /* pula as fontes verticais @Font */
         SendMessageW(cb, CB_FINDSTRINGEXACT, (WPARAM)-1, (LPARAM)lf->lfFaceName) == CB_ERR &&
-        font_supports_bold_italic(lf->lfFaceName))
+        font_is_usable(lf->lfFaceName))
         SendMessageW(cb, CB_ADDSTRING, 0, (LPARAM)lf->lfFaceName);
     return 1;
 }

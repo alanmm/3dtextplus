@@ -10,14 +10,27 @@
 
 /* valida que o diretorio de tabelas sfnt (a partir do offset "fo", que
    pode ser > 0 pra um TrueType Collection) cabe inteiro dentro do
-   buffer extraido. Achado investigando um crash real: pra algumas
-   fontes reconstruidas pelo GDI a partir de um arquivo .ttc (ex.:
-   "Iosevka Term"), GetFontData devolve um tamanho de buffer que NAO
-   cobre as ultimas tabelas que o proprio diretorio declara (post/prep
-   ficam com offset+tamanho alem do fim do buffer) - a stb_truetype
-   (parser sem checagem de limites) le' esses ponteiros invalidos e
-   derruba o processo. Detecta isso ANTES de entregar os bytes pra
-   stb_truetype, pra cair no fallback normal em vez de crashar. */
+   buffer extraido, e que a tabela 'cmap' (a unica que a stb_truetype
+   le' avidamente dentro de stbtt_InitFont, antes de qualquer glifo ser
+   pedido) tem um cabecalho internamente coerente. Achado investigando
+   2 crashes reais, dois jeitos DIFERENTES da mesma causa de fundo
+   (fontes reconstruidas pelo GDI a partir de um .ttc/arquivo grande
+   saem com dados inconsistentes):
+   1) "Iosevka Term": GetFontData devolve um buffer cujo tamanho NAO
+      cobre as ultimas tabelas que o proprio diretorio declara
+      (post/prep com offset+tamanho alem do fim do buffer) - pego pelo
+      loop de tabelas abaixo.
+   2) "MS UI Gothic"/"MingLiU"/"PMingLiU" (fontes CJK grandes, ~9MB):
+      todas as tabelas do diretorio cabem direitinho no buffer, mas o
+      CONTEUDO da tabela 'cmap' esta' desalinhado/errado - o campo de
+      versao (deveria ser sempre 0) sai 130, e o numero de subtabelas
+      sai um valor absurdo (dezenas de milhares) - a stb_truetype usa
+      esse numero pra percorrer um array de registros, sem checar
+      limite nenhum, e le' memoria bem longe do buffer.
+   A stb_truetype (parser sem nenhuma checagem de limites) simplesmente
+   confia nesses valores e derruba o processo. Detecta os dois casos
+   ANTES de entregar os bytes pra stb_truetype, pra cair no fallback
+   normal em vez de crashar. */
 static int sfnt_tables_in_bounds(const unsigned char *buf, DWORD size, int fo)
 {
     if (fo < 0 || (DWORD)fo + 12 > size) return 0;
@@ -29,13 +42,25 @@ static int sfnt_tables_in_bounds(const unsigned char *buf, DWORD size, int fo)
         DWORD off = (buf[rec + 8] << 24) | (buf[rec + 9] << 16) | (buf[rec + 10] << 8) | buf[rec + 11];
         DWORD len = (buf[rec + 12] << 24) | (buf[rec + 13] << 16) | (buf[rec + 14] << 8) | buf[rec + 15];
         if (off > size || len > size - off) return 0;
+        if (buf[rec] == 'c' && buf[rec + 1] == 'm' && buf[rec + 2] == 'a' && buf[rec + 3] == 'p') {
+            if (len < 4) return 0;
+            unsigned cmapVersion = (buf[off] << 8) | buf[off + 1];
+            unsigned cmapNumTables = (buf[off + 2] << 8) | buf[off + 3];
+            if (cmapVersion != 0) return 0;
+            if ((DWORD)4 + (DWORD)cmapNumTables * 8 > len) return 0;
+        }
     }
     return 1;
 }
 
 /* ---- bytes do arquivo da fonte selecionada, via GDI ---- */
-static unsigned char *load_face_bytes(const wchar_t *family, int bold, int italic, DWORD *out_size)
+/* out_used_fallback (pode ser NULL): setado pra 1 se precisou cair pro
+   fallback embutido (Segoe UI) - fonte ausente ou dados que nao
+   passaram em sfnt_tables_in_bounds. */
+static unsigned char *load_face_bytes(const wchar_t *family, int bold, int italic, DWORD *out_size,
+                                       int *out_used_fallback)
 {
+    if (out_used_fallback) *out_used_fallback = 0;
     HDC dc = CreateCompatibleDC(NULL);
     LOGFONTW lf;
     memset(&lf, 0, sizeof lf);
@@ -76,6 +101,7 @@ static unsigned char *load_face_bytes(const wchar_t *family, int bold, int itali
     DeleteDC(dc);
 
     if (!buf) {
+        if (out_used_fallback) *out_used_fallback = 1;
         wchar_t path[MAX_PATH];
         UINT n = GetWindowsDirectoryW(path, MAX_PATH);
         if (n && n < MAX_PATH - 20) {
@@ -109,8 +135,15 @@ static unsigned char *load_face_bytes(const wchar_t *family, int bold, int itali
    agressivo (comparar o tamanho do arquivo devolvido por GetFontData
    entre um pedido normal e um em negrito+italico) pegaria esse caso
    tambem, mas testado ao vivo excluiu quase metade das fontes instaladas
-   nesta maquina - superdimensionado pro problema reportado. */
-int font_supports_bold_italic(const wchar_t *family)
+   nesta maquina - superdimensionado pro problema reportado.
+
+   Tambem exclui fontes cujos dados saem corrompidos/inconsistentes o
+   bastante pra load_face_bytes precisar cair no fallback embutido (ver
+   sfnt_tables_in_bounds) - sem esse check, selecionar uma dessas fontes
+   (ex.: "Iosevka"/variantes, reconstruidas de um .ttc com dados
+   truncados) renderiza silenciosamente como Segoe UI, sem aviso nenhum:
+   o usuario escolhe uma fonte e ve outra completamente diferente. */
+int font_is_usable(const wchar_t *family)
 {
     HDC dc = CreateCompatibleDC(NULL);
 
@@ -131,7 +164,22 @@ int font_supports_bold_italic(const wchar_t *family)
     DeleteObject(font);
     DeleteDC(dc);
 
-    return !is_variable;
+    if (is_variable) return 0;
+
+    /* testa regular E negrito+italico juntos (nao so' um dos dois): a
+       checkbox de negrito/italico persiste entre trocas de fonte na UI,
+       entao uma fonte que corrompe so' na combinacao negrito+italico
+       (foi assim que os 2 crashes reais foram reproduzidos) e' tao
+       perigosa quanto uma que corrompe sempre. */
+    DWORD size = 0;
+    int used_fallback = 0;
+    unsigned char *bytes = load_face_bytes(family, 0, 0, &size, &used_fallback);
+    free(bytes);
+    if (used_fallback) return 0;
+
+    bytes = load_face_bytes(family, 1, 1, &size, &used_fallback);
+    free(bytes);
+    return !used_fallback;
 }
 
 /* ---- buffer de pontos + achatamento de curvas ---- */
@@ -297,7 +345,7 @@ int font_build_contours(const char *utf8, const wchar_t *family, int bold, int i
     memset(out, 0, sizeof *out);
 
     DWORD fsize = 0;
-    unsigned char *fbytes = load_face_bytes(family, bold, italic, &fsize);
+    unsigned char *fbytes = load_face_bytes(family, bold, italic, &fsize, NULL);
     if (!fbytes) { log_errorf("font: nenhuma fonte carregada"); return 0; }
 
     stbtt_fontinfo fi;

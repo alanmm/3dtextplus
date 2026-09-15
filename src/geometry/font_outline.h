@@ -9,11 +9,15 @@ int  font_build_contours(const char *utf8, const wchar_t *family, int bold, int 
                          float flatten_tol, ContourSet *out);
 void contourset_free(ContourSet *cs);
 
-/* 1 se a familia responde de verdade a negrito/italico neste pipeline de
-   extracao de contorno, 0 se e' uma fonte variavel OpenType (tabela
-   'fvar') - stb_truetype so' le' a instancia estatica default do 'glyf',
-   entao negrito/italico nunca tem efeito visual nela. Usado pra tirar
-   essas fontes da lista selecionavel na aba Conteudo. */
-int font_supports_bold_italic(const wchar_t *family);
+/* 0 se a familia nao deve aparecer na lista selecionavel da aba
+   Conteudo: e' uma fonte variavel OpenType (tabela 'fvar' - stb_truetype
+   so' le' a instancia estatica default do 'glyf', entao negrito/italico
+   nunca tem efeito visual nela), ou os dados que o GDI devolve pra ela
+   sao inconsistentes o bastante (fonte reconstruida de um .ttc grande,
+   por exemplo) pra estourar os limites da stb_truetype ao tentar
+   renderizar - nesse caso hoje cairia num fallback silencioso (ou, sem
+   a validacao em load_face_bytes, derrubaria o processo). 1 caso
+   contrario. */
+int font_is_usable(const wchar_t *family);
 
 #endif
