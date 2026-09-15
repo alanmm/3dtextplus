@@ -126,19 +126,11 @@ void main()
         return;
     }
     if (uMode == 2) {                         // vidro (passe transparente)
-        // Nao tenta esconder as faces internas/de tras (a extrusao inteira
-        // desenha dos dois lados, ver glDisable(GL_CULL_FACE) em scene.c) -
-        // ja foram tentadas 2 abordagens por fragmento (winding via
-        // gl_FrontFacing, depois normal autoral vs camera) e as duas
-        // falharam de formas diferentes em geometria concava/com buraco
-        // (ex.: o vao do "D") - um teste que so' enxerga um fragmento por
-        // vez nao consegue distinguir "casca externa legitima, vista atraves
-        // de uma reentrancia" de "parede interna que devia ficar escondida".
-        // Isso exigiria uma tecnica de transparencia independente de ordem
-        // (WBOIT, ja cogitada no roadmap original do projeto) - fora de
-        // escopo de um ajuste de shader pontual. Por ora, aceita a mistura
-        // simples (visualmente "encardida" em alguns angulos) como
-        // resultado previsivel, em vez de artefatos de geometria "sumindo".
+        // As faces internas/de tras nao sao escondidas por fragmento (a
+        // extrusao inteira desenha dos dois lados, ver glDisable(GL_CULL_FACE)
+        // em scene.c) - a composicao correta entre elas e' resolvida pelo
+        // WBOIT (acumulacao ponderada, ver oAccum/oRevealLog mais abaixo),
+        // nao por esconder geometria aqui.
         vec3 env  = sample_env(R, uRoughness * 0.5);
         vec3 refr = base * 0.6;
         // vidro liso (aspereza baixa) deveria parecer bem mais espelhado/
@@ -155,6 +147,18 @@ void main()
         // de (1-alpha) em 2 saidas separadas. O passe de resolucao
         // (wboit_resolve.frag) desfaz isso depois, independente de ordem.
         float a = mix(0.35, 0.95, m);
+        // mascara aresta/plano CONTINUA: em vez de uma tag discreta da malha
+        // (que daria um salto abrupto exatamente na costura entre triangulos
+        // - um "wireframe" involuntario), mede o quanto a normal muda de um
+        // pixel pro vizinho na tela (dFdx/dFdy). Isso e' proximo de zero numa
+        // face plana (tampa/parede) e sobe suavemente perto de qualquer
+        // aresta/vinco/curva do chanfro, ja que a variacao acontece ao longo
+        // de alguns pixels reais, nao de um salto na costura da geometria.
+        vec3 dNx = dFdx(N);
+        vec3 dNy = dFdy(N);
+        float edgeSignal = length(dNx) + length(dNy);
+        float edgeAmt = smoothstep(0.0, 0.35, edgeSignal);
+        a = clamp(a + mix(-0.18, 0.12, edgeAmt), 0.12, 0.88);
         float linearDepth = length(uCamPos - vWorld);
         float weight = a * clamp(0.4 / (1e-5 + pow(linearDepth / 8.0, 4.0)), 1e-2, 3000.0);
         oAccum = vec4(col * a * weight, a * weight);
