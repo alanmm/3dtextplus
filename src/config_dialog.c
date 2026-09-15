@@ -544,12 +544,17 @@ static void material_apply_i18n(HWND h)
    propriedade so' faz sentido (e so' tem efeito real no
    shaders/model.frag) em alguns modos:
    Metalizacao: so' Metalico.
-   Distorcao: so' Vidro (ocupa a MESMA posicao fisica de Metalizacao
-   no .rc - os dois nunca aparecem juntos, entao podem compartilhar
-   as coordenadas de layout sem conflito real).
    Rugosidade: Classico, Metalico e Vidro (todos os modos).
+   Distorcao: so' Vidro.
    Emissivo: Classico e Vidro (Metalico ja' reflete o ambiente, brilho
    proprio por cima ficaria estranho).
+   (Cada bloco tem sua PROPRIA posicao original no .rc - dois blocos
+   compartilhando coordenadas ja causou um bug real: o avanco de
+   cursor do bloco anterior zerava, empurrando o bloco seguinte pra
+   cima do bloco compartilhado. O gap entre blocos agora tambem e' um
+   unico valor uniforme (g_mat_gap), nao um valor por par - protege
+   contra esse mesmo bug se um futuro bloco voltar a compartilhar
+   posicao com outro.)
    Ambiente: Metalico e Vidro (unico jeito de refletir alguma coisa).
    (Fosco foi removido - feedback do usuario apos a aspereza do
    Classico passar a cobrir liso->fosco de verdade, o Fosco separado
@@ -562,8 +567,8 @@ typedef struct { int id; int x, rel_y; } MatCtrl;
 #define MAT_BLOCKS 6
 static MatCtrl g_mat_blocks[MAT_BLOCKS][4] = {
     { { IDC_METAL_LABEL, 0, 0 }, { IDC_METAL_VAL, 0, 0 }, { IDC_METAL, 0, 0 } },
-    { { IDC_REFRACT_LABEL, 0, 0 }, { IDC_REFRACT_VAL, 0, 0 }, { IDC_REFRACT, 0, 0 } },
     { { IDC_ROUGH_LABEL, 0, 0 }, { IDC_ROUGH_VAL, 0, 0 }, { IDC_ROUGH, 0, 0 } },
+    { { IDC_REFRACT_LABEL, 0, 0 }, { IDC_REFRACT_VAL, 0, 0 }, { IDC_REFRACT, 0, 0 } },
     { { IDC_EMISSIVE_LABEL, 0, 0 }, { IDC_EMISSIVE_COLOR, 0, 0 }, { IDC_EMISSIVE_VAL, 0, 0 }, { IDC_EMISSIVE, 0, 0 } },
     { { IDC_ENV_LABEL, 0, 0 }, { IDC_ENVMODE_EMBED, 0, 0 }, { IDC_ENVMODE_CUSTOM, 0, 0 }, { IDC_ENVMODE_NONE, 0, 0 } },
     { { IDC_ENVPATH, 0, 0 }, { IDC_ENVPICK, 0, 0 }, { IDC_ENVCLEAR, 0, 0 } },
@@ -571,7 +576,11 @@ static MatCtrl g_mat_blocks[MAT_BLOCKS][4] = {
 static const int MAT_BLOCK_N[MAT_BLOCKS] = { 3, 3, 3, 4, 4, 3 };
 static int g_mat_block_top[MAT_BLOCKS];
 static int g_mat_block_h[MAT_BLOCKS];
-static int g_mat_gap_after[MAT_BLOCKS - 1];
+static int g_mat_gap = 0;   /* espacamento uniforme entre blocos - todo o .rc usa o
+                               mesmo ritmo (6 DU); um unico valor, em vez de um gap
+                               por par original, evita o bug de blocos que
+                               compartilham coordenadas (ex.: Metalizacao/Distorcao)
+                               "zerarem" o avanco do cursor pro bloco seguinte. */
 static int g_mat_layout_ready = 0;
 
 /* captura a posicao ORIGINAL (em pixels, ja resolvida do .rc) de cada
@@ -598,8 +607,9 @@ static void material_layout_capture(HWND h)
         for (int i = 0; i < MAT_BLOCK_N[b]; ++i)
             g_mat_blocks[b][i].rel_y -= top;
     }
-    for (int b = 0; b < MAT_BLOCKS - 1; ++b)
-        g_mat_gap_after[b] = g_mat_block_top[b + 1] - (g_mat_block_top[b] + g_mat_block_h[b]);
+    /* Metalizacao (0) e Rugosidade (1) nunca compartilham posicao com
+       nada - par confiavel pra medir o ritmo real do .rc. */
+    g_mat_gap = g_mat_block_top[1] - (g_mat_block_top[0] + g_mat_block_h[0]);
     g_mat_layout_ready = 1;
 }
 
@@ -610,12 +620,12 @@ static void material_layout_apply(HWND h)
 {
     int mode = g_work.material_mode;
     int vis_metal      = (mode == 1);
-    int vis_refract    = (mode == 2);
     int vis_rough      = (mode == 0 || mode == 1 || mode == 2);
+    int vis_refract    = (mode == 2);
     int vis_emissive   = (mode == 0 || mode == 2);
     int vis_env_hdr    = (mode == 1 || mode == 2);
     int vis_env_pick   = vis_env_hdr && (g_work.env_mode == 1);
-    int visible[MAT_BLOCKS] = { vis_metal, vis_refract, vis_rough, vis_emissive,
+    int visible[MAT_BLOCKS] = { vis_metal, vis_rough, vis_refract, vis_emissive,
                                  vis_env_hdr, vis_env_pick };
 
     int cursor = g_mat_block_top[0];
@@ -631,7 +641,7 @@ static void material_layout_apply(HWND h)
                          0, 0, SWP_NOSIZE | SWP_NOZORDER);
             ShowWindow(ctrl, SW_SHOW);
         }
-        cursor += g_mat_block_h[b] + (b < MAT_BLOCKS - 1 ? g_mat_gap_after[b] : 0);
+        cursor += g_mat_block_h[b] + g_mat_gap;
     }
 }
 

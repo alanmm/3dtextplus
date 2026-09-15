@@ -137,14 +137,17 @@ void main()
         vec3 env  = sample_env(R, uRoughness * 0.5);
         vec3 refr = base * 0.6;
         if (uRefraction > 0.0) {
-            // desloca a amostra do fundo capturado com base na normal -
-            // faces de frente pra camera (N.xy pequeno) desviam pouco,
-            // bordas/chanfros (N mais inclinado) desviam mais - da o
-            // "efeito lupa" nas bordas sem ser fisicamente correto.
-            // LOD escala com a aspereza: vidro liso fica nitido, vidro
-            // aspero borra (mipmaps gerados no momento da captura).
+            // desloca a amostra do fundo capturado pela posicao de MUNDO
+            // do fragmento (nao pela normal) - a normal sozinha fica perto
+            // de zero em qualquer face voltada de frente pra camera
+            // (a maior parte do texto), deixando o efeito quase invisivel
+            // mesmo em valores altos. Usar a posicao da' uma curvatura tipo
+            // lupa que cresce suavemente do centro de cada letra pra fora,
+            // visivel na face inteira. LOD escala com a aspereza: vidro
+            // liso fica nitido, vidro aspero borra (mipmaps gerados no
+            // momento da captura).
             vec2 screenUV = gl_FragCoord.xy / uScreenSize;
-            vec2 duv = clamp(screenUV + N.xy * uRefraction * 0.12, 0.002, 0.998);
+            vec2 duv = clamp(screenUV + vWorld.xy * uRefraction * 0.09, 0.002, 0.998);
             vec3 behind = textureLod(uGrabTex, duv, uRoughness * 5.0).rgb;
             refr = mix(refr, behind * mix(vec3(1.0), base, 0.4), 0.85);
         }
