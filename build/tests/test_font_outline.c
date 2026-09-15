@@ -46,4 +46,26 @@ void run_font_outline_tests(void)
     EXPECT(font_build_contours("A", L"Iosevka Term", 1, 0, 0.01f, &iosevka) == 1);
     EXPECT(iosevka.count >= 1);
     contourset_free(&iosevka);
+
+    /* regressao: o perfil de kerning otico so' registrava pontos nos
+       vertices do contorno achatado - uma aresta reta e alta (o caule
+       de "t", a barra vertical de "+") so' tem 2 vertices (topo/base),
+       entao varias faixas de altura no meio nunca recebiam nenhum
+       registro de tinta, como se o glifo vizinho tivesse folga ali
+       quando na verdade tem tinta solida. Em "Circular Std Bold" isso
+       fazia "t+" ficar com sobreposicao geometrica de verdade (medido
+       antes do fix: ~0.15em de overlap). Se a fonte nao estiver
+       instalada na maquina do teste, cai no fallback estatico - os 2
+       contornos ainda saem sem overlap (mesmo glifo repetido nao se
+       sobrepoe a si mesmo). */
+    ContourSet tp;
+    EXPECT(font_build_contours("t+", L"Circular Std Bold", 0, 0, 0.01f, &tp) == 1);
+    EXPECT(tp.count == 2);
+    float t_maxx = -1e30f, plus_minx = 1e30f;
+    for (int k = 0; k < tp.contours[0].count; ++k)
+        if (tp.contours[0].pts[k].x > t_maxx) t_maxx = tp.contours[0].pts[k].x;
+    for (int k = 0; k < tp.contours[1].count; ++k)
+        if (tp.contours[1].pts[k].x < plus_minx) plus_minx = tp.contours[1].pts[k].x;
+    EXPECT(plus_minx > t_maxx);
+    contourset_free(&tp);
 }

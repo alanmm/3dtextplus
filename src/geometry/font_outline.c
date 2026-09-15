@@ -373,11 +373,35 @@ int font_build_contours(const char *utf8, const wchar_t *family, int bold, int i
         if (glyph_has_ink) {
             ConList profCl = { 0, 0, 0 };
             flatten_glyph_local(verts, nv, peny, kern_tol, &profCl);
-            for (int ci = 0; ci < profCl.n; ++ci)
-                for (int k = 0; k < profCl.c[ci].count; ++k) {
-                    v2 p = profCl.c[ci].pts[k];
-                    profile_update(curMinX, curMaxX, p.y, p.x, (float)descent, unitsPerEm);
+            for (int ci = 0; ci < profCl.n; ++ci) {
+                int cn = profCl.c[ci].count;
+                for (int k = 0; k < cn; ++k) {
+                    v2 p0 = profCl.c[ci].pts[k];
+                    v2 p1 = profCl.c[ci].pts[(k + 1) % cn];
+                    profile_update(curMinX, curMaxX, p0.y, p0.x, (float)descent, unitsPerEm);
+                    /* uma aresta RETA e alta (o caule de um "t", a barra
+                       vertical de um "+") so' contribui os 2 pontos extremos
+                       pro contorno achatado - sem pontos no meio, ela cruza
+                       varias faixas do perfil de kerning sem deixar registro
+                       de tinta ali, como se nao houvesse nada naquela altura.
+                       O par vizinho entao acha que tem folga onde na verdade
+                       ha' tinta solida, e overlap de verdade (achado
+                       investigando o "t+" grudado que o usuario reportou em
+                       "Circular Std Bold"). Preenche essas faixas
+                       interpolando ao longo da aresta, nao so' nos vertices. */
+                    float dy = p1.y - p0.y;
+                    if (fabsf(dy) > 1e-6f) {
+                        int nsteps = (int)(fabsf(dy) / unitsPerEm * (float)(KERN_SAMPLES - 1)) + 1;
+                        if (nsteps > 64) nsteps = 64;
+                        for (int step = 1; step < nsteps; ++step) {
+                            float t = (float)step / (float)nsteps;
+                            float ix = p0.x + (p1.x - p0.x) * t;
+                            float iy = p0.y + dy * t;
+                            profile_update(curMinX, curMaxX, iy, ix, (float)descent, unitsPerEm);
+                        }
+                    }
                 }
+            }
             conlist_free_pts(&profCl);
         }
         if (verts) stbtt_FreeShape(&fi, verts);
