@@ -49,7 +49,6 @@ material.label=Material:
 material.mode.classic=Clássico
 material.mode.metallic=Metálico
 material.mode.glass=Vidro
-material.mode.matte=Fosco
 material.metalness_label=Metalização:
 material.roughness_label=Aspereza:
 material.emissive_label=Emissivo:

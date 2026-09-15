@@ -57,7 +57,7 @@ void run_presets_tests(void)
     EXPECT(c.particles_kind == 2);
 
     g_builtin_presets[4].build(&c);   /* Suave */
-    EXPECT(c.material_mode == 3);
+    EXPECT(c.material_mode == 0);
     EXPECT(c.background_type == 1);
     EXPECT(nearf(c.bg_color1_r, 0.85f));
     EXPECT(c.bloom_on == 1 && nearf(c.bloom_intensity, 0.12f));
@@ -99,7 +99,7 @@ void run_presets_tests(void)
 
     Config a;
     config_defaults(&a);
-    a.material_mode = 3;
+    a.material_mode = 2;
     a.env_mode = 1;
     wcscpy(a.env_path, L"D:\\hdri\\estudio.hdr");
     a.background_type = 0;
@@ -120,7 +120,7 @@ void run_presets_tests(void)
 
     Config b;
     EXPECT(preset_user_load_from(TBASE, L"Alfa", &b) == 1);
-    EXPECT(b.material_mode == 3);
+    EXPECT(b.material_mode == 2);
     EXPECT(b.env_mode == 1);
     EXPECT(wcscmp(b.env_path, L"D:\\hdri\\estudio.hdr") == 0);
     EXPECT(nearf(b.bg_color1_r, 0.11f) && nearf(b.bg_color1_g, 0.22f) && nearf(b.bg_color1_b, 0.33f));

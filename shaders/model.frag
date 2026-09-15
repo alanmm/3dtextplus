@@ -7,11 +7,11 @@ in float vSurf;
 uniform mat4  uModel;
 uniform vec3  uCamPos;
 uniform vec3  uBaseColor;
-uniform int   uMode;         // 0 classico, 1 metalico, 2 vidro, 3 fosco
+uniform int   uMode;         // 0 classico, 1 metalico, 2 vidro
 uniform float uMetalness;    // 0..1
 uniform float uRoughness;    // 0..1 - classico, metalico e vidro
 uniform vec3  uEmissiveColor;
-uniform float uEmissiveAmount;  // 0..1 - classico, vidro e fosco (nao metalico)
+uniform float uEmissiveAmount;  // 0..1 - classico e vidro (nao metalico)
 uniform sampler2D uEnvTex;
 uniform int   uHasEnv;       // 0/1
 uniform sampler2D uGrabTex;     // fundo capturado antes do vidro ser desenhado (so' usado se uRefraction > 0)
@@ -127,6 +127,13 @@ void main()
         return;
     }
     if (uMode == 2) {                         // vidro (passe transparente)
+        // so' a face voltada pra camera - sem isso, paredes internas/faces
+        // de tras (a extrusao inteira desenha dos dois lados, ver
+        // glDisable(GL_CULL_FACE) em scene.c) se somam por cima da
+        // transparencia e diluem tanto a leitura do vidro quanto a
+        // distorcao. gl_FrontFacing reflete a orientacao real na tela,
+        // entao funciona igual em malhas importadas com qualquer winding.
+        if (!gl_FrontFacing) discard;
         vec3 env  = sample_env(R, uRoughness * 0.5);
         vec3 refr = base * 0.6;
         if (uRefraction > 0.0) {
@@ -150,15 +157,6 @@ void main()
         col += vec3(1.0) * pow(max(dot(N, H), 0.0), 120.0);
         col += emissive;
         fragColor = vec4(col, mix(0.35, 0.95, m));
-        return;
-    }
-    if (uMode == 3) {                         // fosco
-        float w = dot(N, -KEY_DIR) * 0.5 + 0.5;
-        vec3 col = base * (0.15 + 0.85 * w * w);
-        col += base * max(dot(N, -FILL_DIR), 0.0) * 0.20;
-        col += emissive;
-        if (vSurf > 1.5) col *= 0.82;
-        fragColor = vec4(col, 1.0);
         return;
     }
 

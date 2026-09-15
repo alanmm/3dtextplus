@@ -291,7 +291,7 @@ void run_config_tests(void)
     EXPECT(c.depth >= 0.02f && c.depth <= 2.0f);
     EXPECT(nearf(c.period, 9.0f));
     EXPECT(strcmp(c.text, "3D Text+") == 0);
-    EXPECT(c.material_mode == 0);              /* 7 fora de 0..3 -> 0 */
+    EXPECT(c.material_mode == 0);              /* 7 fora de 0..2 -> 0 */
     EXPECT(c.metalness >= 0.0f && c.metalness <= 1.0f);   /* 5 -> clamp */
     EXPECT(c.bevel_mode == 0);                 /* 9 -> 0 */
     EXPECT(c.bevel_segments == 2);             /* 1 -> 2 */

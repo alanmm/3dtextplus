@@ -535,7 +535,6 @@ static void material_apply_i18n(HWND h)
     SendMessageW(cb, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_MATERIAL_MODE_CLASSIC));
     SendMessageW(cb, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_MATERIAL_MODE_METALLIC));
     SendMessageW(cb, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_MATERIAL_MODE_GLASS));
-    SendMessageW(cb, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_MATERIAL_MODE_MATTE));
     SendMessageW(cb, CB_SETCURSEL, cur < 0 ? g_work.material_mode : cur, 0);
 
     material_labels(h);
@@ -548,10 +547,13 @@ static void material_apply_i18n(HWND h)
    Distorcao: so' Vidro (ocupa a MESMA posicao fisica de Metalizacao
    no .rc - os dois nunca aparecem juntos, entao podem compartilhar
    as coordenadas de layout sem conflito real).
-   Rugosidade: Classico, Metalico e Vidro (Fosco ja' e' "todo rugoso").
-   Emissivo: Classico, Vidro e Fosco (Metalico ja' reflete o ambiente,
-   brilho proprio por cima ficaria estranho).
+   Rugosidade: Classico, Metalico e Vidro (todos os modos).
+   Emissivo: Classico e Vidro (Metalico ja' reflete o ambiente, brilho
+   proprio por cima ficaria estranho).
    Ambiente: Metalico e Vidro (unico jeito de refletir alguma coisa).
+   (Fosco foi removido - feedback do usuario apos a aspereza do
+   Classico passar a cobrir liso->fosco de verdade, o Fosco separado
+   ficou redundante.)
    (Verniz e Anisotropia existiram brevemente mas foram removidos -
    feedback do usuario apos testar: efeito pouco distintivo pra
    justificar mais 2 controles na UI.) */
@@ -610,7 +612,7 @@ static void material_layout_apply(HWND h)
     int vis_metal      = (mode == 1);
     int vis_refract    = (mode == 2);
     int vis_rough      = (mode == 0 || mode == 1 || mode == 2);
-    int vis_emissive   = (mode == 0 || mode == 2 || mode == 3);
+    int vis_emissive   = (mode == 0 || mode == 2);
     int vis_env_hdr    = (mode == 1 || mode == 2);
     int vis_env_pick   = vis_env_hdr && (g_work.env_mode == 1);
     int visible[MAT_BLOCKS] = { vis_metal, vis_refract, vis_rough, vis_emissive,

@@ -49,7 +49,6 @@ material.label=Material:
 material.mode.classic=Classic
 material.mode.metallic=Metallic
 material.mode.glass=Glass
-material.mode.matte=Matte
 material.metalness_label=Metalness:
 material.roughness_label=Roughness:
 material.emissive_label=Emissive:

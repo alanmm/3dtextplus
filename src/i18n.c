@@ -24,7 +24,7 @@ static const char *const KEY_NAMES[STR_COUNT] = {
     "motion.angle_label", "motion.tilt_label", "motion.period_label",
 
     "material.label", "material.mode.classic", "material.mode.metallic",
-    "material.mode.glass", "material.mode.matte",
+    "material.mode.glass",
     "material.metalness_label", "material.roughness_label",
     "material.emissive_label", "material.emissive_color_btn",
     "material.refraction_label",

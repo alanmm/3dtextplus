@@ -16,10 +16,10 @@ typedef struct {
     float        tilt_x;               /* 0 .. 30 (graus) */
     float        period;               /* 2 .. 30 (s) */
     float        base_r, base_g, base_b;  /* 0..1 */
-    int          material_mode;        /* 0 classico, 1 metalico, 2 vidro, 3 fosco */
+    int          material_mode;        /* 0 classico, 1 metalico, 2 vidro */
     float        metalness;            /* 0..1 */
     float        roughness;            /* 0..1 - classico, metalico e vidro */
-    float        emissive_r, emissive_g, emissive_b;  /* 0..1 - cor propria, classico/vidro/fosco (nao metalico) */
+    float        emissive_r, emissive_g, emissive_b;  /* 0..1 - cor propria, classico/vidro (nao metalico) */
     float        emissive_amount;      /* 0..1 - 0 = desligado */
     float        refraction;           /* 0..1 - so' vidro. 0 = desliga a captura/distorcao (sem custo) */
     int          env_mode;             /* 0 embutida, 1 personalizada, 2 nenhuma */

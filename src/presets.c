@@ -143,8 +143,8 @@ static void preset_neon(Config *out)
 static void preset_suave(Config *out)
 {
     config_defaults(out);
-    out->material_mode = 3;
-    out->metalness = 0.9f; out->roughness = 0.5f; out->env_mode = 0;
+    out->material_mode = 0;
+    out->metalness = 0.9f; out->roughness = 0.8f; out->env_mode = 0;
     out->bevel_mode = 1;
     out->base_r = 0.20f; out->base_g = 0.21f; out->base_b = 0.24f;
     out->background_type = 1;
