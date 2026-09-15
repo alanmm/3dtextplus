@@ -106,6 +106,9 @@ BEGIN
     LTEXT      "Metalizacao:", IDC_METAL_LABEL, 8, 46, 90, 9
     LTEXT      "", IDC_METAL_VAL, 182, 46, 50, 9
     CONTROL    "", IDC_METAL, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 56, 224, 18
+    LTEXT      "Distorcao:", IDC_REFRACT_LABEL, 8, 46, 90, 9
+    LTEXT      "", IDC_REFRACT_VAL, 182, 46, 50, 9
+    CONTROL    "", IDC_REFRACT, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 56, 224, 18
     LTEXT      "Rugosidade:", IDC_ROUGH_LABEL, 8, 80, 90, 9
     LTEXT      "", IDC_ROUGH_VAL, 182, 80, 50, 9
     CONTROL    "", IDC_ROUGH, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 90, 224, 18

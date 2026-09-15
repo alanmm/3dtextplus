@@ -77,6 +77,9 @@
 #define IDC_EMISSIVE_VAL   1316
 #define IDC_EMISSIVE       1317
 #define IDC_EMISSIVE_COLOR 1318
+#define IDC_REFRACT_LABEL  1319
+#define IDC_REFRACT_VAL    1320
+#define IDC_REFRACT         1321
 
 /* aba Geometria */
 #define IDC_BEVELMODE     1400
