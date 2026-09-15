@@ -103,22 +103,33 @@ void main()
     float fres = pow(1.0 - max(dot(N, V), 0.0), 5.0);
     vec3 emissive = uEmissiveColor * uEmissiveAmount;
 
-    // mascara de aresta/curvatura CONTINUA: mede o quanto a normal muda de
-    // um pixel pro vizinho na tela (dFdx/dFdy), em vez de uma tag discreta
-    // da malha (que daria um salto abrupto exatamente na costura entre
-    // triangulos - um "wireframe" involuntario). Proximo de zero numa face
-    // plana (tampa/parede), sobe suavemente perto de qualquer aresta/vinco/
-    // curva do chanfro. Calculada aqui (fora dos ramos de uMode) pra poder
-    // ser reaproveitada tanto pelo Vidro quanto pela visualizacao de debug.
-    float edgeSignal = length(dFdx(N)) + length(dFdy(N));
-    float edgeAmt = smoothstep(0.0, 0.35, edgeSignal);
+    // mascara de opacidade do Vidro: quanto mais "de raspao" (grazing) a
+    // superficie e' vista em relacao a camera, mais opaca fica - mesma
+    // logica do node Fresnel/Facing do Blender (Layer Weight): olhando de
+    // frente pra uma face ela fica bem mais transparente; perto da
+    // silhueta/aresta vista de raspao, mais opaca. Depende do ANGULO DE
+    // VISAO (NdotV), nao da curvatura da malha - por isso da o mesmo
+    // resultado numa face plana vista de raspao e numa face curva, ao
+    // contrario de uma medida baseada em dFdx/dFdy da normal (tentativa
+    // anterior, descartada: saturava perto de 0 ou 1 quase em toda a
+    // superficie, sem meio-termo pro slider de vies atuar em cima).
+    // uEdgeBias controla o expoente da curva (tipo "curvas" de editor de
+    // imagem): 0.5 = neutro (expoente 4, Fresnel tipico); <0.5 sobe o
+    // expoente (faixa de opacidade mais estreita, so' bem perto da
+    // silhueta = mais area lida como "plana"/transparente); >0.5 desce o
+    // expoente (faixa mais larga = mais area lida como "aresta"/opaca).
+    // Calculada aqui (fora dos ramos de uMode) pra ser reaproveitada pela
+    // visualizacao de debug.
+    float NdotV = clamp(dot(N, V), 0.0, 1.0);
+    float rimExp = pow(4.0, 2.0 * (1.0 - uEdgeBias));
+    float rimAmt = pow(1.0 - NdotV, rimExp);
 
     // ferramenta de debug visual (botao direito no preview alterna, ver
     // config_dialog.c) - mostra uma etapa/aspecto isolado do calculo do
     // material em vez do resultado final, tipo os modos de visualizacao
     // de material do Blender. So' de sessao, nao afeta o resultado normal.
     if (uDebugView == 1) { fragColor = vec4(vec3(fres), 1.0); return; }
-    if (uDebugView == 2) { fragColor = vec4(vec3(edgeAmt), 1.0); return; }
+    if (uDebugView == 2) { fragColor = vec4(vec3(rimAmt), 1.0); return; }
     if (uDebugView == 3) { fragColor = vec4(N * 0.5 + 0.5, 1.0); return; }
     if (uDebugView == 4) {
         vec3 surfColor = vec3(0.15);                          // fallback
@@ -178,16 +189,10 @@ void main()
         // de (1-alpha) em 2 saidas separadas. O passe de resolucao
         // (wboit_resolve.frag) desfaz isso depois, independente de ordem.
         float a = mix(0.35, 0.95, m);
-        // mascara aresta/plano ja calculada no topo (edgeAmt) - reaproveitada
-        // aqui: aresta fica mais opaca, face plana mais transparente, nunca
-        // batendo em 0% nem 100%. uEdgeBias remapeia a curva por uma
-        // potencia (tipo "curvas" de editor de imagem): 0.5 = neutro
-        // (expoente 1, sem mudanca); <0.5 empurra mais area pra perto de 0
-        // (mais transparente/plano); >0.5 empurra mais area pra perto de 1
-        // (mais opaco/aresta).
-        float edgeExp = pow(4.0, 1.0 - 2.0 * uEdgeBias);
-        float edgeBiased = pow(edgeAmt, edgeExp);
-        a = clamp(a + mix(-0.18, 0.12, edgeBiased), 0.12, 0.88);
+        // mascara de opacidade ja calculada no topo (rimAmt, Fresnel/Facing) -
+        // silhueta/aresta fica mais opaca, face de frente mais transparente,
+        // nunca batendo em 0% nem 100%.
+        a = clamp(a + mix(-0.18, 0.12, rimAmt), 0.12, 0.88);
         float linearDepth = length(uCamPos - vWorld);
         float weight = a * clamp(0.4 / (1e-5 + pow(linearDepth / 8.0, 4.0)), 1e-2, 3000.0);
         oAccum = vec4(col * a * weight, a * weight);
