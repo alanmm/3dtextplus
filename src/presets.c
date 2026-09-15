@@ -10,6 +10,8 @@ void preset_scope_copy(Config *dst, const Config *src)
     dst->metalness = src->metalness;
     dst->roughness = src->roughness;
     dst->env_mode = src->env_mode;
+    wcsncpy(dst->env_path, src->env_path, 511);
+    dst->env_path[511] = 0;
     dst->bevel_mode = src->bevel_mode;
     dst->background_type = src->background_type;
     dst->bg_color1_r = src->bg_color1_r; dst->bg_color1_g = src->bg_color1_g; dst->bg_color1_b = src->bg_color1_b;
@@ -248,6 +250,7 @@ int preset_export_file(const wchar_t *path, const Config *from)
     fwprintf(f, L"metalness=%.5f\r\n", (double)from->metalness);
     fwprintf(f, L"roughness=%.5f\r\n", (double)from->roughness);
     fwprintf(f, L"env_mode=%d\r\n", from->env_mode);
+    fwprintf(f, L"env_path=%ls\r\n", from->env_path);
     fwprintf(f, L"bevel_mode=%d\r\n", from->bevel_mode);
     fwprintf(f, L"background_type=%d\r\n", from->background_type);
     fwprintf(f, L"bg_color1_r=%.5f\r\n", (double)from->bg_color1_r);

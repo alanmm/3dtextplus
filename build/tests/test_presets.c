@@ -71,6 +71,8 @@ void run_presets_tests(void)
     strcpy(src.text, "Nao deve vazar");
     src.max_angle_y = 999.0f;
     src.material_mode = 2;
+    src.env_mode = 1;
+    wcscpy(src.env_path, L"C:\\imagens\\ambiente.jpg");
     src.particles_kind = 3;
     src.particles_density = 0.9f; src.particles_speed = 0.5f;
     src.particles_size_scale = 0.7f; src.particles_opacity = 0.78f;
@@ -79,6 +81,8 @@ void run_presets_tests(void)
     EXPECT(strcmp(dst.text, "3D Text+") == 0);           /* nao mexeu */
     EXPECT(!nearf(dst.max_angle_y, 999.0f));               /* nao mexeu */
     EXPECT(dst.material_mode == 2);                        /* mexeu */
+    EXPECT(dst.env_mode == 1);
+    EXPECT(wcscmp(dst.env_path, L"C:\\imagens\\ambiente.jpg") == 0);
     EXPECT(dst.particles_kind == 3);
     EXPECT(nearf(dst.particles_stars_density, 0.9f));       /* memoria do tipo sincronizada */
     EXPECT(nearf(dst.particles_stars_size, 0.7f));
@@ -96,6 +100,8 @@ void run_presets_tests(void)
     Config a;
     config_defaults(&a);
     a.material_mode = 3;
+    a.env_mode = 1;
+    wcscpy(a.env_path, L"D:\\hdri\\estudio.hdr");
     a.background_type = 0;
     a.bg_color1_r = 0.11f; a.bg_color1_g = 0.22f; a.bg_color1_b = 0.33f;
     a.particles_on = 1; a.particles_kind = 2;
@@ -115,6 +121,8 @@ void run_presets_tests(void)
     Config b;
     EXPECT(preset_user_load_from(TBASE, L"Alfa", &b) == 1);
     EXPECT(b.material_mode == 3);
+    EXPECT(b.env_mode == 1);
+    EXPECT(wcscmp(b.env_path, L"D:\\hdri\\estudio.hdr") == 0);
     EXPECT(nearf(b.bg_color1_r, 0.11f) && nearf(b.bg_color1_g, 0.22f) && nearf(b.bg_color1_b, 0.33f));
     EXPECT(b.particles_kind == 2);
     EXPECT(nearf(b.particles_sparks_density, 0.55f));
@@ -140,6 +148,8 @@ void run_presets_tests(void)
     Config ea;
     config_defaults(&ea);
     ea.material_mode = 1;
+    ea.env_mode = 1;
+    wcscpy(ea.env_path, L"E:\\fotos\\hdri_quintal.jpg");
     ea.background_type = 3;
     ea.bg_neb_color1_r = 0.5f; ea.bg_neb_color1_g = 0.25f; ea.bg_neb_color1_b = 0.75f;
     ea.particles_on = 1; ea.particles_kind = 3;
@@ -153,6 +163,8 @@ void run_presets_tests(void)
     Config eb;
     EXPECT(preset_import_file(tmpfile, &eb) == 1);
     EXPECT(eb.material_mode == 1);
+    EXPECT(eb.env_mode == 1);
+    EXPECT(wcscmp(eb.env_path, L"E:\\fotos\\hdri_quintal.jpg") == 0);
     EXPECT(eb.background_type == 3);
     EXPECT(nearf(eb.bg_neb_color1_r, 0.5f) && nearf(eb.bg_neb_color1_g, 0.25f) && nearf(eb.bg_neb_color1_b, 0.75f));
     EXPECT(eb.particles_kind == 3);
