@@ -64,6 +64,47 @@ static unsigned char *load_face_bytes(const wchar_t *family, int bold, int itali
     return buf;
 }
 
+/* load_face_bytes() extrai os bytes crus do arquivo da fonte via GDI e
+   stbtt_InitFont() le' direto a tabela 'glyf' estatica - nenhum dos dois
+   entende os eixos de variacao de uma fonte variavel OpenType (tabelas
+   'fvar'/'gvar'): pedir negrito/italico (lfWeight/lfItalic) muda o que o
+   GDI RELATA nos metadados, mas os bytes do arquivo (e portanto o
+   contorno que a stb_truetype extrai) sao sempre os mesmos, da instancia
+   default baked no 'glyf'. Ou seja, pra qualquer fonte com 'fvar', negrito/
+   italico nunca vai ter efeito visual nenhum nesse pipeline.
+
+   Deliberadamente NAO exclui fontes estaticas sem par negrito/italico
+   "linkado" pelo Windows (comum em fontes de exibicao baixadas com um so'
+   peso) - isso e' uma limitacao normal e aceitavel dessas fontes, nao o
+   bug de fontes variaveis que o usuario pediu pra filtrar; um teste mais
+   agressivo (comparar o tamanho do arquivo devolvido por GetFontData
+   entre um pedido normal e um em negrito+italico) pegaria esse caso
+   tambem, mas testado ao vivo excluiu quase metade das fontes instaladas
+   nesta maquina - superdimensionado pro problema reportado. */
+int font_supports_bold_italic(const wchar_t *family)
+{
+    HDC dc = CreateCompatibleDC(NULL);
+
+    LOGFONTW lf;
+    memset(&lf, 0, sizeof lf);
+    lf.lfHeight = -256;
+    lf.lfCharSet = DEFAULT_CHARSET;
+    lf.lfOutPrecision = OUT_TT_PRECIS;
+    wcsncpy(lf.lfFaceName, family, LF_FACESIZE - 1);
+
+    HFONT font = CreateFontIndirectW(&lf);
+    HGDIOBJ old = SelectObject(dc, font);
+
+    const DWORD FVAR_TAG = 0x72617666;   /* 'fvar' */
+    int is_variable = (GetFontData(dc, FVAR_TAG, 0, NULL, 0) != GDI_ERROR);
+
+    SelectObject(dc, old);
+    DeleteObject(font);
+    DeleteDC(dc);
+
+    return !is_variable;
+}
+
 /* ---- buffer de pontos + achatamento de curvas ---- */
 typedef struct { v2 *p; int n, cap; } PtBuf;
 

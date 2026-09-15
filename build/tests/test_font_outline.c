@@ -28,4 +28,9 @@ void run_font_outline_tests(void)
     EXPECT(font_build_contours("A", L"NaoExisteEssaFonte123", 0, 0, 0.01f, &cs) == 1);
     EXPECT(cs.count >= 1);
     contourset_free(&cs);
+
+    /* Arial e' uma fonte estatica normal - negrito/italico funcionam de verdade */
+    EXPECT(font_supports_bold_italic(L"Arial") == 1);
+    /* fonte inexistente cai num fallback estatico do GDI - tambem nao e' excluida */
+    EXPECT(font_supports_bold_italic(L"NaoExisteEssaFonte123") == 1);
 }
