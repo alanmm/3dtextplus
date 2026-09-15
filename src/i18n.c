@@ -30,7 +30,7 @@ static const char *const KEY_NAMES[STR_COUNT] = {
     "material.env_mode.embedded", "material.env_mode.custom", "material.env_mode.none",
 
     "geometry.depth_label", "geometry.bevel_label",
-    "geometry.bevel.shading", "geometry.bevel.geometric",
+    "geometry.bevel.rounded", "geometry.bevel.geometric",
     "geometry.bevel.off", "geometry.bsize_label",
     "geometry.bdepth_label", "geometry.bseg_label", "geometry.shell",
     "geometry.wall_label", "geometry.quality_label",

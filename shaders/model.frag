@@ -3,11 +3,8 @@ in vec3  vWorld;
 in vec3  vNrm;
 in vec3  vNrmLocal;
 in float vSurf;
-in vec2  vLocalXY;
-in float vLocalZ;
 
 uniform mat4  uModel;
-uniform float uHalfDepth;
 uniform vec3  uCamPos;
 uniform vec3  uBaseColor;
 uniform int   uMode;         // 0 classico, 1 metalico, 2 vidro, 3 fosco
@@ -15,12 +12,6 @@ uniform float uMetalness;    // 0..1
 uniform float uRoughness;    // 0..1
 uniform sampler2D uEnvTex;
 uniform int   uHasEnv;       // 0/1
-
-uniform sampler2D uSdf;      // R=dist(em), G=gx, B=gy
-uniform vec2  uSdfMin;
-uniform vec2  uSdfSize;
-uniform int   uBevelMode;    // 0 sombreado, 1 geometrico, 2 desligado
-uniform float uBevelSize;
 
 out vec4 fragColor;
 
@@ -96,36 +87,6 @@ vec3 jitter_reflection(vec3 R, vec3 worldPos, float amount)
 void main()
 {
     vec3 Nl = normalize(vNrmLocal);
-    if (uBevelMode == 0 && uBevelSize > 1e-4) {
-        vec2 uv = (vLocalXY - uSdfMin) / uSdfSize;
-        vec3 s = texture(uSdf, uv).rgb;
-        vec2 g = s.gb;
-        float gl = length(g);
-
-        if (vSurf < 1.5 && gl > 1e-4) {
-            // tampa: inclina a normal da face rumo a direcao da borda (gradiente do SDF)
-            float band = clamp(-s.r / uBevelSize, 0.0, 1.0);
-            if (band < 1.0) {
-                g /= gl;
-                float zside = (vSurf < 0.5) ? 1.0 : -1.0;
-                vec3 edgeN = normalize(vec3(g * 1.7, zside));
-                float tt = sqrt(1.0 - band);
-                Nl = normalize(mix(vec3(0.0, 0.0, zside), edgeN, tt));
-            }
-        } else if (vSurf > 1.5 && vSurf < 2.5 && gl > 1e-4) {
-            // parede: perto da tampa, inclina a normal rumo a +/-Z (fecha o quarto-de-circulo)
-            float edgeDist = uHalfDepth - abs(vLocalZ);
-            float wt = clamp(1.0 - edgeDist / uBevelSize, 0.0, 1.0);
-            if (wt > 0.0) {
-                g /= gl;
-                float zside = sign(vLocalZ);
-                vec3 wallN = normalize(vec3(g, 0.0));
-                vec3 edgeN = normalize(vec3(g * 1.7, zside));
-                Nl = normalize(mix(wallN, edgeN, wt * wt));
-            }
-        }
-    }
-
     vec3 N = normalize(mat3(uModel) * Nl);
     if (!gl_FrontFacing) N = -N;
     vec3 V = normalize(uCamPos - vWorld);

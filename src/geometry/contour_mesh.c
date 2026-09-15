@@ -33,11 +33,6 @@ static void quad(IBuf *b, unsigned a, unsigned c, unsigned d, unsigned e)
     tri(b, a, d, e);
 }
 
-static int sdf_res_for(int quality)
-{
-    return quality <= 0 ? 256 : (quality == 1 ? 512 : 768);
-}
-
 static float signed_area_pts(const v2 *p, int n)
 {
     float a = 0.0f;
@@ -108,6 +103,35 @@ static v2 wall_normal_at(const WallNormals *wn, int vertIdx, int edgeIdx)
     return wn->smooth[vertIdx] ? wn->smoothN[vertIdx] : wn->edgeN[edgeIdx];
 }
 
+/* chanfro arredondado: posicao ao longo de um arco de quarto de elipse
+   (semi-eixos run=distancia XY ate o outset, bd=profundidade) entre o
+   canto original (theta=0) e o outset (theta=PI/2), parametrizado por
+   theta em vez de uma fracao linear - e' isso que da' curvatura de
+   verdade ao perfil (compare com o modo Geometrico, que interpola reto
+   entre os mesmos dois pontos). */
+static v2 rounded_pos(v2 c, v2 o, float theta)
+{
+    float f = sinf(theta);
+    return (v2){ c.x + (o.x - c.x) * f, c.y + (o.y - c.y) * f };
+}
+
+/* normal no ponto `theta` do mesmo arco: tangente = (run*cos theta,
+   -bd*sin theta) num corte (XY radial, Z); normal = tangente girada
+   90 graus, escolhida pra bater com a normal da tampa (0,0,1) em
+   theta=0 e com a normal radial da parede em theta=PI/2 - a mesma
+   suavizacao "por angulo" de `n` (ja' vem de wall_normal_at) cuida da
+   direcao ao redor do contorno, isso aqui cuida da direcao ao longo
+   do proprio chanfro. */
+static void rounded_normal(v2 n, float theta, float run, float bd, float *nx, float *ny, float *nz)
+{
+    float a = bd * sinf(theta);
+    float b = run * cosf(theta);
+    float len = sqrtf(a * a + b * b);
+    float xyk = (len > 1e-6f) ? (a / len) : 0.0f;
+    float zk  = (len > 1e-6f) ? (b / len) : 1.0f;
+    *nx = n.x * xyk; *ny = n.y * xyk; *nz = zk;
+}
+
 /* offset de `c` para o interior por `d`. `inward_left` = 1 se o interior fica a
    esquerda das arestas (contorno CCW). Fallback ao ponto original quando o miter
    estoura. Escreve `c->count` pontos em `out`. */
@@ -153,16 +177,10 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
     if (valid_pts < 3) return 0;
 
     const float hz = p.depth * 0.5f;
-    const int shading = (p.bevel_mode == 0);
-    const int geombev = (p.bevel_mode == 1);
-    float mb = 0.0f;
-    if (shading) {
-        mb = p.bevel_size;
-        float cap = p.depth * 0.03f;
-        if (mb > cap) mb = cap;
-        if (mb < 1e-4f) mb = 0.0f;
-    }
-    const float cap_z = hz - mb;   /* tampa recuada pelo micro-bevel */
+    const int rounded = (p.bevel_mode == 0);   /* chanfro curvo (arco) */
+    const int flatbev = (p.bevel_mode == 1);   /* chanfro reto (corte fixo) */
+    const int geombev = rounded || flatbev;
+    const float cap_z = hz;
 
     /* casca oca: inset de cada contorno; valido se preserva a orientacao e mantem area */
     v2 **inner = NULL;
@@ -239,7 +257,7 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
     }
     tessDeleteTess(t);
 
-    /* ---------- modo geometrico: faixa de bevel multi-segmento (outset robusto) ---------- */
+    /* ---------- chanfro real (reto ou arredondado): faixa de bevel multi-segmento (outset robusto) ---------- */
     if (geombev) {
         float bs = p.bevel_size;
         float bd = fminf(p.bevel_depth > 1e-4f ? p.bevel_depth : bs, hz * 0.9f);
@@ -279,11 +297,11 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
                 vpush(&vb, (MeshVertex){ o0.x, o0.y, -wall_z, n0.x, n0.y, 0, 2 });
                 quad(&ib, w + 0, w + 1, w + 2, w + 3);
 
-                /* faceta (corte ~45 graus): de (c @ hz) a (outset @ hz-bd). Normal
-                   por vertice (A usa n0, B usa n1 - a mesma direcao XY ja
-                   suavizada/com quina viva calculada pra parede acima) em vez de
-                   uma normal constante pro retalho inteiro: preserva o angulo reto
-                   do corte (o usuario gosta dele, da reflexos mais definidos), mas
+                /* faceta do chanfro: de (c @ hz) a (outset @ hz-bd), reta (flatbev)
+                   ou em arco (rounded, via rounded_pos/rounded_normal). Em ambos os
+                   casos a normal e' por vertice (lado A usa n0, lado B usa n1 - a
+                   mesma direcao XY ja suavizada/com quina viva calculada pra parede
+                   acima) em vez de uma normal constante pro retalho inteiro: isso
                    elimina a quebra de sombreamento faceta-a-faceta em trechos
                    curvos do contorno (letras redondas), onde antes cada aresta do
                    contorno virava uma faceta visivelmente distinta sob luz
@@ -294,25 +312,46 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
                 float zk  = (fl > 1e-6f) ? (run / fl) : 1.0f;
                 float fnxA = n0.x * xyk, fnyA = n0.y * xyk, fnzA = zk;
                 float fnxB = n1.x * xyk, fnyB = n1.y * xyk, fnzB = zk;
+                const float HALF_PI = 1.57079633f;
 
                 for (int k = 0; k < segs; ++k) {
                     float u0 = (float)k / (float)segs, u1 = (float)(k + 1) / (float)segs;
-                    float z0 = hz - bd * u0, z1 = hz - bd * u1;
-                    v2 A0 = { c0.x + (o0.x - c0.x) * u0, c0.y + (o0.y - c0.y) * u0 };
-                    v2 B0 = { c1.x + (o1.x - c1.x) * u0, c1.y + (o1.y - c1.y) * u0 };
-                    v2 A1 = { c0.x + (o0.x - c0.x) * u1, c0.y + (o0.y - c0.y) * u1 };
-                    v2 B1 = { c1.x + (o1.x - c1.x) * u1, c1.y + (o1.y - c1.y) * u1 };
+                    float z0, z1;
+                    v2 A0, B0, A1, B1;
+                    float nxA0, nyA0, nzA0, nxB0, nyB0, nzB0;
+                    float nxA1, nyA1, nzA1, nxB1, nyB1, nzB1;
+
+                    if (rounded) {
+                        float th0 = u0 * HALF_PI, th1 = u1 * HALF_PI;
+                        z0 = hz - bd * (1.0f - cosf(th0));
+                        z1 = hz - bd * (1.0f - cosf(th1));
+                        A0 = rounded_pos(c0, o0, th0); B0 = rounded_pos(c1, o1, th0);
+                        A1 = rounded_pos(c0, o0, th1); B1 = rounded_pos(c1, o1, th1);
+                        rounded_normal(n0, th0, run, bd, &nxA0, &nyA0, &nzA0);
+                        rounded_normal(n1, th0, run, bd, &nxB0, &nyB0, &nzB0);
+                        rounded_normal(n0, th1, run, bd, &nxA1, &nyA1, &nzA1);
+                        rounded_normal(n1, th1, run, bd, &nxB1, &nyB1, &nzB1);
+                    } else {
+                        z0 = hz - bd * u0; z1 = hz - bd * u1;
+                        A0 = (v2){ c0.x + (o0.x - c0.x) * u0, c0.y + (o0.y - c0.y) * u0 };
+                        B0 = (v2){ c1.x + (o1.x - c1.x) * u0, c1.y + (o1.y - c1.y) * u0 };
+                        A1 = (v2){ c0.x + (o0.x - c0.x) * u1, c0.y + (o0.y - c0.y) * u1 };
+                        B1 = (v2){ c1.x + (o1.x - c1.x) * u1, c1.y + (o1.y - c1.y) * u1 };
+                        nxA0 = nxA1 = fnxA; nyA0 = nyA1 = fnyA; nzA0 = nzA1 = fnzA;
+                        nxB0 = nxB1 = fnxB; nyB0 = nyB1 = fnyB; nzB0 = nzB1 = fnzB;
+                    }
+
                     unsigned f = (unsigned)vb.n;
-                    vpush(&vb, (MeshVertex){ A0.x, A0.y,  z0, fnxA, fnyA,  fnzA, 3 });
-                    vpush(&vb, (MeshVertex){ B0.x, B0.y,  z0, fnxB, fnyB,  fnzB, 3 });
-                    vpush(&vb, (MeshVertex){ B1.x, B1.y,  z1, fnxB, fnyB,  fnzB, 3 });
-                    vpush(&vb, (MeshVertex){ A1.x, A1.y,  z1, fnxA, fnyA,  fnzA, 3 });
+                    vpush(&vb, (MeshVertex){ A0.x, A0.y,  z0, nxA0, nyA0,  nzA0, 3 });
+                    vpush(&vb, (MeshVertex){ B0.x, B0.y,  z0, nxB0, nyB0,  nzB0, 3 });
+                    vpush(&vb, (MeshVertex){ B1.x, B1.y,  z1, nxB1, nyB1,  nzB1, 3 });
+                    vpush(&vb, (MeshVertex){ A1.x, A1.y,  z1, nxA1, nyA1,  nzA1, 3 });
                     quad(&ib, f + 0, f + 1, f + 2, f + 3);
                     unsigned b = (unsigned)vb.n;
-                    vpush(&vb, (MeshVertex){ A1.x, A1.y, -z1, fnxA, fnyA, -fnzA, 3 });
-                    vpush(&vb, (MeshVertex){ B1.x, B1.y, -z1, fnxB, fnyB, -fnzB, 3 });
-                    vpush(&vb, (MeshVertex){ B0.x, B0.y, -z0, fnxB, fnyB, -fnzB, 3 });
-                    vpush(&vb, (MeshVertex){ A0.x, A0.y, -z0, fnxA, fnyA, -fnzA, 3 });
+                    vpush(&vb, (MeshVertex){ A1.x, A1.y, -z1, nxA1, nyA1, -nzA1, 3 });
+                    vpush(&vb, (MeshVertex){ B1.x, B1.y, -z1, nxB1, nyB1, -nzB1, 3 });
+                    vpush(&vb, (MeshVertex){ B0.x, B0.y, -z0, nxB0, nyB0, -nzB0, 3 });
+                    vpush(&vb, (MeshVertex){ A0.x, A0.y, -z0, nxA0, nyA0, -nzA0, 3 });
                     quad(&ib, b + 0, b + 1, b + 2, b + 3);
                 }
             }
@@ -322,17 +361,12 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
         if (clamped) log_infof("bevel geom: %d contornos clampados", clamped);
     }
 
-    /* paredes + micro-bevel por contorno (modos sombreado e desligado) */
+    /* parede reta por contorno (modo "desligado" - sem chanfro nenhum) */
     for (int ci = 0; !geombev && ci < cs->count; ++ci) {
         const Contour *co = &cs->contours[ci];
         if (co->count < 3) continue;
 
         int ccw = signed_area(co) > 0.0f;
-        v2 *inset = NULL;
-        if (mb > 0.0f) {
-            inset = (v2 *)malloc((size_t)co->count * sizeof(v2));
-            inset_contour(co, mb, ccw, inset);
-        }
         WallNormals wn;
         wall_normals_build(co->pts, co->count, ccw, &wn);
 
@@ -341,7 +375,6 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
             v2 a0 = co->pts[i], a1 = co->pts[j];
             v2 on = wn.edgeN[i];
             if (on.x == 0.0f && on.y == 0.0f) continue;
-            float nx = on.x, ny = on.y;
             v2 n0 = wall_normal_at(&wn, i, i);
             v2 n1 = wall_normal_at(&wn, j, i);
 
@@ -353,28 +386,7 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
             vpush(&vb, (MeshVertex){ a1.x, a1.y, -cap_z, n1.x, n1.y, 0, 2 });
             vpush(&vb, (MeshVertex){ a0.x, a0.y, -cap_z, n0.x, n0.y, 0, 2 });
             quad(&ib, w + 0, w + 1, w + 2, w + 3);
-
-            if (mb > 0.0f) {
-                v2 b0 = inset[i], b1 = inset[j];
-                float s = 0.70710678f;                 /* chanfro ~45 graus */
-                float fnx = nx * s, fny = ny * s;       /* componente horizontal */
-                /* chanfro frontal: inset @ +hz  ->  original @ +cap_z */
-                unsigned cf = (unsigned)vb.n;
-                vpush(&vb, (MeshVertex){ b0.x, b0.y,  hz,    fnx, fny,  s, 3 });
-                vpush(&vb, (MeshVertex){ b1.x, b1.y,  hz,    fnx, fny,  s, 3 });
-                vpush(&vb, (MeshVertex){ a1.x, a1.y,  cap_z, fnx, fny,  s, 3 });
-                vpush(&vb, (MeshVertex){ a0.x, a0.y,  cap_z, fnx, fny,  s, 3 });
-                quad(&ib, cf + 0, cf + 1, cf + 2, cf + 3);
-                /* chanfro traseiro */
-                unsigned cb = (unsigned)vb.n;
-                vpush(&vb, (MeshVertex){ a0.x, a0.y, -cap_z, fnx, fny, -s, 3 });
-                vpush(&vb, (MeshVertex){ a1.x, a1.y, -cap_z, fnx, fny, -s, 3 });
-                vpush(&vb, (MeshVertex){ b1.x, b1.y, -hz,    fnx, fny, -s, 3 });
-                vpush(&vb, (MeshVertex){ b0.x, b0.y, -hz,    fnx, fny, -s, 3 });
-                quad(&ib, cb + 0, cb + 1, cb + 2, cb + 3);
-            }
         }
-        free(inset);
         wall_normals_free(&wn);
     }
 
@@ -423,11 +435,6 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
     out->idx = ib.i;   out->nidx = ib.n;
     out->minx = mnx; out->miny = mny; out->minz = mnz;
     out->maxx = mxx; out->maxy = mxy; out->maxz = mxz;
-
-    if (shading) {
-        if (sdf_build(cs, sdf_res_for(p.quality), &out->sdf))
-            out->has_sdf = 1;
-    }
     return 1;
 }
 
@@ -435,6 +442,5 @@ void mesh_data_free(MeshData *m)
 {
     free(m->verts);
     free(m->idx);
-    if (m->has_sdf) sdf_free(&m->sdf);
     memset(m, 0, sizeof *m);
 }

@@ -19,15 +19,8 @@ int material_init(Material *m)
     m->uRoughness = glGetUniformLocation(m->prog, "uRoughness");
     m->uEnvTex    = glGetUniformLocation(m->prog, "uEnvTex");
     m->uHasEnv    = glGetUniformLocation(m->prog, "uHasEnv");
-    m->uSdf       = glGetUniformLocation(m->prog, "uSdf");
-    m->uSdfMin    = glGetUniformLocation(m->prog, "uSdfMin");
-    m->uSdfSize   = glGetUniformLocation(m->prog, "uSdfSize");
-    m->uBevelMode = glGetUniformLocation(m->prog, "uBevelMode");
-    m->uBevelSize = glGetUniformLocation(m->prog, "uBevelSize");
-    m->uHalfDepth = glGetUniformLocation(m->prog, "uHalfDepth");
     glUseProgram(m->prog);
     glUniform1i(m->uEnvTex, 0);   /* unidade de textura 0 */
-    glUniform1i(m->uSdf, 1);      /* unidade de textura 1 */
     return 1;
 }
 
@@ -58,21 +51,6 @@ void material_set_piece_color(const Material *m, v3 color)
 {
     glUseProgram(m->prog);
     glUniform3f(m->uBaseColor, color.x, color.y, color.z);
-}
-
-void material_set_bevel(const Material *m, int bevel_mode, float bevel_size, float half_depth,
-                        v2 sdf_min, v2 sdf_size, unsigned sdf_tex)
-{
-    glUseProgram(m->prog);
-    glUniform1i(m->uBevelMode, sdf_tex ? bevel_mode : 2);   /* sem SDF -> trata como off */
-    glUniform1f(m->uBevelSize, bevel_size);
-    glUniform1f(m->uHalfDepth, half_depth);
-    glUniform2f(m->uSdfMin, sdf_min.x, sdf_min.y);
-    glUniform2f(m->uSdfSize, sdf_size.x, sdf_size.y);
-    if (sdf_tex) {
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, sdf_tex);
-    }
 }
 
 void material_set_model(const Material *m, m4 model)

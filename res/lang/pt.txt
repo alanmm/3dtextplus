@@ -61,12 +61,12 @@ placeholder.procedural=(procedural)
 # aba Geometria
 geometry.depth_label=Profundidade:
 geometry.bevel_label=Chanfro:
-geometry.bevel.shading=Sombreado
+geometry.bevel.rounded=Arredondado
 geometry.bevel.geometric=Geométrico
 geometry.bevel.off=Desligado
 geometry.bsize_label=Tamanho:
 geometry.bdepth_label=Profundidade do chanfro:
-geometry.bseg_label=Segmentos (modo geométrico):
+geometry.bseg_label=Segmentos do chanfro:
 geometry.shell=Casca oca
 geometry.wall_label=Espessura da parede:
 geometry.quality_label=Qualidade:

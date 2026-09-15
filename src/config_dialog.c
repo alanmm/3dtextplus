@@ -709,7 +709,7 @@ static void geometry_labels(HWND h)
 
 static void geometry_enable(HWND h)
 {
-    EnableWindow(GetDlgItem(h, IDC_BSEG), g_work.bevel_mode == 1);
+    EnableWindow(GetDlgItem(h, IDC_BSEG), g_work.bevel_mode == 0 || g_work.bevel_mode == 1);
     EnableWindow(GetDlgItem(h, IDC_WALL), g_work.shell != 0);
 }
 
@@ -727,7 +727,7 @@ static void geometry_apply_i18n(HWND h)
     HWND bev = GetDlgItem(h, IDC_BEVELMODE);
     int cur = (int)SendMessageW(bev, CB_GETCURSEL, 0, 0);
     SendMessageW(bev, CB_RESETCONTENT, 0, 0);
-    SendMessageW(bev, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_GEOMETRY_BEVEL_SHADING));
+    SendMessageW(bev, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_GEOMETRY_BEVEL_ROUNDED));
     SendMessageW(bev, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_GEOMETRY_BEVEL_GEOMETRIC));
     SendMessageW(bev, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_GEOMETRY_BEVEL_OFF));
     SendMessageW(bev, CB_SETCURSEL, cur < 0 ? g_work.bevel_mode : cur, 0);

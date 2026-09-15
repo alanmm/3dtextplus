@@ -25,7 +25,7 @@ static void cs_free(ContourSet *cs)
     free(cs->contours);
 }
 
-/* MeshParams: modo desligado (2) -> so tampa + paredes, sem SDF, sem micro-bevel */
+/* MeshParams: modo desligado (2) -> so tampa + paredes retas, sem chanfro */
 static MeshParams mp_plain(float depth)
 {
     MeshParams p; memset(&p, 0, sizeof p);
@@ -34,12 +34,14 @@ static MeshParams mp_plain(float depth)
     p.quality = 0;
     return p;
 }
-static MeshParams mp_shading(float depth, float bevel)
+static MeshParams mp_rounded(float depth, float bevel, int segs)
 {
     MeshParams p; memset(&p, 0, sizeof p);
     p.depth = depth;
     p.bevel_mode = 0;
     p.bevel_size = bevel;
+    p.bevel_depth = bevel;
+    p.bevel_segments = segs;
     p.quality = 0;
     return p;
 }
@@ -66,7 +68,6 @@ void run_contour_mesh_tests(void)
         EXPECT(contour_mesh_build(&cs, mp_plain(0.5f), &md) == 1);
         EXPECT(md.nverts > 0 && md.nidx > 0 && md.nidx % 3 == 0);
         EXPECT(fabsf(md.minz + 0.25f) < 1e-4f && fabsf(md.maxz - 0.25f) < 1e-4f);
-        EXPECT(md.has_sdf == 0);
         int caps = 0, walls = 0;
         for (int i = 0; i < md.nverts; ++i) {
             const MeshVertex *v = &md.verts[i];
@@ -78,19 +79,31 @@ void run_contour_mesh_tests(void)
         cs_free(&cs);
     }
 
-    /* quadrado, modo sombreado: gera SDF, dentro < 0 */
+    /* quadrado, modo arredondado: verifica que o perfil e' mesmo curvo -
+       a normal do vertice junto a tampa (z=hz) deve apontar quase reto
+       pra cima (nz perto de 1), e a do vertice junto a parede (z=wall_z)
+       deve ser quase toda radial (nz perto de 0) - isso so' e' verdade
+       pra um arco de verdade, um chanfro reto teria a MESMA normal (um
+       valor intermediario constante) nos dois extremos. */
     {
         ContourSet cs = cs_make(1);
         float sq[] = { -1,-1,  1,-1,  1,1,  -1,1 };
         cs_set(&cs, 0, sq, 4);
         MeshData md;
-        EXPECT(contour_mesh_build(&cs, mp_shading(0.5f, 0.08f), &md) == 1);
-        EXPECT(md.has_sdf == 1 && md.sdf.res > 0);
-        EXPECT(sdf_sample(&md.sdf, 0.0f, 0.0f) < 0.0f);
+        EXPECT(contour_mesh_build(&cs, mp_rounded(0.4f, 0.15f, 4), &md) == 1);
         int chamfer = 0;
-        for (int i = 0; i < md.nverts; ++i)
-            if (md.verts[i].surf > 2.5f) chamfer++;
-        EXPECT(chamfer > 0);                       /* micro-bevel presente */
+        float nz_at_cap = -2.0f, nz_at_wall = -2.0f;   /* sentinela: "nao achou" */
+        const float hz = 0.2f, wall_z = 0.05f;         /* depth/2, hz-bevel_depth */
+        for (int i = 0; i < md.nverts; ++i) {
+            const MeshVertex *v = &md.verts[i];
+            if (v->surf <= 2.5f || v->nz < -1e-4f) continue;
+            chamfer++;
+            if (fabsf(v->pz - hz) < 1e-3f) nz_at_cap = v->nz;
+            if (fabsf(v->pz - wall_z) < 1e-3f) nz_at_wall = v->nz;
+        }
+        EXPECT(chamfer > 0);
+        EXPECT(nz_at_cap > 0.98f);    /* quase reto pra cima, junto a tampa */
+        EXPECT(nz_at_wall < 0.05f);   /* quase todo radial, junto a parede */
         mesh_data_free(&md);
         cs_free(&cs);
     }
@@ -136,13 +149,13 @@ void run_contour_mesh_tests(void)
         cs_free(&cs);
     }
 
-    /* "L" concavo, sombreado (offset do micro-bevel nao pode crashar) */
+    /* "L" concavo, arredondado (outset do chanfro nao pode crashar) */
     {
         ContourSet cs = cs_make(1);
         float L[] = { 0,0,  2,0,  2,1,  1,1,  1,3,  0,3 };
         cs_set(&cs, 0, L, 6);
         MeshData md;
-        EXPECT(contour_mesh_build(&cs, mp_shading(0.3f, 0.06f), &md) == 1);
+        EXPECT(contour_mesh_build(&cs, mp_rounded(0.3f, 0.06f, 4), &md) == 1);
         EXPECT(md.nidx % 3 == 0);
         mesh_data_free(&md);
         cs_free(&cs);
@@ -156,7 +169,6 @@ void run_contour_mesh_tests(void)
         MeshData md;
         EXPECT(contour_mesh_build(&cs, mp_geom(0.4f, 0.15f, 4), &md) == 1);
         EXPECT(md.nidx % 3 == 0 && md.nverts > 0);
-        EXPECT(md.has_sdf == 0);
         int chamfer = 0;
         for (int i = 0; i < md.nverts; ++i) if (md.verts[i].surf > 2.5f) chamfer++;
         EXPECT(chamfer >= 4 * 4 * 2 * 4);   /* 4 arestas * 4 segs * 2 lados * 4 vertices */
@@ -279,9 +291,8 @@ void run_contour_mesh_tests(void)
         float two[] = { 0,0, 1,1 };
         cs_set(&cs, 0, two, 2);
         MeshData md;
-        int r = contour_mesh_build(&cs, mp_shading(0.3f, 0.05f), &md);
+        int r = contour_mesh_build(&cs, mp_rounded(0.3f, 0.05f, 4), &md);
         EXPECT(r == 0);
-        EXPECT(md.has_sdf == 0);
         cs_free(&cs);
     }
 }

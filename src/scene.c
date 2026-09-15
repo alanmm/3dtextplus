@@ -52,10 +52,6 @@ struct SceneRenderer {
     float    bevel_size, bevel_depth, wall_thickness;
     int      bevel_segments, shell, quality;
 
-    unsigned sdf_tex;
-    int      has_sdf;
-    float    sdf_min_x, sdf_min_y, sdf_size_x, sdf_size_y;
-
     /* fundo */
     unsigned bg_prog, bg_vao;
     int      background_type;
@@ -103,28 +99,6 @@ struct SceneRenderer {
     v3       error_colors[2];
     int      have_error_plaque;
 };
-
-static void upload_sdf(SceneRenderer *s, const Sdf *sdf)
-{
-    if (s->sdf_tex) { glDeleteTextures(1, &s->sdf_tex); s->sdf_tex = 0; }
-    s->has_sdf = 0;
-    if (!sdf || sdf->res <= 0) return;
-
-    int n = sdf->res * sdf->res;
-    float *rgba = (float *)malloc((size_t)n * 4 * sizeof(float));
-    if (!rgba) return;
-    for (int i = 0; i < n; ++i) {
-        rgba[i * 4 + 0] = sdf->dist[i];
-        rgba[i * 4 + 1] = sdf->gx[i];
-        rgba[i * 4 + 2] = sdf->gy[i];
-        rgba[i * 4 + 3] = 0.0f;
-    }
-    s->sdf_tex = gl_texture_2d_rgba32f(sdf->res, sdf->res, rgba);
-    free(rgba);
-    s->has_sdf = 1;
-    s->sdf_min_x = sdf->min_x;   s->sdf_min_y = sdf->min_y;
-    s->sdf_size_x = sdf->size_x; s->sdf_size_y = sdf->size_y;
-}
 
 static unsigned bg_load_texture(const wchar_t *path, int *out_w, int *out_h)
 {
@@ -205,7 +179,6 @@ static void build_flat_quad(float halfw, float halfh, float z, MeshData *out)
     out->minx = -halfw; out->maxx = halfw;
     out->miny = -halfh; out->maxy = halfh;
     out->minz = z; out->maxz = z;
-    out->has_sdf = 0;
 }
 
 /* placa achatada (caixa cinza + texto preto) usada como fallback visivel
@@ -257,7 +230,6 @@ static int build_error_plaque(SceneRenderer *s, const char *message)
     s->have_error_plaque = 1;
     s->hx = box_hw; s->hy = box_hh; s->hz = 0.02f;
     s->wall_cache_count = 0;
-    upload_sdf(s, NULL);
     log_infof("scene: placa de erro '%s'", message);
     return 1;
 }
@@ -297,12 +269,11 @@ static int rebuild_mesh(SceneRenderer *s)
         s->wall_cache_count = wc;
     }
 
-    upload_sdf(s, md.has_sdf ? &md.sdf : NULL);
     mesh_data_free(&md);
     s->have_mesh = 1;
-    log_infof("scene: mesh '%s' (%ls%s%s) hx=%.2f hy=%.2f hz=%.2f bevel=%d sdf=%d",
+    log_infof("scene: mesh '%s' (%ls%s%s) hx=%.2f hy=%.2f hz=%.2f bevel=%d",
               s->text, s->font_family, s->bold ? " b" : "", s->italic ? " i" : "",
-              s->hx, s->hy, s->hz, s->bevel_mode, s->has_sdf);
+              s->hx, s->hy, s->hz, s->bevel_mode);
     return 1;
 }
 
@@ -418,7 +389,6 @@ static int rebuild_imported_mesh(SceneRenderer *s)
                 if (uhy < 1e-3f) uhy = 1.0f;
                 s->hx = uhx; s->hy = uhy; s->hz = uhz;
                 s->wall_cache_count = 0;
-                upload_sdf(s, NULL);
                 log_infof("scene: malha '%ls' -> %d peca(s) com material do arquivo",
                           s->mesh_path, s->mesh_piece_count);
                 mesh_import_pieces_free(&ps);
@@ -447,7 +417,6 @@ static int rebuild_imported_mesh(SceneRenderer *s)
     if (s->hx < 1e-3f) s->hx = 1.0f;
     if (s->hy < 1e-3f) s->hy = 1.0f;
     s->wall_cache_count = 0;   /* malha importada nao tem paredes - faiscas nao emitem nela */
-    upload_sdf(s, NULL);       /* sem bevel/SDF pra malha importada */
     int nv = md.nverts;
     mesh_data_free(&md);
     s->have_mesh = 1;
@@ -736,9 +705,6 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h, int particles_
 
     material_begin(&s->mat, view, proj, eye, s->base_color);
     material_set_style(&s->mat, s->material_mode, s->metalness, s->roughness, s->env_tex);
-    material_set_bevel(&s->mat, s->bevel_mode, s->bevel_size, s->hz,
-                       (v2){ s->sdf_min_x, s->sdf_min_y },
-                       (v2){ s->sdf_size_x, s->sdf_size_y }, s->has_sdf ? s->sdf_tex : 0);
     material_set_model(&s->mat, model);
 
     int glass = (s->material_mode == 2);
@@ -785,7 +751,6 @@ void scene_destroy(SceneRenderer *s)
     free_mesh_pieces(s);
     free_error_plaque(s);
     particles_destroy(s->particles);
-    if (s->sdf_tex) glDeleteTextures(1, &s->sdf_tex);
     if (s->bg_tex) glDeleteTextures(1, &s->bg_tex);
     if (s->bg_prog) glDeleteProgram(s->bg_prog);
     env_free(s->env_tex);

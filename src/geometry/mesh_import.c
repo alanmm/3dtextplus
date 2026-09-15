@@ -98,8 +98,6 @@ static int load_obj(const wchar_t *path, MeshData *out)
 
     out->verts = verts; out->nverts = (int)vi;
     out->idx = idx; out->nidx = (int)vi;
-    out->has_sdf = 0;
-    memset(&out->sdf, 0, sizeof out->sdf);
     return 1;
 }
 
@@ -253,8 +251,6 @@ int mesh_import_load_pieces(const wchar_t *path, float size_scale, MeshPieceSet 
         pieces[pi].data.nverts = groups[i].n;
         pieces[pi].data.idx = groups[i].idx;
         pieces[pi].data.nidx = groups[i].ni;
-        pieces[pi].data.has_sdf = 0;
-        memset(&pieces[pi].data.sdf, 0, sizeof pieces[pi].data.sdf);
         pieces[pi].r = m->materials[i].Kd[0];
         pieces[pi].g = m->materials[i].Kd[1];
         pieces[pi].b = m->materials[i].Kd[2];
@@ -381,8 +377,6 @@ static int load_stl(const wchar_t *path, MeshData *out)
     free(buf);
     out->verts = verts; out->nverts = (int)(ntris * 3);
     out->idx = idx; out->nidx = (int)(ntris * 3);
-    out->has_sdf = 0;
-    memset(&out->sdf, 0, sizeof out->sdf);
     return 1;
 }
 
@@ -599,8 +593,6 @@ static int load_gltf(const wchar_t *path, MeshData *out)
 
     out->verts = verts; out->nverts = (int)total_v;
     out->idx = idx; out->nidx = (int)total_i;
-    out->has_sdf = 0;
-    memset(&out->sdf, 0, sizeof out->sdf);
     return 1;
 }
 
@@ -619,8 +611,6 @@ static int load_gltf_pieces(const wchar_t *path, float size_scale, MeshPieceSet 
         pieces[i].data.nverts = list.c[i].n;
         pieces[i].data.idx = list.c[i].idx;
         pieces[i].data.nidx = list.c[i].ni;
-        pieces[i].data.has_sdf = 0;
-        memset(&pieces[i].data.sdf, 0, sizeof pieces[i].data.sdf);
         pieces[i].r = list.c[i].r;
         pieces[i].g = list.c[i].g;
         pieces[i].b = list.c[i].b;

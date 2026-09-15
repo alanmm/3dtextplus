@@ -23,13 +23,13 @@ int mesh_import_file_too_big(const wchar_t *path);
    do caminho) e monta um MeshData pronto pra upload direto - sem
    tesselacao nem extrusao, a malha ja e 3D. Centraliza no centroide e
    normaliza pra uma esfera envolvente de raio 1.0 * size_scale.
-   has_sdf sempre 0 (malha importada nao tem bevel/SDF). Retorna 1 em
-   sucesso; 0 se o arquivo nao existe, excede MESH_IMPORT_MAX_BYTES, a
-   extensao e desconhecida, ou nao ha nenhum triangulo valido. */
+   Retorna 1 em sucesso; 0 se o arquivo nao existe, excede
+   MESH_IMPORT_MAX_BYTES, a extensao e desconhecida, ou nao ha nenhum
+   triangulo valido. */
 int mesh_import_load(const wchar_t *path, float size_scale, MeshData *out);
 
 typedef struct {
-    MeshData data;   /* has_sdf sempre 0, mesmo espirito de mesh_import_load */
+    MeshData data;
     float r, g, b;   /* cor Kd do material desta peca (0..1) */
 } MeshPiece;
 

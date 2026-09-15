@@ -8,7 +8,6 @@ void run_mathx_tests(void);
 void run_font_outline_tests(void);
 void run_contour_mesh_tests(void);
 void run_config_tests(void);
-void run_sdf_tests(void);
 void run_render_tiers_tests(void);
 void run_clockfmt_tests(void);
 void run_svg_shapes_tests(void);
@@ -24,7 +23,6 @@ int main(void)
     run_font_outline_tests();
     run_contour_mesh_tests();
     run_config_tests();
-    run_sdf_tests();
     run_render_tiers_tests();
     run_clockfmt_tests();
     run_svg_shapes_tests();

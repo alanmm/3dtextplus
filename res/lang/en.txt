@@ -61,12 +61,12 @@ placeholder.procedural=(procedural)
 # Geometry tab
 geometry.depth_label=Depth:
 geometry.bevel_label=Bevel:
-geometry.bevel.shading=Shaded
+geometry.bevel.rounded=Rounded
 geometry.bevel.geometric=Geometric
 geometry.bevel.off=Off
 geometry.bsize_label=Size:
 geometry.bdepth_label=Bevel depth:
-geometry.bseg_label=Segments (geometric mode):
+geometry.bseg_label=Bevel segments:
 geometry.shell=Hollow shell
 geometry.wall_label=Wall thickness:
 geometry.quality_label=Quality:
