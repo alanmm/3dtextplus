@@ -1,4 +1,4 @@
-# Modern 3D Text
+# 3D Text+
 
 Reescrita moderna do screensaver clássico "Texto 3D" do Windows. Nativo,
 leve, OpenGL 3.3.

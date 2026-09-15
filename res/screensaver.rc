@@ -5,7 +5,7 @@
 
 IDD_CONFIG DIALOGEX 0, 0, 448, 264
 STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "Modern 3D Text"
+CAPTION "3D Text+"
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     CONTROL         "", IDC_TABS, "SysTabControl32", WS_TABSTOP | TCS_MULTILINE, 6, 6, 250, 238
@@ -37,7 +37,7 @@ STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMEN
 CAPTION "Sobre"
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
-    LTEXT      "Modern 3D Text", IDC_ABOUT_NAME, 10, 10, 200, 12
+    LTEXT      "3D Text+", IDC_ABOUT_NAME, 10, 10, 200, 12
     LTEXT      "", IDC_ABOUT_VERSION, 10, 28, 200, 9
     LTEXT      "Alan Maziero", IDC_ABOUT_AUTHOR, 10, 42, 200, 9
     CONTROL    "<a>github.com/alanmm/modern3dtext</a>", IDC_ABOUT_LINK, "SysLink", WS_TABSTOP, 10, 58, 200, 12
@@ -275,11 +275,11 @@ BEGIN
     BLOCK "040904b0"
     BEGIN
       VALUE "CompanyName",      "Alan Maziero"
-      VALUE "FileDescription",  "Modern 3D Text Screensaver"
+      VALUE "FileDescription",  "3D Text+ Screensaver"
       VALUE "FileVersion",      "0.4.3.0"
       VALUE "InternalName",     "Modern3DText"
       VALUE "OriginalFilename", "Modern3DText.scr"
-      VALUE "ProductName",      "Modern 3D Text"
+      VALUE "ProductName",      "3D Text+"
       VALUE "ProductVersion",   "0.4.3.0"
     END
   END

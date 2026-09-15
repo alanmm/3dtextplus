@@ -1,4 +1,4 @@
-# Modern 3D Text - UI strings (English)
+# 3D Text+ - UI strings (English)
 # Format: key=value. Lines starting with # are comments. \n inside a
 # value becomes a real line break; \\ becomes a literal backslash.
 

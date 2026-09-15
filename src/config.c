@@ -346,7 +346,7 @@ void config_load_from(Config *c, const wchar_t *subkey)
     c->particles_stars_density  = clampf(c->particles_stars_density, 0.0f, 1.0f);
     c->particles_stars_size     = clampf(c->particles_stars_size, 0.0f, 2.0f);
     c->particles_stars_opacity  = clampf(c->particles_stars_opacity, 0.0f, 2.0f);
-    if (c->text[0] == 0) strcpy(c->text, "Modern 3D Text");
+    if (c->text[0] == 0) strcpy(c->text, "3D Text+");
     if (c->font_family[0] == 0) wcscpy(c->font_family, L"Segoe UI");
 }
 

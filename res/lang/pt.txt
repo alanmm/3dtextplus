@@ -1,4 +1,4 @@
-# Modern 3D Text - strings da interface (portugues)
+# 3D Text+ - strings da interface (portugues)
 # Formato: chave=valor. Linhas com # sao comentario. \n dentro do valor
 # vira quebra de linha real; \\ vira uma barra invertida.
 
