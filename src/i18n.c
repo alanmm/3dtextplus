@@ -26,6 +26,8 @@ static const char *const KEY_NAMES[STR_COUNT] = {
     "material.label", "material.mode.classic", "material.mode.metallic",
     "material.mode.glass", "material.mode.matte",
     "material.metalness_label", "material.roughness_label",
+    "material.emissive_label", "material.emissive_color_btn",
+    "material.clearcoat_label", "material.anisotropy_label",
     "material.env_label", "placeholder.procedural",
     "material.env_mode.embedded", "material.env_mode.custom", "material.env_mode.none",
 

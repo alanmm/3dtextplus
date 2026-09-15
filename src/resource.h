@@ -73,6 +73,16 @@
 #define IDC_ENVMODE_EMBED  1312
 #define IDC_ENVMODE_CUSTOM 1313
 #define IDC_ENVMODE_NONE   1314
+#define IDC_EMISSIVE_LABEL 1315
+#define IDC_EMISSIVE_VAL   1316
+#define IDC_EMISSIVE       1317
+#define IDC_EMISSIVE_COLOR 1318
+#define IDC_CLEARCOAT_LABEL 1319
+#define IDC_CLEARCOAT_VAL   1320
+#define IDC_CLEARCOAT       1321
+#define IDC_ANISO_LABEL     1322
+#define IDC_ANISO_VAL       1323
+#define IDC_ANISO           1324
 
 /* aba Geometria */
 #define IDC_BEVELMODE     1400

@@ -9,6 +9,10 @@ void preset_scope_copy(Config *dst, const Config *src)
     dst->material_mode = src->material_mode;
     dst->metalness = src->metalness;
     dst->roughness = src->roughness;
+    dst->emissive_r = src->emissive_r; dst->emissive_g = src->emissive_g; dst->emissive_b = src->emissive_b;
+    dst->emissive_amount = src->emissive_amount;
+    dst->clearcoat = src->clearcoat;
+    dst->anisotropy = src->anisotropy;
     dst->env_mode = src->env_mode;
     wcsncpy(dst->env_path, src->env_path, 511);
     dst->env_path[511] = 0;
@@ -245,6 +249,12 @@ static void preset_dump_fields(FILE *f, const Config *from)
     fwprintf(f, L"material_mode=%d\r\n", from->material_mode);
     fwprintf(f, L"metalness=%.5f\r\n", (double)from->metalness);
     fwprintf(f, L"roughness=%.5f\r\n", (double)from->roughness);
+    fwprintf(f, L"emissive_r=%.5f\r\n", (double)from->emissive_r);
+    fwprintf(f, L"emissive_g=%.5f\r\n", (double)from->emissive_g);
+    fwprintf(f, L"emissive_b=%.5f\r\n", (double)from->emissive_b);
+    fwprintf(f, L"emissive_amount=%.5f\r\n", (double)from->emissive_amount);
+    fwprintf(f, L"clearcoat=%.5f\r\n", (double)from->clearcoat);
+    fwprintf(f, L"anisotropy=%.5f\r\n", (double)from->anisotropy);
     fwprintf(f, L"env_mode=%d\r\n", from->env_mode);
     fwprintf(f, L"env_path=%ls\r\n", from->env_path);
     fwprintf(f, L"bevel_mode=%d\r\n", from->bevel_mode);

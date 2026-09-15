@@ -509,6 +509,9 @@ static void material_labels(HWND h)
     wchar_t b[32];
     swprintf(b, 32, L"%.2f", (double)g_work.metalness);  SetDlgItemTextW(h, IDC_METAL_VAL, b);
     swprintf(b, 32, L"%.2f", (double)g_work.roughness);  SetDlgItemTextW(h, IDC_ROUGH_VAL, b);
+    swprintf(b, 32, L"%.2f", (double)g_work.emissive_amount); SetDlgItemTextW(h, IDC_EMISSIVE_VAL, b);
+    swprintf(b, 32, L"%.2f", (double)g_work.clearcoat);  SetDlgItemTextW(h, IDC_CLEARCOAT_VAL, b);
+    swprintf(b, 32, L"%.2f", (double)g_work.anisotropy); SetDlgItemTextW(h, IDC_ANISO_VAL, b);
     SetDlgItemTextW(h, IDC_ENVPATH, g_work.env_path[0] ? g_work.env_path : i18n_str(STR_PLACEHOLDER_PROCEDURAL));
 }
 
@@ -517,6 +520,10 @@ static void material_apply_i18n(HWND h)
     SetDlgItemTextW(h, IDC_MATERIAL_LABEL, i18n_str(STR_MATERIAL_LABEL));
     SetDlgItemTextW(h, IDC_METAL_LABEL, i18n_str(STR_MATERIAL_METALNESS_LABEL));
     SetDlgItemTextW(h, IDC_ROUGH_LABEL, i18n_str(STR_MATERIAL_ROUGHNESS_LABEL));
+    SetDlgItemTextW(h, IDC_EMISSIVE_LABEL, i18n_str(STR_MATERIAL_EMISSIVE_LABEL));
+    SetDlgItemTextW(h, IDC_EMISSIVE_COLOR, i18n_str(STR_MATERIAL_EMISSIVE_COLOR_BTN));
+    SetDlgItemTextW(h, IDC_CLEARCOAT_LABEL, i18n_str(STR_MATERIAL_CLEARCOAT_LABEL));
+    SetDlgItemTextW(h, IDC_ANISO_LABEL, i18n_str(STR_MATERIAL_ANISOTROPY_LABEL));
     SetDlgItemTextW(h, IDC_ENV_LABEL, i18n_str(STR_MATERIAL_ENV_LABEL));
     SetDlgItemTextW(h, IDC_ENVMODE_EMBED, i18n_str(STR_MATERIAL_ENV_MODE_EMBEDDED));
     SetDlgItemTextW(h, IDC_ENVMODE_CUSTOM, i18n_str(STR_MATERIAL_ENV_MODE_CUSTOM));
@@ -536,21 +543,32 @@ static void material_apply_i18n(HWND h)
     material_labels(h);
 }
 
-/* 3 blocos da aba Material, na ordem em que ja aparecem no .rc -
-   Metalizacao/Rugosidade so tem efeito no Metalico e (Rugosidade
-   tambem) no Vidro, verificado direto no shaders/model.frag */
+/* blocos da aba Material, na ordem em que ja aparecem no .rc - cada
+   propriedade so' faz sentido (e so' tem efeito real no
+   shaders/model.frag) em alguns modos:
+   Metalizacao: so' Metalico.
+   Rugosidade: Classico, Metalico e Vidro (Fosco ja' e' "todo rugoso").
+   Emissivo: Classico, Vidro e Fosco (Metalico ja' reflete o ambiente,
+   brilho proprio por cima ficaria estranho).
+   Verniz: Classico, Metalico e Fosco (Vidro ja' e' bem brilhante).
+   Anisotropia: Classico e Metalico (reflexo "escovado").
+   Ambiente: Metalico e Vidro (unico jeito de refletir alguma coisa). */
 typedef struct { int id; int x, rel_y; } MatCtrl;
 
-static MatCtrl g_mat_blocks[4][4] = {
+#define MAT_BLOCKS 7
+static MatCtrl g_mat_blocks[MAT_BLOCKS][4] = {
     { { IDC_METAL_LABEL, 0, 0 }, { IDC_METAL_VAL, 0, 0 }, { IDC_METAL, 0, 0 } },
     { { IDC_ROUGH_LABEL, 0, 0 }, { IDC_ROUGH_VAL, 0, 0 }, { IDC_ROUGH, 0, 0 } },
+    { { IDC_EMISSIVE_LABEL, 0, 0 }, { IDC_EMISSIVE_COLOR, 0, 0 }, { IDC_EMISSIVE_VAL, 0, 0 }, { IDC_EMISSIVE, 0, 0 } },
+    { { IDC_CLEARCOAT_LABEL, 0, 0 }, { IDC_CLEARCOAT_VAL, 0, 0 }, { IDC_CLEARCOAT, 0, 0 } },
+    { { IDC_ANISO_LABEL, 0, 0 }, { IDC_ANISO_VAL, 0, 0 }, { IDC_ANISO, 0, 0 } },
     { { IDC_ENV_LABEL, 0, 0 }, { IDC_ENVMODE_EMBED, 0, 0 }, { IDC_ENVMODE_CUSTOM, 0, 0 }, { IDC_ENVMODE_NONE, 0, 0 } },
     { { IDC_ENVPATH, 0, 0 }, { IDC_ENVPICK, 0, 0 }, { IDC_ENVCLEAR, 0, 0 } },
 };
-static const int MAT_BLOCK_N[4] = { 3, 3, 4, 3 };
-static int g_mat_block_top[4];
-static int g_mat_block_h[4];
-static int g_mat_gap_after[3];
+static const int MAT_BLOCK_N[MAT_BLOCKS] = { 3, 3, 4, 3, 3, 4, 3 };
+static int g_mat_block_top[MAT_BLOCKS];
+static int g_mat_block_h[MAT_BLOCKS];
+static int g_mat_gap_after[MAT_BLOCKS - 1];
 static int g_mat_layout_ready = 0;
 
 /* captura a posicao ORIGINAL (em pixels, ja resolvida do .rc) de cada
@@ -560,7 +578,7 @@ static void material_layout_capture(HWND h)
 {
     if (g_mat_layout_ready) return;
 
-    for (int b = 0; b < 4; ++b) {
+    for (int b = 0; b < MAT_BLOCKS; ++b) {
         int top = 0x7fffffff, bottom = -0x7fffffff;
         for (int i = 0; i < MAT_BLOCK_N[b]; ++i) {
             RECT r;
@@ -577,9 +595,8 @@ static void material_layout_capture(HWND h)
         for (int i = 0; i < MAT_BLOCK_N[b]; ++i)
             g_mat_blocks[b][i].rel_y -= top;
     }
-    g_mat_gap_after[0] = g_mat_block_top[1] - (g_mat_block_top[0] + g_mat_block_h[0]);
-    g_mat_gap_after[1] = g_mat_block_top[2] - (g_mat_block_top[1] + g_mat_block_h[1]);
-    g_mat_gap_after[2] = g_mat_block_top[3] - (g_mat_block_top[2] + g_mat_block_h[2]);
+    for (int b = 0; b < MAT_BLOCKS - 1; ++b)
+        g_mat_gap_after[b] = g_mat_block_top[b + 1] - (g_mat_block_top[b] + g_mat_block_h[b]);
     g_mat_layout_ready = 1;
 }
 
@@ -588,14 +605,19 @@ static void material_layout_capture(HWND h)
    espacamento entre blocos que o .rc ja tinha */
 static void material_layout_apply(HWND h)
 {
-    int vis_metal    = (g_work.material_mode == 1);
-    int vis_rough    = (g_work.material_mode == 1 || g_work.material_mode == 2);
-    int vis_env_hdr  = (g_work.material_mode == 1 || g_work.material_mode == 2);
-    int vis_env_pick = vis_env_hdr && (g_work.env_mode == 1);
-    int visible[4] = { vis_metal, vis_rough, vis_env_hdr, vis_env_pick };
+    int mode = g_work.material_mode;
+    int vis_metal      = (mode == 1);
+    int vis_rough      = (mode == 0 || mode == 1 || mode == 2);
+    int vis_emissive   = (mode == 0 || mode == 2 || mode == 3);
+    int vis_clearcoat  = (mode == 0 || mode == 1 || mode == 3);
+    int vis_aniso      = (mode == 0 || mode == 1);
+    int vis_env_hdr    = (mode == 1 || mode == 2);
+    int vis_env_pick   = vis_env_hdr && (g_work.env_mode == 1);
+    int visible[MAT_BLOCKS] = { vis_metal, vis_rough, vis_emissive, vis_clearcoat,
+                                 vis_aniso, vis_env_hdr, vis_env_pick };
 
     int cursor = g_mat_block_top[0];
-    for (int b = 0; b < 4; ++b) {
+    for (int b = 0; b < MAT_BLOCKS; ++b) {
         if (!visible[b]) {
             for (int i = 0; i < MAT_BLOCK_N[b]; ++i)
                 ShowWindow(GetDlgItem(h, g_mat_blocks[b][i].id), SW_HIDE);
@@ -607,7 +629,7 @@ static void material_layout_apply(HWND h)
                          0, 0, SWP_NOSIZE | SWP_NOZORDER);
             ShowWindow(ctrl, SW_SHOW);
         }
-        cursor += g_mat_block_h[b] + (b < 3 ? g_mat_gap_after[b] : 0);
+        cursor += g_mat_block_h[b] + (b < MAT_BLOCKS - 1 ? g_mat_gap_after[b] : 0);
     }
 }
 
@@ -618,6 +640,9 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
         case WM_INITDIALOG: {
             set_slider(h, IDC_METAL, 0, 100, (int)(g_work.metalness * 100.0f + 0.5f));
             set_slider(h, IDC_ROUGH, 0, 100, (int)(g_work.roughness * 100.0f + 0.5f));
+            set_slider(h, IDC_EMISSIVE, 0, 100, (int)(g_work.emissive_amount * 100.0f + 0.5f));
+            set_slider(h, IDC_CLEARCOAT, 0, 100, (int)(g_work.clearcoat * 100.0f + 0.5f));
+            set_slider(h, IDC_ANISO, 0, 100, (int)(g_work.anisotropy * 100.0f + 0.5f));
             material_apply_i18n(h);
             CheckRadioButton(h, IDC_ENVMODE_EMBED, IDC_ENVMODE_NONE,
                               g_work.env_mode == 1 ? IDC_ENVMODE_CUSTOM :
@@ -629,6 +654,9 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
         case WM_HSCROLL:
             g_work.metalness = (float)SendDlgItemMessageW(h, IDC_METAL, TBM_GETPOS, 0, 0) / 100.0f;
             g_work.roughness = (float)SendDlgItemMessageW(h, IDC_ROUGH, TBM_GETPOS, 0, 0) / 100.0f;
+            g_work.emissive_amount = (float)SendDlgItemMessageW(h, IDC_EMISSIVE, TBM_GETPOS, 0, 0) / 100.0f;
+            g_work.clearcoat = (float)SendDlgItemMessageW(h, IDC_CLEARCOAT, TBM_GETPOS, 0, 0) / 100.0f;
+            g_work.anisotropy = (float)SendDlgItemMessageW(h, IDC_ANISO, TBM_GETPOS, 0, 0) / 100.0f;
             material_labels(h);
             preview_dirty(h);
             return TRUE;
@@ -642,6 +670,25 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                         preview_dirty(h);
                     }
                     break;
+                case IDC_EMISSIVE_COLOR: {
+                    static COLORREF custom[16];
+                    CHOOSECOLORW cc;
+                    memset(&cc, 0, sizeof cc);
+                    cc.lStructSize = sizeof cc;
+                    cc.hwndOwner = h;
+                    cc.lpCustColors = custom;
+                    cc.rgbResult = RGB((int)(g_work.emissive_r * 255.0f),
+                                       (int)(g_work.emissive_g * 255.0f),
+                                       (int)(g_work.emissive_b * 255.0f));
+                    cc.Flags = CC_FULLOPEN | CC_RGBINIT;
+                    if (ChooseColorW(&cc)) {
+                        g_work.emissive_r = GetRValue(cc.rgbResult) / 255.0f;
+                        g_work.emissive_g = GetGValue(cc.rgbResult) / 255.0f;
+                        g_work.emissive_b = GetBValue(cc.rgbResult) / 255.0f;
+                        preview_dirty(h);
+                    }
+                    break;
+                }
                 case IDC_ENVPICK: {
                     wchar_t file[512] = L"";
                     OPENFILENAMEW ofn;
