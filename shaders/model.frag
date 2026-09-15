@@ -89,16 +89,7 @@ vec3 jitter_reflection(vec3 R, vec3 worldPos, float amount)
 void main()
 {
     vec3 Nl = normalize(vNrmLocal);
-    // normal "crua", sem o flip por gl_FrontFacing abaixo - reflete o lado
-    // que a geometria realmente foi autorada pra ser o lado de fora (tampas
-    // tem normal fixa +-Z, paredes usam edge_outN() ja compensando o
-    // sentido dos contornos de fonte) em vez de depender da orientacao do
-    // triangulo na tela, que varia com a fonte/malha importada e nao e'
-    // confiavel pra decidir "de fora vs de dentro" (so' serve pra
-    // iluminacao de dois lados, onde qualquer sinal fica olhando pra
-    // camera de qualquer jeito).
-    vec3 Nraw = normalize(mat3(uModel) * Nl);
-    vec3 N = Nraw;
+    vec3 N = normalize(mat3(uModel) * Nl);
     if (!gl_FrontFacing) N = -N;
     vec3 V = normalize(uCamPos - vWorld);
     vec3 R = reflect(-V, N);
@@ -133,21 +124,19 @@ void main()
         return;
     }
     if (uMode == 2) {                         // vidro (passe transparente)
-        // so' o lado que a geometria foi autorada pra ser "de fora" - sem
-        // isso, paredes internas/faces de tras (a extrusao inteira desenha
-        // dos dois lados, ver glDisable(GL_CULL_FACE) em scene.c) se somam
-        // por cima da transparencia e deixam a leitura do vidro
-        // "encardida". Usa a normal CRUA (Nraw, antes do flip por
-        // gl_FrontFacing la em cima) contra a direcao da camera - testado
-        // e confirmado que gl_FrontFacing sozinho NAO e' confiavel aqui
-        // (a tampa da frente do texto vem com winding invertido pro
-        // convencao padrao da OpenGL, ja que o contorno da fonte e' CW;
-        // discard por winding descartava a tampa certa e mantinha a de
-        // tras). A normal crua e' autorada certa independente do winding
-        // (tampas tem +-Z fixo, paredes usam edge_outN() ja compensando o
-        // sentido do contorno) - funciona pra texto/SVG deste projeto;
-        // malhas importadas dependem da normal que vier no arquivo.
-        if (dot(Nraw, V) < 0.0) discard;
+        // Nao tenta esconder as faces internas/de tras (a extrusao inteira
+        // desenha dos dois lados, ver glDisable(GL_CULL_FACE) em scene.c) -
+        // ja foram tentadas 2 abordagens por fragmento (winding via
+        // gl_FrontFacing, depois normal autoral vs camera) e as duas
+        // falharam de formas diferentes em geometria concava/com buraco
+        // (ex.: o vao do "D") - um teste que so' enxerga um fragmento por
+        // vez nao consegue distinguir "casca externa legitima, vista atraves
+        // de uma reentrancia" de "parede interna que devia ficar escondida".
+        // Isso exigiria uma tecnica de transparencia independente de ordem
+        // (WBOIT, ja cogitada no roadmap original do projeto) - fora de
+        // escopo de um ajuste de shader pontual. Por ora, aceita a mistura
+        // simples (visualmente "encardida" em alguns angulos) como
+        // resultado previsivel, em vez de artefatos de geometria "sumindo".
         vec3 env  = sample_env(R, uRoughness * 0.5);
         vec3 refr = base * 0.6;
         // vidro liso (aspereza baixa) deveria parecer bem mais espelhado/
