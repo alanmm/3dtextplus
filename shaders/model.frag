@@ -15,7 +15,9 @@ uniform float uEmissiveAmount;  // 0..1 - classico e vidro (nao metalico)
 uniform sampler2D uEnvTex;
 uniform int   uHasEnv;       // 0/1
 
-out vec4 fragColor;
+out vec4  fragColor;               // classico/metalico
+layout(location = 1) out vec4  oAccum;       // vidro (WBOIT) - cor*alpha*peso, alpha*peso no canal A
+layout(location = 2) out float oRevealLog;   // vidro (WBOIT) - soma de log(1 - alpha)
 
 const float PI = 3.14159265;
 const vec3 KEY_DIR  = normalize(vec3(-0.40, -0.75, -0.55));
@@ -147,7 +149,16 @@ void main()
         vec3 H = normalize(-KEY_DIR + V);
         col += vec3(1.0) * pow(max(dot(N, H), 0.0), 120.0);
         col += emissive;
-        fragColor = vec4(col, mix(0.35, 0.95, m));
+        // WBOIT: em vez de escrever a cor final direto (que dependeria da
+        // ordem de desenho das faces - a causa raiz dos artefatos ja
+        // encontrados em letras concavas), acumula cor*alpha*peso e o log
+        // de (1-alpha) em 2 saidas separadas. O passe de resolucao
+        // (wboit_resolve.frag) desfaz isso depois, independente de ordem.
+        float a = mix(0.35, 0.95, m);
+        float linearDepth = length(uCamPos - vWorld);
+        float weight = a * clamp(0.4 / (1e-5 + pow(linearDepth / 8.0, 4.0)), 1e-2, 3000.0);
+        oAccum = vec4(col * a * weight, a * weight);
+        oRevealLog = log(max(1.0 - a, 1e-4));
         return;
     }
 

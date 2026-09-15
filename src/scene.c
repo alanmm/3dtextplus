@@ -50,6 +50,13 @@ struct SceneRenderer {
     int      env_mode;
     int      env_loaded;   /* forca 1a carga mesmo quando env_mode==0 bate com o calloc inicial */
 
+    /* WBOIT (Vidro) - FBO com 2 anexos de cor, criada preguiçosamente */
+    unsigned wboit_fbo;
+    unsigned wboit_accum_tex, wboit_reveal_tex;
+    int      wboit_w, wboit_h;
+    unsigned wboit_resolve_prog;
+    unsigned wboit_vao;
+
     int      bevel_mode;
     float    bevel_size, bevel_depth, wall_thickness;
     int      bevel_segments, shell, quality;
@@ -441,6 +448,18 @@ SceneRenderer *scene_create(const Config *cfg)
         return NULL;
     }
 
+    s->wboit_resolve_prog = gl_program((const char *)EMBED_fullscreen_vert,
+                                        (const char *)EMBED_wboit_resolve_frag);
+    if (!s->wboit_resolve_prog) {
+        glDeleteProgram(s->bg_prog);
+        material_destroy(&s->mat);
+        free(s);
+        return NULL;
+    }
+    glUseProgram(s->wboit_resolve_prog);
+    glUniform1i(glGetUniformLocation(s->wboit_resolve_prog, "uAccum"), 0);
+    glUniform1i(glGetUniformLocation(s->wboit_resolve_prog, "uRevealLog"), 1);
+
     s->particles = particles_create();
     if (!s->particles) {
         glDeleteProgram(s->bg_prog);
@@ -602,6 +621,82 @@ void scene_pan(SceneRenderer *s, float dx, float dy)
     s->man_pan_y += dy;
 }
 
+/* cria (ou recria, se o tamanho mudou) a FBO de acumulacao WBOIT do
+   Vidro - 2 anexos de cor (RGBA16F acumulacao, R16F log de revelacao),
+   sem depth (a mistura aditiva de ambos nao depende de teste de
+   profundidade - ver spec secao 4, passo 1). */
+static void ensure_wboit_targets(SceneRenderer *s, int w, int h)
+{
+    if (s->wboit_fbo && s->wboit_w == w && s->wboit_h == h) return;
+    if (s->wboit_fbo) {
+        glDeleteFramebuffers(1, &s->wboit_fbo);
+        glDeleteTextures(1, &s->wboit_accum_tex);
+        glDeleteTextures(1, &s->wboit_reveal_tex);
+    }
+    s->wboit_w = w; s->wboit_h = h;
+
+    glGenTextures(1, &s->wboit_accum_tex);
+    glBindTexture(GL_TEXTURE_2D, s->wboit_accum_tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, w, h, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glGenTextures(1, &s->wboit_reveal_tex);
+    glBindTexture(GL_TEXTURE_2D, s->wboit_reveal_tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, w, h, 0, GL_RED, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glGenFramebuffers(1, &s->wboit_fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, s->wboit_fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, s->wboit_accum_tex, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, s->wboit_reveal_tex, 0);
+    /* model.frag declara oAccum na location 1 e oRevealLog na location 2
+       (location 0 e' o fragColor de Classico/Metalico, nao usado aqui) -
+       glDrawBuffers mapeia POR INDICE: buffer[N] recebe o que o shader
+       escrever na location N. Precisa de 3 entradas (indices 0,1,2) pra
+       que location 1 caia no anexo 0 (accum) e location 2 no anexo 1
+       (revealage) - so' 2 entradas deslocaria tudo uma location errada. */
+    GLenum bufs[3] = { GL_NONE, GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+    glDrawBuffers(3, bufs);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        log_errorf("scene: FBO WBOIT incompleta");
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+/* desenha o conteudo 3D atual (placa de erro, SVG, malha importada ou
+   o texto/relogio normal) com o material ja configurado via
+   material_begin/material_set_style/material_set_model - reaproveitado
+   tanto pelo caminho normal (opaco) quanto pela passada de acumulacao
+   do WBOIT (vidro). */
+static void draw_content(SceneRenderer *s)
+{
+    if (s->have_error_plaque) {
+        material_set_piece_color(&s->mat, s->error_colors[0]);
+        gl_mesh_draw(&s->error_pieces[0]);
+        material_set_piece_color(&s->mat, s->error_colors[1]);
+        gl_mesh_draw(&s->error_pieces[1]);
+    } else if (s->content_mode == CONTENT_SVG && s->svg_mesh_count > 0) {
+        for (int i = 0; i < s->svg_mesh_count; ++i) {
+            v3 piece_color = (s->svg_color_mode == 0) ? s->svg_colors[i] : s->base_color;
+            material_set_piece_color(&s->mat, piece_color);
+            gl_mesh_draw(&s->svg_meshes[i]);
+        }
+    } else if (s->content_mode == CONTENT_MESH && s->mesh_piece_count > 0) {
+        for (int i = 0; i < s->mesh_piece_count; ++i) {
+            material_set_piece_color(&s->mat, s->mesh_piece_colors[i]);
+            gl_mesh_draw(&s->mesh_pieces[i]);
+        }
+    } else {
+        gl_mesh_draw(&s->mesh);
+    }
+}
+
 void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h, int particles_active)
 {
     if (fb_w < 1) fb_w = 1;
@@ -712,34 +807,50 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h, int particles_
                         s->emissive_color, s->emissive_amount);
     material_set_model(&s->mat, model);
 
-    int glass = (s->material_mode == 2);
-    if (glass) {
+    if (s->material_mode == 2) {                     /* vidro: WBOIT */
+        ensure_wboit_targets(s, fb_w, fb_h);
+        GLint prev_fbo = 0;
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prev_fbo);
+
+        /* passo 1: acumula cor*alpha*peso e log(1-alpha) - mistura
+           aditiva simples vale pros 2 anexos ao mesmo tempo (ver spec
+           secao 2 - evita depender de mistura por-anexo, GL 4.0). */
+        glBindFramebuffer(GL_FRAMEBUFFER, s->wboit_fbo);
+        glViewport(0, 0, fb_w, fb_h);
+        float clearAccum[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+        float clearReveal[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+        glClearBufferfv(GL_COLOR, 0, clearAccum);
+        glClearBufferfv(GL_COLOR, 1, clearReveal);
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE, GL_ONE);
+        draw_content(s);
+        glDisable(GL_BLEND);
+        glEnable(GL_DEPTH_TEST);
+        glDepthMask(GL_TRUE);
+
+        /* passo 2: resolve - volta pro alvo original e compoe a cor
+           final (accum/revealage desfeitos no shader) por cima do que
+           ja foi desenhado (fundo). Depth test desligado por seguranca -
+           o triangulo de tela cheia nao deveria depender de profundidade
+           nenhuma pra aparecer. */
+        glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
+        glViewport(0, 0, fb_w, fb_h);
+        glDisable(GL_DEPTH_TEST);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glDepthMask(GL_FALSE);
-    }
-    if (s->have_error_plaque) {
-        material_set_piece_color(&s->mat, s->error_colors[0]);
-        gl_mesh_draw(&s->error_pieces[0]);
-        material_set_piece_color(&s->mat, s->error_colors[1]);
-        gl_mesh_draw(&s->error_pieces[1]);
-    } else if (s->content_mode == CONTENT_SVG && s->svg_mesh_count > 0) {
-        for (int i = 0; i < s->svg_mesh_count; ++i) {
-            v3 piece_color = (s->svg_color_mode == 0) ? s->svg_colors[i] : s->base_color;
-            material_set_piece_color(&s->mat, piece_color);
-            gl_mesh_draw(&s->svg_meshes[i]);
-        }
-    } else if (s->content_mode == CONTENT_MESH && s->mesh_piece_count > 0) {
-        for (int i = 0; i < s->mesh_piece_count; ++i) {
-            material_set_piece_color(&s->mat, s->mesh_piece_colors[i]);
-            gl_mesh_draw(&s->mesh_pieces[i]);
-        }
-    } else {
-        gl_mesh_draw(&s->mesh);
-    }
-    if (glass) {
-        glDepthMask(GL_TRUE);
+        glUseProgram(s->wboit_resolve_prog);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, s->wboit_accum_tex);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, s->wboit_reveal_tex);
+        gl_fullscreen_draw(&s->wboit_vao);
+        glActiveTexture(GL_TEXTURE0);
         glDisable(GL_BLEND);
+        glEnable(GL_DEPTH_TEST);
+    } else {
+        draw_content(s);
     }
 
     if (particles_active) {
@@ -759,6 +870,13 @@ void scene_destroy(SceneRenderer *s)
     if (s->bg_tex) glDeleteTextures(1, &s->bg_tex);
     if (s->bg_prog) glDeleteProgram(s->bg_prog);
     env_free(s->env_tex);
+    if (s->wboit_fbo) {
+        glDeleteFramebuffers(1, &s->wboit_fbo);
+        glDeleteTextures(1, &s->wboit_accum_tex);
+        glDeleteTextures(1, &s->wboit_reveal_tex);
+    }
+    if (s->wboit_vao) glDeleteVertexArrays(1, &s->wboit_vao);
+    if (s->wboit_resolve_prog) glDeleteProgram(s->wboit_resolve_prog);
     material_destroy(&s->mat);
     free(s);
 }

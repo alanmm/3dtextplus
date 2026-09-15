@@ -49,7 +49,7 @@ EMBED_INPUTS := shaders/model.vert shaders/model.frag shaders/fullscreen.vert \
                 shaders/post_bright.frag shaders/post_down.frag shaders/post_up.frag \
                 shaders/post_combine.frag shaders/post_streak.frag \
                 shaders/post_finish.frag shaders/post_fxaa.frag shaders/background.frag \
-                shaders/particle.vert shaders/particle.frag \
+                shaders/particle.vert shaders/particle.frag shaders/wboit_resolve.frag \
                 res/lang/pt.txt res/lang/en.txt res/env_default.jpg
 EMBEDDED_H   := generated/embedded.h
 
