@@ -819,8 +819,17 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h, int particles_
         glViewport(0, 0, fb_w, fb_h);
         float clearAccum[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
         float clearReveal[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-        glClearBufferfv(GL_COLOR, 0, clearAccum);
-        glClearBufferfv(GL_COLOR, 1, clearReveal);
+        /* o indice aqui e' o INDICE DO DRAW BUFFER (posicao no array
+           passado a glDrawBuffers), nao o numero do anexo - com
+           bufs={GL_NONE, ATTACHMENT0, ATTACHMENT1}, indice 0 e' NONE
+           (nada), indice 1 e' o accum (ATTACHMENT0) e indice 2 e' o
+           revealage (ATTACHMENT1). Usar 0/1 aqui deixava o revealage
+           SEM limpar entre frames - ele so' acumula (mistura aditiva),
+           entao ficava mais negativo a cada frame sem nunca reiniciar,
+           deixando o vidro cada vez mais opaco e criando um rastro
+           escurecido ao longo do caminho que o objeto girava. */
+        glClearBufferfv(GL_COLOR, 1, clearAccum);
+        glClearBufferfv(GL_COLOR, 2, clearReveal);
         glDisable(GL_DEPTH_TEST);
         glDepthMask(GL_FALSE);
         glEnable(GL_BLEND);
