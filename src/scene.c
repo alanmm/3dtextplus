@@ -731,8 +731,14 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h, int particles_
         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prev_fbo);
         glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)prev_fbo);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s->grab.fbo);
+        /* GL_NEAREST e' obrigatorio aqui, nao so' estilo - a especificacao
+           do glBlitFramebuffer exige NEAREST ao resolver de uma origem
+           multisample (MSAA, que e' o caso comum aqui) pra um destino
+           sem multisample; GL_LINEAR gera GL_INVALID_OPERATION e a copia
+           nao acontece de verdade, deixando a textura de captura com
+           lixo/nao inicializado - mesmo padrao ja usado em gl_blit_resolve. */
         glBlitFramebuffer(0, 0, fb_w, fb_h, 0, 0, fb_w, fb_h,
-                           GL_COLOR_BUFFER_BIT, GL_LINEAR);
+                           GL_COLOR_BUFFER_BIT, GL_NEAREST);
         glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
         glBindTexture(GL_TEXTURE_2D, s->grab.color);
         glGenerateMipmap(GL_TEXTURE_2D);
