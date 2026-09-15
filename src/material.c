@@ -22,6 +22,7 @@ int material_init(Material *m)
     m->uEmissiveColor  = glGetUniformLocation(m->prog, "uEmissiveColor");
     m->uEmissiveAmount = glGetUniformLocation(m->prog, "uEmissiveAmount");
     m->uDebugView      = glGetUniformLocation(m->prog, "uDebugView");
+    m->uEdgeBias       = glGetUniformLocation(m->prog, "uEdgeBias");
     glUseProgram(m->prog);
     glUniform1i(m->uEnvTex, 0);   /* unidade de textura 0 */
     return 1;
@@ -38,7 +39,7 @@ void material_begin(const Material *m, m4 view, m4 proj, v3 campos, v3 base)
 
 void material_set_style(const Material *m, int mode, float metalness, float roughness,
                         unsigned env_tex,
-                        v3 emissive_color, float emissive_amount)
+                        v3 emissive_color, float emissive_amount, float edge_bias)
 {
     glUseProgram(m->prog);
     glUniform1i(m->uMode, mode);
@@ -47,6 +48,7 @@ void material_set_style(const Material *m, int mode, float metalness, float roug
     glUniform1i(m->uHasEnv, env_tex ? 1 : 0);
     glUniform3f(m->uEmissiveColor, emissive_color.x, emissive_color.y, emissive_color.z);
     glUniform1f(m->uEmissiveAmount, emissive_amount);
+    glUniform1f(m->uEdgeBias, edge_bias);
     if (env_tex) {
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, env_tex);

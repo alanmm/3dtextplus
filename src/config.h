@@ -21,6 +21,8 @@ typedef struct {
     float        roughness;            /* 0..1 - classico, metalico e vidro */
     float        emissive_r, emissive_g, emissive_b;  /* 0..1 - cor propria, classico/vidro (nao metalico) */
     float        emissive_amount;      /* 0..1 - 0 = desligado */
+    float        edge_bias;            /* 0..1 - so' vidro. 0.5 = neutro, <0.5 mais
+                                           transparente, >0.5 mais opaco/aresta */
     int          env_mode;             /* 0 embutida, 1 personalizada, 2 nenhuma */
     wchar_t      env_path[512];        /* vazio = ambiente procedural */
     int          bevel_mode;           /* 0 arredondado, 1 geometrico, 2 desligado */

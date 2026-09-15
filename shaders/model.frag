@@ -15,6 +15,9 @@ uniform float uEmissiveAmount;  // 0..1 - classico e vidro (nao metalico)
 uniform sampler2D uEnvTex;
 uniform int   uHasEnv;       // 0/1
 uniform int   uDebugView;    // 0 normal, 1 fresnel, 2 aresta/curvatura, 3 normal RGB, 4 tipo de superficie
+uniform float uEdgeBias;     // 0..1 - so' vidro. 0.5 = neutro (curva original). <0.5 pende pra
+                             // transparente (mais area lida como "plana"); >0.5 pende pra
+                             // opaco/aresta (mais area lida como "aresta")
 
 out vec4  fragColor;               // classico/metalico
 layout(location = 1) out vec4  oAccum;       // vidro (WBOIT) - cor*alpha*peso, alpha*peso no canal A
@@ -177,8 +180,14 @@ void main()
         float a = mix(0.35, 0.95, m);
         // mascara aresta/plano ja calculada no topo (edgeAmt) - reaproveitada
         // aqui: aresta fica mais opaca, face plana mais transparente, nunca
-        // batendo em 0% nem 100%.
-        a = clamp(a + mix(-0.18, 0.12, edgeAmt), 0.12, 0.88);
+        // batendo em 0% nem 100%. uEdgeBias remapeia a curva por uma
+        // potencia (tipo "curvas" de editor de imagem): 0.5 = neutro
+        // (expoente 1, sem mudanca); <0.5 empurra mais area pra perto de 0
+        // (mais transparente/plano); >0.5 empurra mais area pra perto de 1
+        // (mais opaco/aresta).
+        float edgeExp = pow(4.0, 1.0 - 2.0 * uEdgeBias);
+        float edgeBiased = pow(edgeAmt, edgeExp);
+        a = clamp(a + mix(-0.18, 0.12, edgeBiased), 0.12, 0.88);
         float linearDepth = length(uCamPos - vWorld);
         float weight = a * clamp(0.4 / (1e-5 + pow(linearDepth / 8.0, 4.0)), 1e-2, 3000.0);
         oAccum = vec4(col * a * weight, a * weight);

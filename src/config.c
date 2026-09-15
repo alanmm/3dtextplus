@@ -29,6 +29,7 @@ void config_defaults(Config *c)
     c->roughness = 0.5f;
     c->emissive_r = 1.0f; c->emissive_g = 1.0f; c->emissive_b = 1.0f;
     c->emissive_amount = 0.0f;
+    c->edge_bias = 0.5f;
     c->env_mode = 0;
     c->env_path[0] = 0;
     c->bevel_mode = 1;
@@ -186,6 +187,7 @@ void config_load_from(Config *c, const wchar_t *subkey)
     if (reg_get_f(k, L"emissive_g", &f))      c->emissive_g = f;
     if (reg_get_f(k, L"emissive_b", &f))      c->emissive_b = f;
     if (reg_get_f(k, L"emissive_amount", &f)) c->emissive_amount = f;
+    if (reg_get_f(k, L"edge_bias", &f))       c->edge_bias = f;
     if (reg_get_f(k, L"bevel_size", &f))     c->bevel_size = f;
     if (reg_get_f(k, L"bevel_depth", &f))    c->bevel_depth = f;
     if (reg_get_f(k, L"wall_thickness", &f)) c->wall_thickness = f;
@@ -283,6 +285,7 @@ void config_load_from(Config *c, const wchar_t *subkey)
     c->emissive_g = clampf(c->emissive_g, 0.0f, 1.0f);
     c->emissive_b = clampf(c->emissive_b, 0.0f, 1.0f);
     c->emissive_amount = clampf(c->emissive_amount, 0.0f, 1.0f);
+    c->edge_bias = clampf(c->edge_bias, 0.0f, 1.0f);
     if (c->env_mode < 0 || c->env_mode > 2) c->env_mode = 0;
     if (c->bevel_mode < 0 || c->bevel_mode > 2) c->bevel_mode = 0;
     if (c->bevel_segments < 2) c->bevel_segments = 2;
@@ -389,6 +392,7 @@ void config_save_to(const Config *c, const wchar_t *subkey)
     set_f(k, L"emissive_g", c->emissive_g);
     set_f(k, L"emissive_b", c->emissive_b);
     set_f(k, L"emissive_amount", c->emissive_amount);
+    set_f(k, L"edge_bias", c->edge_bias);
     set_f(k, L"env_mode", (float)c->env_mode);
     set_w(k, L"env_path", c->env_path);
     set_f(k, L"bevel_mode", (float)c->bevel_mode);

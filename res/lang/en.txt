@@ -53,6 +53,7 @@ material.metalness_label=Metalness:
 material.roughness_label=Roughness:
 material.emissive_label=Emissive:
 material.emissive_color_btn=Color...
+material.edgebias_label=Edge/flat bias:
 material.env_label=Environment image:
 material.env_mode.embedded=Embedded
 material.env_mode.custom=Custom

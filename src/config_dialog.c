@@ -525,6 +525,7 @@ static void material_labels(HWND h)
     swprintf(b, 32, L"%.2f", (double)g_work.metalness);  SetDlgItemTextW(h, IDC_METAL_VAL, b);
     swprintf(b, 32, L"%.2f", (double)g_work.roughness);  SetDlgItemTextW(h, IDC_ROUGH_VAL, b);
     swprintf(b, 32, L"%.2f", (double)g_work.emissive_amount); SetDlgItemTextW(h, IDC_EMISSIVE_VAL, b);
+    swprintf(b, 32, L"%.2f", (double)g_work.edge_bias); SetDlgItemTextW(h, IDC_EDGEBIAS_VAL, b);
     SetDlgItemTextW(h, IDC_ENVPATH, g_work.env_path[0] ? g_work.env_path : i18n_str(STR_PLACEHOLDER_PROCEDURAL));
 }
 
@@ -535,6 +536,7 @@ static void material_apply_i18n(HWND h)
     SetDlgItemTextW(h, IDC_ROUGH_LABEL, i18n_str(STR_MATERIAL_ROUGHNESS_LABEL));
     SetDlgItemTextW(h, IDC_EMISSIVE_LABEL, i18n_str(STR_MATERIAL_EMISSIVE_LABEL));
     SetDlgItemTextW(h, IDC_EMISSIVE_COLOR, i18n_str(STR_MATERIAL_EMISSIVE_COLOR_BTN));
+    SetDlgItemTextW(h, IDC_EDGEBIAS_LABEL, i18n_str(STR_MATERIAL_EDGEBIAS_LABEL));
     SetDlgItemTextW(h, IDC_ENV_LABEL, i18n_str(STR_MATERIAL_ENV_LABEL));
     SetDlgItemTextW(h, IDC_ENVMODE_EMBED, i18n_str(STR_MATERIAL_ENV_MODE_EMBEDDED));
     SetDlgItemTextW(h, IDC_ENVMODE_CUSTOM, i18n_str(STR_MATERIAL_ENV_MODE_CUSTOM));
@@ -560,6 +562,8 @@ static void material_apply_i18n(HWND h)
    Rugosidade: Classico, Metalico e Vidro (todos os modos).
    Emissivo: Classico e Vidro (Metalico ja' reflete o ambiente, brilho
    proprio por cima ficaria estranho).
+   Vies aresta/plano: so' Vidro (controla o quanto a aspereza aresta/
+   plano do Vidro pende pra transparente ou opaco).
    Ambiente: Metalico e Vidro (unico jeito de refletir alguma coisa).
    (Fosco foi removido - feedback do usuario apos a aspereza do
    Classico passar a cobrir liso->fosco de verdade, o Fosco separado
@@ -578,15 +582,16 @@ static void material_apply_i18n(HWND h)
    blocos por economia de espaco.) */
 typedef struct { int id; int x, rel_y; } MatCtrl;
 
-#define MAT_BLOCKS 5
+#define MAT_BLOCKS 6
 static MatCtrl g_mat_blocks[MAT_BLOCKS][4] = {
     { { IDC_METAL_LABEL, 0, 0 }, { IDC_METAL_VAL, 0, 0 }, { IDC_METAL, 0, 0 } },
     { { IDC_ROUGH_LABEL, 0, 0 }, { IDC_ROUGH_VAL, 0, 0 }, { IDC_ROUGH, 0, 0 } },
     { { IDC_EMISSIVE_LABEL, 0, 0 }, { IDC_EMISSIVE_COLOR, 0, 0 }, { IDC_EMISSIVE_VAL, 0, 0 }, { IDC_EMISSIVE, 0, 0 } },
+    { { IDC_EDGEBIAS_LABEL, 0, 0 }, { IDC_EDGEBIAS_VAL, 0, 0 }, { IDC_EDGEBIAS, 0, 0 } },
     { { IDC_ENV_LABEL, 0, 0 }, { IDC_ENVMODE_EMBED, 0, 0 }, { IDC_ENVMODE_CUSTOM, 0, 0 }, { IDC_ENVMODE_NONE, 0, 0 } },
     { { IDC_ENVPATH, 0, 0 }, { IDC_ENVPICK, 0, 0 }, { IDC_ENVCLEAR, 0, 0 } },
 };
-static const int MAT_BLOCK_N[MAT_BLOCKS] = { 3, 3, 4, 4, 3 };
+static const int MAT_BLOCK_N[MAT_BLOCKS] = { 3, 3, 4, 3, 4, 3 };
 static int g_mat_block_top[MAT_BLOCKS];
 static int g_mat_block_h[MAT_BLOCKS];
 static int g_mat_gap = 0;   /* espacamento uniforme entre blocos - todo o .rc usa o
@@ -636,9 +641,10 @@ static void material_layout_apply(HWND h)
     int vis_metal      = (mode == 1);
     int vis_rough      = (mode == 0 || mode == 1 || mode == 2);
     int vis_emissive   = (mode == 0 || mode == 2);
+    int vis_edgebias   = (mode == 2);
     int vis_env_hdr    = (mode == 1 || mode == 2);
     int vis_env_pick   = vis_env_hdr && (g_work.env_mode == 1);
-    int visible[MAT_BLOCKS] = { vis_metal, vis_rough, vis_emissive,
+    int visible[MAT_BLOCKS] = { vis_metal, vis_rough, vis_emissive, vis_edgebias,
                                  vis_env_hdr, vis_env_pick };
 
     int cursor = g_mat_block_top[0];
@@ -666,6 +672,7 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             set_slider(h, IDC_METAL, 0, 100, (int)(g_work.metalness * 100.0f + 0.5f));
             set_slider(h, IDC_ROUGH, 0, 100, (int)(g_work.roughness * 100.0f + 0.5f));
             set_slider(h, IDC_EMISSIVE, 0, 100, (int)(g_work.emissive_amount * 100.0f + 0.5f));
+            set_slider(h, IDC_EDGEBIAS, 0, 100, (int)(g_work.edge_bias * 100.0f + 0.5f));
             material_apply_i18n(h);
             CheckRadioButton(h, IDC_ENVMODE_EMBED, IDC_ENVMODE_NONE,
                               g_work.env_mode == 1 ? IDC_ENVMODE_CUSTOM :
@@ -678,6 +685,7 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             g_work.metalness = (float)SendDlgItemMessageW(h, IDC_METAL, TBM_GETPOS, 0, 0) / 100.0f;
             g_work.roughness = (float)SendDlgItemMessageW(h, IDC_ROUGH, TBM_GETPOS, 0, 0) / 100.0f;
             g_work.emissive_amount = (float)SendDlgItemMessageW(h, IDC_EMISSIVE, TBM_GETPOS, 0, 0) / 100.0f;
+            g_work.edge_bias = (float)SendDlgItemMessageW(h, IDC_EDGEBIAS, TBM_GETPOS, 0, 0) / 100.0f;
             material_labels(h);
             preview_dirty(h);
             return TRUE;

@@ -46,6 +46,7 @@ struct SceneRenderer {
     float    metalness, roughness;
     v3       emissive_color;
     float    emissive_amount;
+    float    edge_bias;
     wchar_t  env_path[512];
     unsigned env_tex;
     int      env_mode;
@@ -539,6 +540,7 @@ void scene_set_config(SceneRenderer *s, const Config *cfg)
     s->roughness = cfg->roughness;
     s->emissive_color = (v3){ cfg->emissive_r, cfg->emissive_g, cfg->emissive_b };
     s->emissive_amount = cfg->emissive_amount;
+    s->edge_bias = cfg->edge_bias;
     s->bevel_mode = cfg->bevel_mode;
     s->bevel_size = cfg->bevel_size;
     s->bevel_depth = cfg->bevel_depth;
@@ -810,11 +812,17 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h, int particles_
 
     material_begin(&s->mat, view, proj, eye, s->base_color);
     material_set_style(&s->mat, s->material_mode, s->metalness, s->roughness, s->env_tex,
-                        s->emissive_color, s->emissive_amount);
+                        s->emissive_color, s->emissive_amount, s->edge_bias);
     material_set_debug_view(&s->mat, s->debug_view);
     material_set_model(&s->mat, model);
 
-    if (s->material_mode == 2) {                     /* vidro: WBOIT */
+    if (s->material_mode == 2 && s->debug_view == 0) {     /* vidro: WBOIT */
+        /* a visualizacao de debug escreve em fragColor (location 0), que
+           a FBO do WBOIT nem tem ligado (so' os 2 anexos de acumulacao) -
+           o resultado ficava invisivel. Com qualquer debug_view ativo,
+           desenha direto (mesmo caminho de Classico/Metalico) pra sempre
+           ser visivel, sem se preocupar com composicao de transparencia -
+           o objetivo aqui e' inspecionar o dado cru, nao a mistura. */
         ensure_wboit_targets(s, fb_w, fb_h);
         GLint prev_fbo = 0;
         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prev_fbo);
