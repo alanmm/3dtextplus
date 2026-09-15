@@ -188,8 +188,6 @@
 #define IDC_PRESET_COMBO      2001
 #define IDC_PRESET_SAVE       2002
 #define IDC_PRESET_DELETE     2003
-#define IDC_PRESET_IMPORT     2004
-#define IDC_PRESET_EXPORT     2005
 #define IDC_PRESET_NAME_LABEL 2006
 #define IDC_PRESET_NAME_EDIT  2007
 #define IDC_MENU_BUTTON       2008
@@ -200,8 +198,8 @@
 #define IDC_ABOUT_LINK     2103
 
 #define IDM_ABOUT           2020
-#define IDM_MENU_IMPORT     2021
-#define IDM_MENU_EXPORT     2022
+#define IDM_MENU_RESTORE    2021
+#define IDM_MENU_BACKUP     2022
 #define IDM_LANG_AUTO       2023
 #define IDM_LANG_PT         2024
 #define IDM_LANG_EN         2025

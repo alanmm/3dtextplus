@@ -5,6 +5,7 @@
 
 #define PRESET_NAME_MAX 64
 #define BUILTIN_PRESET_COUNT 5
+#define PRESET_BACKUP_MAX 64
 
 typedef struct {
     StrId name;
@@ -34,10 +35,22 @@ int  preset_user_load_from(const wchar_t *base, const wchar_t *name, Config *out
 void preset_user_delete_from(const wchar_t *base, const wchar_t *name);
 int  preset_user_list_from(const wchar_t *base, wchar_t names[][PRESET_NAME_MAX], int max);
 
-/* importa/exporta um preset como arquivo .ini (chave=valor, cabecalho
-   [Preset]) - reaproveita o saneamento de config_load_from via uma
-   subchave temporaria. Retornam 1 em sucesso, 0 em falha. */
-int preset_export_file(const wchar_t *path, const Config *from);
-int preset_import_file(const wchar_t *path, Config *out);
+typedef struct {
+    wchar_t name[PRESET_NAME_MAX];
+    Config  cfg;
+} PresetBackupEntry;
+
+/* backup/restauracao de TODOS os presets salvos (nao inclui os 5
+   fixos) num unico arquivo .ini, uma secao [Preset:Nome] por preset -
+   reaproveita o saneamento de config_load_from via uma subchave de
+   registro temporaria, uma secao por vez. preset_backup_export_file
+   retorna 1 em sucesso, 0 em falha ao abrir o arquivo.
+   preset_backup_parse_file retorna quantos presets leu (0 se o
+   arquivo nao tinha nenhuma secao valida), ou -1 se nao conseguiu
+   abrir o arquivo. A variante _from segue a mesma convencao do CRUD
+   acima (base alternativa pra testes); a sem sufixo usa a base real. */
+int preset_backup_export_file(const wchar_t *path);
+int preset_backup_export_file_from(const wchar_t *base, const wchar_t *path);
+int preset_backup_parse_file(const wchar_t *path, PresetBackupEntry *out, int max);
 
 #endif

@@ -140,7 +140,7 @@ void run_presets_tests(void)
     n = preset_user_list_from(TBASE, names, 8);
     EXPECT(n == 0);
 
-    /* import/export via arquivo temporario */
+    /* backup/restauracao via arquivo temporario - varios presets num arquivo so */
     wchar_t tmpdir[MAX_PATH], tmpfile[MAX_PATH];
     GetTempPathW(MAX_PATH, tmpdir);
     swprintf(tmpfile, MAX_PATH, L"%lsm3dt_preset_test.ini", tmpdir);
@@ -158,20 +158,42 @@ void run_presets_tests(void)
     ea.base_r = 0.2f; ea.base_g = 0.4f; ea.base_b = 0.6f;
     ea.quality = 0;
 
-    EXPECT(preset_export_file(tmpfile, &ea) == 1);
+    Config ec;
+    config_defaults(&ec);
+    ec.material_mode = 2;
+    ec.background_type = 0;
+    ec.quality = 2;
 
-    Config eb;
-    EXPECT(preset_import_file(tmpfile, &eb) == 1);
-    EXPECT(eb.material_mode == 1);
-    EXPECT(eb.env_mode == 1);
-    EXPECT(wcscmp(eb.env_path, L"E:\\fotos\\hdri_quintal.jpg") == 0);
-    EXPECT(eb.background_type == 3);
-    EXPECT(nearf(eb.bg_neb_color1_r, 0.5f) && nearf(eb.bg_neb_color1_g, 0.25f) && nearf(eb.bg_neb_color1_b, 0.75f));
-    EXPECT(eb.particles_kind == 3);
-    EXPECT(nearf(eb.particles_stars_density, 0.6f));
-    EXPECT(nearf_color(eb.base_r, 0.2f) && nearf_color(eb.base_g, 0.4f) && nearf_color(eb.base_b, 0.6f));
-    EXPECT(eb.quality == 0);
+    preset_user_save_to(TBASE, L"Bravo", &ea);
+    preset_user_save_to(TBASE, L"Charlie", &ec);
+
+    EXPECT(preset_backup_export_file_from(TBASE, tmpfile) == 1);
+
+    preset_user_delete_from(TBASE, L"Bravo");
+    preset_user_delete_from(TBASE, L"Charlie");
+    n = preset_user_list_from(TBASE, names, 8);
+    EXPECT(n == 0);
+
+    PresetBackupEntry entries[8];
+    int en = preset_backup_parse_file(tmpfile, entries, 8);
+    EXPECT(en == 2);
+    /* preset_user_list_from devolve em ordem alfabetica; preset_backup_export_file_from
+       usa a mesma listagem, entao a ordem no arquivo (e no parse) tambem e' alfabetica */
+    EXPECT(wcscmp(entries[0].name, L"Bravo") == 0);
+    EXPECT(entries[0].cfg.material_mode == 1);
+    EXPECT(entries[0].cfg.env_mode == 1);
+    EXPECT(wcscmp(entries[0].cfg.env_path, L"E:\\fotos\\hdri_quintal.jpg") == 0);
+    EXPECT(entries[0].cfg.background_type == 3);
+    EXPECT(nearf(entries[0].cfg.bg_neb_color1_r, 0.5f) && nearf(entries[0].cfg.bg_neb_color1_g, 0.25f) && nearf(entries[0].cfg.bg_neb_color1_b, 0.75f));
+    EXPECT(entries[0].cfg.particles_kind == 3);
+    EXPECT(nearf(entries[0].cfg.particles_stars_density, 0.6f));
+    EXPECT(nearf_color(entries[0].cfg.base_r, 0.2f) && nearf_color(entries[0].cfg.base_g, 0.4f) && nearf_color(entries[0].cfg.base_b, 0.6f));
+    EXPECT(entries[0].cfg.quality == 0);
+
+    EXPECT(wcscmp(entries[1].name, L"Charlie") == 0);
+    EXPECT(entries[1].cfg.material_mode == 2);
+    EXPECT(entries[1].cfg.quality == 2);
 
     DeleteFileW(tmpfile);
-    EXPECT(preset_import_file(tmpfile, &eb) == 0);   /* arquivo nao existe mais */
+    EXPECT(preset_backup_parse_file(tmpfile, entries, 8) == -1);   /* arquivo nao existe mais */
 }

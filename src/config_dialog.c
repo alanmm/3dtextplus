@@ -1569,8 +1569,8 @@ static void show_main_menu(HWND dlg, HWND button)
     HMENU menu = CreatePopupMenu();
     AppendMenuW(menu, MF_STRING, IDM_ABOUT, i18n_str(STR_MENU_ABOUT));
     AppendMenuW(menu, MF_SEPARATOR, 0, NULL);
-    AppendMenuW(menu, MF_STRING, IDM_MENU_IMPORT, i18n_str(STR_MENU_IMPORT_PRESETS));
-    AppendMenuW(menu, MF_STRING, IDM_MENU_EXPORT, i18n_str(STR_MENU_EXPORT_PRESETS));
+    AppendMenuW(menu, MF_STRING, IDM_MENU_RESTORE, i18n_str(STR_MENU_RESTORE_PRESETS));
+    AppendMenuW(menu, MF_STRING, IDM_MENU_BACKUP, i18n_str(STR_MENU_BACKUP_PRESETS));
     AppendMenuW(menu, MF_SEPARATOR, 0, NULL);
 
     HMENU langMenu = CreatePopupMenu();
@@ -1606,9 +1606,9 @@ static INT_PTR CALLBACK preset_name_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                 case IDOK: {
                     wchar_t buf[PRESET_NAME_MAX];
                     GetDlgItemTextW(h, IDC_PRESET_NAME_EDIT, buf, PRESET_NAME_MAX);
-                    if (buf[0] == 0 || wcschr(buf, L'\\')) {
+                    if (buf[0] == 0 || wcschr(buf, L'\\') || wcschr(buf, L'[') || wcschr(buf, L']')) {
                         MessageBeep(MB_ICONWARNING);
-                        return TRUE;   /* nome vazio ou com \\ - nao fecha */
+                        return TRUE;   /* nome vazio ou com \\, [ ou ] - nao fecha */
                     }
                     wcsncpy(g_preset_name_out, buf, (size_t)g_preset_name_cap - 1);
                     g_preset_name_out[g_preset_name_cap - 1] = 0;
@@ -1626,7 +1626,8 @@ static INT_PTR CALLBACK preset_name_proc(HWND h, UINT m, WPARAM w, LPARAM l)
 
 /* pede um nome de preset ao usuario; devolve 1 e preenche out[0..outCap)
    se confirmado, 0 se cancelado. Rejeita nome vazio ou com '\\' (quebraria
-   o caminho da subchave do registro). */
+   o caminho da subchave do registro), ou com '[' / ']' (quebraria o
+   cabecalho de secao "[Preset:Nome]" usado no arquivo de backup). */
 static int prompt_preset_name(HWND owner, wchar_t *out, int outCap)
 {
     g_preset_name_out = out;
@@ -1634,6 +1635,46 @@ static int prompt_preset_name(HWND owner, wchar_t *out, int outCap)
     out[0] = 0;
     return DialogBoxParamW(GetModuleHandleW(NULL), MAKEINTRESOURCEW(IDD_PRESET_NAME),
                             owner, preset_name_proc, 0) == IDOK;
+}
+
+/* diálogo de 3 botões pra conflito de nome ao restaurar um backup em
+   lote - TaskDialogIndirect (nao MessageBoxW) porque precisamos de um
+   terceiro botao com texto proprio ("sobrescrever todos"), nao coberto
+   pelos conjuntos padrao do MessageBox. O botao "Pular" usa o ID
+   IDCANCEL de proposito, pra ESC/fechar a janela equivaler a pular
+   este preset (TDF_ALLOW_DIALOG_CANCELLATION). Devolve 0=pular,
+   1=sobrescrever este, 2=sobrescrever este e todos os demais conflitos. */
+static int show_preset_conflict_dialog(HWND owner, const wchar_t *name)
+{
+    enum { TDBTN_OVERWRITE = 1001, TDBTN_OVERWRITE_ALL = 1002 };
+
+    wchar_t content[300];
+    swprintf(content, 300, i18n_str(STR_PRESET_RESTORE_CONFLICT), name);
+
+    TASKDIALOG_BUTTON buttons[3] = {
+        { TDBTN_OVERWRITE,     i18n_str(STR_PRESET_RESTORE_CONFLICT_OVERWRITE) },
+        { IDCANCEL,            i18n_str(STR_PRESET_RESTORE_CONFLICT_SKIP) },
+        { TDBTN_OVERWRITE_ALL, i18n_str(STR_PRESET_RESTORE_CONFLICT_OVERWRITE_ALL) },
+    };
+
+    TASKDIALOGCONFIG cfg;
+    memset(&cfg, 0, sizeof cfg);
+    cfg.cbSize = sizeof cfg;
+    cfg.hwndParent = owner;
+    cfg.dwFlags = TDF_ALLOW_DIALOG_CANCELLATION;
+    cfg.pszWindowTitle = i18n_str(STR_PRESET_RESTORE_CONFLICT_TITLE);
+    cfg.pszMainIcon = TD_WARNING_ICON;
+    cfg.pszContent = content;
+    cfg.cButtons = 3;
+    cfg.pButtons = buttons;
+    cfg.nDefaultButton = TDBTN_OVERWRITE;
+
+    int pressed = IDCANCEL;
+    TaskDialogIndirect(&cfg, &pressed, NULL, NULL);
+
+    if (pressed == TDBTN_OVERWRITE_ALL) return 2;
+    if (pressed == TDBTN_OVERWRITE) return 1;
+    return 0;
 }
 
 static int g_preset_sel = -1;   /* -1 = nenhum preset selecionado ainda */
@@ -1665,8 +1706,6 @@ static void preset_apply_i18n(HWND dlg)
     SetDlgItemTextW(dlg, IDC_PRESET_LABEL, i18n_str(STR_PRESET_LABEL));
     SetDlgItemTextW(dlg, IDC_PRESET_SAVE, i18n_str(STR_PRESET_SAVE_BTN));
     SetDlgItemTextW(dlg, IDC_PRESET_DELETE, i18n_str(STR_PRESET_DELETE_BTN));
-    SetDlgItemTextW(dlg, IDC_PRESET_IMPORT, i18n_str(STR_PRESET_IMPORT_BTN));
-    SetDlgItemTextW(dlg, IDC_PRESET_EXPORT, i18n_str(STR_PRESET_EXPORT_BTN));
     preset_refresh_combo(dlg);
 }
 
@@ -2033,8 +2072,7 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     preset_refresh_combo(h);
                     break;
                 }
-                case IDM_MENU_IMPORT:
-                case IDC_PRESET_IMPORT: {
+                case IDM_MENU_RESTORE: {
                     wchar_t file[512] = L"";
                     OPENFILENAMEW ofn;
                     memset(&ofn, 0, sizeof ofn);
@@ -2051,42 +2089,48 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
                     if (!GetOpenFileNameW(&ofn)) break;
 
-                    Config imported;
-                    if (!preset_import_file(file, &imported)) {
-                        MessageBoxW(h, i18n_str(STR_PRESET_IMPORT_FAILED),
-                                    i18n_str(STR_PRESET_IMPORT_FAILED_TITLE), MB_OK | MB_ICONERROR);
+                    static PresetBackupEntry entries[PRESET_BACKUP_MAX];
+                    int n = preset_backup_parse_file(file, entries, PRESET_BACKUP_MAX);
+                    if (n <= 0) {
+                        MessageBoxW(h, i18n_str(STR_PRESET_RESTORE_FAILED),
+                                    i18n_str(STR_PRESET_RESTORE_FAILED_TITLE), MB_OK | MB_ICONERROR);
                         break;
                     }
 
-                    wchar_t name[PRESET_NAME_MAX];
-                    if (!prompt_preset_name(h, name, PRESET_NAME_MAX)) break;
+                    int overwrite_all = 0, restored = 0, skipped = 0;
+                    for (int i = 0; i < n; ++i) {
+                        int is_builtin_name = 0;
+                        for (int j = 0; j < BUILTIN_PRESET_COUNT; ++j)
+                            if (wcscmp(entries[i].name, i18n_str(g_builtin_presets[j].name)) == 0) is_builtin_name = 1;
+                        if (is_builtin_name) { ++skipped; continue; }
 
-                    int is_builtin_name = 0;
-                    for (int i = 0; i < BUILTIN_PRESET_COUNT; ++i)
-                        if (wcscmp(name, i18n_str(g_builtin_presets[i].name)) == 0) is_builtin_name = 1;
-                    if (is_builtin_name) {
-                        wchar_t msg[256];
-                        swprintf(msg, 256, i18n_str(STR_PRESET_CANT_OVERWRITE_BUILTIN), name);
-                        MessageBoxW(h, msg, i18n_str(STR_PRESET_CANT_OVERWRITE_BUILTIN_TITLE), MB_OK | MB_ICONWARNING);
-                        break;
-                    }
-                    Config existing;
-                    if (preset_user_load(name, &existing)) {
-                        wchar_t msg[256];
-                        swprintf(msg, 256, i18n_str(STR_PRESET_OVERWRITE_CONFIRM), name);
-                        if (MessageBoxW(h, msg, i18n_str(STR_PRESET_OVERWRITE_CONFIRM_TITLE),
-                                        MB_YESNO | MB_ICONQUESTION) != IDYES)
-                            break;
+                        Config existing;
+                        if (preset_user_load(entries[i].name, &existing) && !overwrite_all) {
+                            int choice = show_preset_conflict_dialog(h, entries[i].name);
+                            if (choice == 0) { ++skipped; continue; }
+                            if (choice == 2) overwrite_all = 1;
+                        }
+
+                        preset_user_save(entries[i].name, &entries[i].cfg);
+                        ++restored;
                     }
 
-                    preset_user_save(name, &imported);
                     preset_refresh_combo(h);
+
+                    wchar_t summary[256];
+                    swprintf(summary, 256, i18n_str(STR_PRESET_RESTORE_SUMMARY), restored, skipped);
+                    MessageBoxW(h, summary, i18n_str(STR_PRESET_RESTORE_SUMMARY_TITLE), MB_OK | MB_ICONINFORMATION);
                     break;
                 }
-                case IDM_MENU_EXPORT:
-                case IDC_PRESET_EXPORT: {
-                    if (g_preset_sel < 0) break;
-                    wchar_t file[512] = L"";
+                case IDM_MENU_BACKUP: {
+                    wchar_t any[1][PRESET_NAME_MAX];
+                    if (preset_user_list(any, 1) == 0) {
+                        MessageBoxW(h, i18n_str(STR_PRESET_BACKUP_EMPTY),
+                                    i18n_str(STR_PRESET_BACKUP_EMPTY_TITLE), MB_OK | MB_ICONINFORMATION);
+                        break;
+                    }
+
+                    wchar_t file[512] = L"modern3dtext_presets.ini";
                     OPENFILENAMEW ofn;
                     memset(&ofn, 0, sizeof ofn);
                     ofn.lStructSize = sizeof ofn;
@@ -2102,18 +2146,9 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     ofn.Flags = OFN_OVERWRITEPROMPT;
                     if (!GetSaveFileNameW(&ofn)) break;
 
-                    Config tmp;
-                    if (g_preset_sel < BUILTIN_PRESET_COUNT) {
-                        g_builtin_presets[g_preset_sel].build(&tmp);
-                    } else {
-                        wchar_t names[64][PRESET_NAME_MAX];
-                        int n = preset_user_list(names, 64);
-                        int idx = g_preset_sel - BUILTIN_PRESET_COUNT;
-                        if (idx >= n || !preset_user_load(names[idx], &tmp)) break;
-                    }
-                    if (!preset_export_file(file, &tmp))
-                        MessageBoxW(h, i18n_str(STR_PRESET_EXPORT_FAILED),
-                                    i18n_str(STR_PRESET_EXPORT_FAILED_TITLE), MB_OK | MB_ICONERROR);
+                    if (!preset_backup_export_file(file))
+                        MessageBoxW(h, i18n_str(STR_PRESET_BACKUP_FAILED),
+                                    i18n_str(STR_PRESET_BACKUP_FAILED_TITLE), MB_OK | MB_ICONERROR);
                     break;
                 }
             }

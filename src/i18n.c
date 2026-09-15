@@ -74,7 +74,6 @@ static const char *const KEY_NAMES[STR_COUNT] = {
     "error.mesh_invalid", "error.svg_no_shape", "error.svg_empty",
 
     "preset.label", "preset.save_btn", "preset.delete_btn",
-    "preset.import_btn", "preset.export_btn",
     "preset.name_title", "preset.name_label",
     "preset.apply_confirm_title", "preset.apply_confirm",
     "preset.delete_confirm_title", "preset.delete_confirm",
@@ -84,10 +83,15 @@ static const char *const KEY_NAMES[STR_COUNT] = {
     "preset.name.classico", "preset.name.cinema",
     "preset.name.neon", "preset.name.suave",
     "filter.ini",
-    "preset.import_failed_title", "preset.import_failed",
-    "preset.export_failed_title", "preset.export_failed",
+    "preset.restore_failed_title", "preset.restore_failed",
+    "preset.backup_failed_title", "preset.backup_failed",
+    "preset.backup_empty_title", "preset.backup_empty",
+    "preset.restore_summary_title", "preset.restore_summary",
+    "preset.restore_conflict_title", "preset.restore_conflict",
+    "preset.restore_conflict_overwrite", "preset.restore_conflict_skip",
+    "preset.restore_conflict_overwrite_all",
 
-    "menu.about", "menu.import_presets", "menu.export_presets",
+    "menu.about", "menu.restore_presets", "menu.backup_presets",
     "menu.language", "about.title", "about.version_fmt"
 };
 

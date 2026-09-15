@@ -236,16 +236,12 @@ int  preset_user_load(const wchar_t *name, Config *out) { return preset_user_loa
 void preset_user_delete(const wchar_t *name) { preset_user_delete_from(PRESETS_BASE, name); }
 int  preset_user_list(wchar_t names[][PRESET_NAME_MAX], int max) { return preset_user_list_from(PRESETS_BASE, names, max); }
 
-int preset_export_file(const wchar_t *path, const Config *from)
+static void preset_dump_fields(FILE *f, const Config *from)
 {
-    FILE *f = _wfopen(path, L"w, ccs=UTF-8");
-    if (!f) return 0;
-
     unsigned r = (unsigned)(from->base_r * 255.0f + 0.5f);
     unsigned g = (unsigned)(from->base_g * 255.0f + 0.5f);
     unsigned bl = (unsigned)(from->base_b * 255.0f + 0.5f);
 
-    fwprintf(f, L"[Preset]\r\n");
     fwprintf(f, L"material_mode=%d\r\n", from->material_mode);
     fwprintf(f, L"metalness=%.5f\r\n", (double)from->metalness);
     fwprintf(f, L"roughness=%.5f\r\n", (double)from->roughness);
@@ -286,40 +282,93 @@ int preset_export_file(const wchar_t *path, const Config *from)
     fwprintf(f, L"particles_opacity=%.5f\r\n", (double)from->particles_opacity);
     fwprintf(f, L"base_color=#%02X%02X%02X\r\n", r & 0xFF, g & 0xFF, bl & 0xFF);
     fwprintf(f, L"quality=%d\r\n", from->quality);
+}
+
+int preset_backup_export_file_from(const wchar_t *base, const wchar_t *path)
+{
+    wchar_t names[PRESET_BACKUP_MAX][PRESET_NAME_MAX];
+    int n = preset_user_list_from(base, names, PRESET_BACKUP_MAX);
+
+    FILE *f = _wfopen(path, L"w, ccs=UTF-8");
+    if (!f) return 0;
+
+    for (int i = 0; i < n; ++i) {
+        Config cfg;
+        if (!preset_user_load_from(base, names[i], &cfg)) continue;
+        fwprintf(f, L"[Preset:%ls]\r\n", names[i]);
+        preset_dump_fields(f, &cfg);
+        fwprintf(f, L"\r\n");
+    }
 
     fclose(f);
     return 1;
 }
 
-int preset_import_file(const wchar_t *path, Config *out)
+int preset_backup_export_file(const wchar_t *path) { return preset_backup_export_file_from(PRESETS_BASE, path); }
+
+/* processa uma secao completa acumulada na subchave temporaria (chave
+   de registro generica ja preenchida linha a linha) pro slot out[idx],
+   e limpa a subchave em seguida. */
+static void preset_backup_flush_section(const wchar_t *tmpkey, const wchar_t *name,
+                                         PresetBackupEntry *slot)
 {
-    FILE *f = _wfopen(path, L"r, ccs=UTF-8");
-    if (!f) return 0;
-
-    const wchar_t *tmpkey = L"Software\\Modern3DText\\Presets\\_import_tmp";
-    HKEY k;
-    if (RegCreateKeyExW(HKEY_CURRENT_USER, tmpkey, 0, NULL, 0, KEY_WRITE, NULL, &k, NULL) != ERROR_SUCCESS) {
-        fclose(f);
-        return 0;
-    }
-
-    wchar_t line[256];
-    while (fgetws(line, 256, f)) {
-        wchar_t *eq = wcschr(line, L'=');
-        if (!eq) continue;
-        *eq = 0;
-        wchar_t *val = eq + 1;
-        size_t vlen = wcslen(val);
-        while (vlen > 0 && (val[vlen - 1] == L'\n' || val[vlen - 1] == L'\r')) val[--vlen] = 0;
-        RegSetValueExW(k, line, 0, REG_SZ, (const BYTE *)val, (DWORD)((vlen + 1) * sizeof(wchar_t)));
-    }
-    fclose(f);
-    RegCloseKey(k);
-
     Config tmp;
     config_load_from(&tmp, tmpkey);
     RegDeleteKeyW(HKEY_CURRENT_USER, tmpkey);
 
-    preset_scope_copy(out, &tmp);
-    return 1;
+    config_defaults(&slot->cfg);
+    preset_scope_copy(&slot->cfg, &tmp);
+    wcsncpy(slot->name, name, PRESET_NAME_MAX - 1);
+    slot->name[PRESET_NAME_MAX - 1] = 0;
+}
+
+int preset_backup_parse_file(const wchar_t *path, PresetBackupEntry *out, int max)
+{
+    FILE *f = _wfopen(path, L"r, ccs=UTF-8");
+    if (!f) return -1;
+
+    const wchar_t *tmpkey = L"Software\\Modern3DText\\Presets\\_import_tmp";
+    wchar_t cur_name[PRESET_NAME_MAX] = L"";
+    HKEY k = NULL;
+    int n = 0;
+    wchar_t line[256];
+
+    while (fgetws(line, 256, f)) {
+        size_t len = wcslen(line);
+        while (len > 0 && (line[len - 1] == L'\n' || line[len - 1] == L'\r')) line[--len] = 0;
+
+        if (len > 9 && wcsncmp(line, L"[Preset:", 8) == 0 && line[len - 1] == L']') {
+            if (k) {
+                if (n < max) preset_backup_flush_section(tmpkey, cur_name, &out[n++]);
+                else RegDeleteKeyW(HKEY_CURRENT_USER, tmpkey);
+                RegCloseKey(k);
+                k = NULL;
+            }
+
+            size_t namelen = len - 9;
+            if (namelen >= PRESET_NAME_MAX) namelen = PRESET_NAME_MAX - 1;
+            wcsncpy(cur_name, line + 8, namelen);
+            cur_name[namelen] = 0;
+
+            if (RegCreateKeyExW(HKEY_CURRENT_USER, tmpkey, 0, NULL, 0, KEY_WRITE, NULL, &k, NULL) != ERROR_SUCCESS)
+                k = NULL;
+            continue;
+        }
+
+        if (!k) continue;
+        wchar_t *eq = wcschr(line, L'=');
+        if (!eq) continue;
+        *eq = 0;
+        wchar_t *val = eq + 1;
+        RegSetValueExW(k, line, 0, REG_SZ, (const BYTE *)val, (DWORD)((wcslen(val) + 1) * sizeof(wchar_t)));
+    }
+    fclose(f);
+
+    if (k) {
+        if (n < max) preset_backup_flush_section(tmpkey, cur_name, &out[n++]);
+        else RegDeleteKeyW(HKEY_CURRENT_USER, tmpkey);
+        RegCloseKey(k);
+    }
+
+    return n;
 }
