@@ -8,6 +8,31 @@
 
 #include "stb_truetype.h"
 
+/* valida que o diretorio de tabelas sfnt (a partir do offset "fo", que
+   pode ser > 0 pra um TrueType Collection) cabe inteiro dentro do
+   buffer extraido. Achado investigando um crash real: pra algumas
+   fontes reconstruidas pelo GDI a partir de um arquivo .ttc (ex.:
+   "Iosevka Term"), GetFontData devolve um tamanho de buffer que NAO
+   cobre as ultimas tabelas que o proprio diretorio declara (post/prep
+   ficam com offset+tamanho alem do fim do buffer) - a stb_truetype
+   (parser sem checagem de limites) le' esses ponteiros invalidos e
+   derruba o processo. Detecta isso ANTES de entregar os bytes pra
+   stb_truetype, pra cair no fallback normal em vez de crashar. */
+static int sfnt_tables_in_bounds(const unsigned char *buf, DWORD size, int fo)
+{
+    if (fo < 0 || (DWORD)fo + 12 > size) return 0;
+    unsigned numTables = (buf[fo + 4] << 8) | buf[fo + 5];
+    DWORD dirEnd = (DWORD)fo + 12 + (DWORD)numTables * 16;
+    if (dirEnd > size) return 0;
+    for (unsigned t = 0; t < numTables; t++) {
+        DWORD rec = (DWORD)fo + 12 + t * 16;
+        DWORD off = (buf[rec + 8] << 24) | (buf[rec + 9] << 16) | (buf[rec + 10] << 8) | buf[rec + 11];
+        DWORD len = (buf[rec + 12] << 24) | (buf[rec + 13] << 16) | (buf[rec + 14] << 8) | buf[rec + 15];
+        if (off > size || len > size - off) return 0;
+    }
+    return 1;
+}
+
 /* ---- bytes do arquivo da fonte selecionada, via GDI ---- */
 static unsigned char *load_face_bytes(const wchar_t *family, int bold, int italic, DWORD *out_size)
 {
@@ -38,7 +63,11 @@ static unsigned char *load_face_bytes(const wchar_t *family, int bold, int itali
         if (buf) {
             DWORD got = GetFontData(dc, tag, 0, buf, size);
             if (got == GDI_ERROR) { free(buf); buf = NULL; }
-            else *out_size = size;
+            else if (!sfnt_tables_in_bounds(buf, size, stbtt_GetFontOffsetForIndex(buf, 0))) {
+                log_errorf("font: dados truncados/inconsistentes pra '%ls' - usando fallback", family);
+                free(buf);
+                buf = NULL;
+            } else *out_size = size;
         }
     }
 

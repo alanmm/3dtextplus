@@ -33,4 +33,17 @@ void run_font_outline_tests(void)
     EXPECT(font_supports_bold_italic(L"Arial") == 1);
     /* fonte inexistente cai num fallback estatico do GDI - tambem nao e' excluida */
     EXPECT(font_supports_bold_italic(L"NaoExisteEssaFonte123") == 1);
+
+    /* regressao: "Iosevka Term" (instalada nesta maquina como parte de um
+       TrueType Collection) fazia GetFontData devolver um buffer cujo
+       proprio diretorio de tabelas sfnt aponta pra alem do fim dos bytes
+       extraidos - a stb_truetype lia esses ponteiros invalidos e
+       derrubava o processo inteiro (SIGSEGV em ttUSHORT, via
+       stbtt_FindGlyphIndex). Se essa fonte nao estiver instalada na
+       maquina que roda o teste, cai no fallback normal de "fonte
+       inexistente" - a asserção continua valendo de qualquer jeito. */
+    ContourSet iosevka;
+    EXPECT(font_build_contours("A", L"Iosevka Term", 1, 0, 0.01f, &iosevka) == 1);
+    EXPECT(iosevka.count >= 1);
+    contourset_free(&iosevka);
 }
