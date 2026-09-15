@@ -206,6 +206,73 @@ void run_contour_mesh_tests(void)
         cs_free(&cs);
     }
 
+    /* modo geometrico numa curva quase circular: a normal do chanfro
+       numa quina vinda de arestas vizinhas deve ficar quase igual
+       (suavizada) - contraste com o quadrado logo abaixo, onde a
+       quina de 90 graus deve continuar com normais bem diferentes
+       (aresta viva preservada de proposito). */
+    {
+        const float PI = 3.14159265f;
+        const int N = 32;
+        float circ[64];
+        for (int k = 0; k < N; ++k) {
+            float ang = (float)k / (float)N * 2.0f * PI;
+            circ[k * 2] = cosf(ang);
+            circ[k * 2 + 1] = sinf(ang);
+        }
+        ContourSet cs = cs_make(1);
+        cs_set(&cs, 0, circ, N);
+        MeshData md;
+        EXPECT(contour_mesh_build(&cs, mp_geom(0.4f, 0.1f, 1), &md) == 1);
+
+        int corner = 8;   /* longe do wraparound */
+        float cx = circ[corner * 2], cy = circ[corner * 2 + 1], cz = 0.2f;   /* hz = depth/2 */
+        float nx_found[4], ny_found[4], nz_found[4];
+        int nf = 0;
+        for (int i = 0; i < md.nverts && nf < 4; ++i) {
+            const MeshVertex *v = &md.verts[i];
+            if (v->surf > 2.5f && v->nz >= -1e-4f &&
+                fabsf(v->px - cx) < 1e-4f && fabsf(v->py - cy) < 1e-4f && fabsf(v->pz - cz) < 1e-4f) {
+                nx_found[nf] = v->nx; ny_found[nf] = v->ny; nz_found[nf] = v->nz;
+                nf++;
+            }
+        }
+        EXPECT(nf == 2);
+        float dot_smooth = nx_found[0] * nx_found[1] + ny_found[0] * ny_found[1] + nz_found[0] * nz_found[1];
+        EXPECT(dot_smooth > 0.99f);
+        mesh_data_free(&md);
+        cs_free(&cs);
+    }
+    {
+        ContourSet cs = cs_make(1);
+        float sq[] = { -1,-1,  1,-1,  1,1,  -1,1 };
+        cs_set(&cs, 0, sq, 4);
+        MeshData md;
+        EXPECT(contour_mesh_build(&cs, mp_geom(0.4f, 0.1f, 1), &md) == 1);
+
+        float cx = 1.0f, cy = -1.0f, cz = 0.2f;   /* quina entre aresta 0 e aresta 1 */
+        float nx_found[4], ny_found[4], nz_found[4];
+        int nf = 0;
+        for (int i = 0; i < md.nverts && nf < 4; ++i) {
+            const MeshVertex *v = &md.verts[i];
+            if (v->surf > 2.5f && v->nz >= -1e-4f &&
+                fabsf(v->px - cx) < 1e-4f && fabsf(v->py - cy) < 1e-4f && fabsf(v->pz - cz) < 1e-4f) {
+                nx_found[nf] = v->nx; ny_found[nf] = v->ny; nz_found[nf] = v->nz;
+                nf++;
+            }
+        }
+        EXPECT(nf == 2);
+        /* as duas facetas ainda compartilham uma inclinacao Z parecida (o
+           corte e' ~45 graus dos dois lados), entao o produto escalar nao
+           vai a zero mesmo sem suavizacao - o que importa e' ficar bem
+           abaixo do caso suavizado (~1.0) por causa do XY perpendicular
+           entre as duas arestas do quadrado. */
+        float dot_sharp = nx_found[0] * nx_found[1] + ny_found[0] * ny_found[1] + nz_found[0] * nz_found[1];
+        EXPECT(dot_sharp < 0.8f);
+        mesh_data_free(&md);
+        cs_free(&cs);
+    }
+
     /* degenerado: 2 pontos => vazio, sem crash */
     {
         ContourSet cs = cs_make(1);

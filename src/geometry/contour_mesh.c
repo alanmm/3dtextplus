@@ -269,7 +269,6 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
                 v2 c0 = co->pts[i], c1 = co->pts[j];
                 v2 on = wn.edgeN[i];
                 if (on.x == 0.0f && on.y == 0.0f) continue;
-                float nx = on.x, ny = on.y;
                 v2 n0 = wall_normal_at(&wn, i, i);
                 v2 n1 = wall_normal_at(&wn, j, i);
 
@@ -280,12 +279,21 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
                 vpush(&vb, (MeshVertex){ o0.x, o0.y, -wall_z, n0.x, n0.y, 0, 2 });
                 quad(&ib, w + 0, w + 1, w + 2, w + 3);
 
-                /* faceta plana (corte 45 graus): de (c @ hz) a (outset @ hz-bd).
-                   Normal constante = para fora + para cima, ortogonal a faceta. */
+                /* faceta (corte ~45 graus): de (c @ hz) a (outset @ hz-bd). Normal
+                   por vertice (A usa n0, B usa n1 - a mesma direcao XY ja
+                   suavizada/com quina viva calculada pra parede acima) em vez de
+                   uma normal constante pro retalho inteiro: preserva o angulo reto
+                   do corte (o usuario gosta dele, da reflexos mais definidos), mas
+                   elimina a quebra de sombreamento faceta-a-faceta em trechos
+                   curvos do contorno (letras redondas), onde antes cada aresta do
+                   contorno virava uma faceta visivelmente distinta sob luz
+                   especular/material metalico. */
                 float run = sqrtf((o0.x - c0.x) * (o0.x - c0.x) + (o0.y - c0.y) * (o0.y - c0.y));
                 float fl = sqrtf(run * run + bd * bd);
-                float fnx = 0.0f, fny = 0.0f, fnz = 1.0f;
-                if (fl > 1e-6f) { fnx = nx * (bd / fl); fny = ny * (bd / fl); fnz = run / fl; }
+                float xyk = (fl > 1e-6f) ? (bd / fl) : 0.0f;
+                float zk  = (fl > 1e-6f) ? (run / fl) : 1.0f;
+                float fnxA = n0.x * xyk, fnyA = n0.y * xyk, fnzA = zk;
+                float fnxB = n1.x * xyk, fnyB = n1.y * xyk, fnzB = zk;
 
                 for (int k = 0; k < segs; ++k) {
                     float u0 = (float)k / (float)segs, u1 = (float)(k + 1) / (float)segs;
@@ -295,16 +303,16 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
                     v2 A1 = { c0.x + (o0.x - c0.x) * u1, c0.y + (o0.y - c0.y) * u1 };
                     v2 B1 = { c1.x + (o1.x - c1.x) * u1, c1.y + (o1.y - c1.y) * u1 };
                     unsigned f = (unsigned)vb.n;
-                    vpush(&vb, (MeshVertex){ A0.x, A0.y,  z0, fnx, fny,  fnz, 3 });
-                    vpush(&vb, (MeshVertex){ B0.x, B0.y,  z0, fnx, fny,  fnz, 3 });
-                    vpush(&vb, (MeshVertex){ B1.x, B1.y,  z1, fnx, fny,  fnz, 3 });
-                    vpush(&vb, (MeshVertex){ A1.x, A1.y,  z1, fnx, fny,  fnz, 3 });
+                    vpush(&vb, (MeshVertex){ A0.x, A0.y,  z0, fnxA, fnyA,  fnzA, 3 });
+                    vpush(&vb, (MeshVertex){ B0.x, B0.y,  z0, fnxB, fnyB,  fnzB, 3 });
+                    vpush(&vb, (MeshVertex){ B1.x, B1.y,  z1, fnxB, fnyB,  fnzB, 3 });
+                    vpush(&vb, (MeshVertex){ A1.x, A1.y,  z1, fnxA, fnyA,  fnzA, 3 });
                     quad(&ib, f + 0, f + 1, f + 2, f + 3);
                     unsigned b = (unsigned)vb.n;
-                    vpush(&vb, (MeshVertex){ A1.x, A1.y, -z1, fnx, fny, -fnz, 3 });
-                    vpush(&vb, (MeshVertex){ B1.x, B1.y, -z1, fnx, fny, -fnz, 3 });
-                    vpush(&vb, (MeshVertex){ B0.x, B0.y, -z0, fnx, fny, -fnz, 3 });
-                    vpush(&vb, (MeshVertex){ A0.x, A0.y, -z0, fnx, fny, -fnz, 3 });
+                    vpush(&vb, (MeshVertex){ A1.x, A1.y, -z1, fnxA, fnyA, -fnzA, 3 });
+                    vpush(&vb, (MeshVertex){ B1.x, B1.y, -z1, fnxB, fnyB, -fnzB, 3 });
+                    vpush(&vb, (MeshVertex){ B0.x, B0.y, -z0, fnxB, fnyB, -fnzB, 3 });
+                    vpush(&vb, (MeshVertex){ A0.x, A0.y, -z0, fnxA, fnyA, -fnzA, 3 });
                     quad(&ib, b + 0, b + 1, b + 2, b + 3);
                 }
             }
