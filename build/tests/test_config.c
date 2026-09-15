@@ -29,7 +29,7 @@ void run_config_tests(void)
     EXPECT(d.material_mode == 1);
     EXPECT(nearf(d.metalness, 0.9f));
     EXPECT(nearf(d.roughness, 0.5f));
-    EXPECT(nearf(d.emissive_amount, 0.0f) && nearf(d.clearcoat, 0.0f) && nearf(d.anisotropy, 0.0f));
+    EXPECT(nearf(d.emissive_amount, 0.0f));
     EXPECT(d.bevel_mode == 1);
     EXPECT(nearf(d.bevel_size, 0.005f));
     EXPECT(nearf(d.bevel_depth, 0.007f));
@@ -103,8 +103,6 @@ void run_config_tests(void)
     a.roughness = 0.7f;
     a.emissive_r = 0.1f; a.emissive_g = 0.8f; a.emissive_b = 0.3f;
     a.emissive_amount = 0.6f;
-    a.clearcoat = 0.35f;
-    a.anisotropy = 0.55f;
     a.env_mode = 1;
     wcscpy(a.env_path, L"C:\\img\\studio.jpg");
     a.bevel_mode = 1;
@@ -173,8 +171,6 @@ void run_config_tests(void)
     EXPECT(nearf(b.roughness, 0.7f));
     EXPECT(nearf(b.emissive_r, 0.1f) && nearf(b.emissive_g, 0.8f) && nearf(b.emissive_b, 0.3f));
     EXPECT(nearf(b.emissive_amount, 0.6f));
-    EXPECT(nearf(b.clearcoat, 0.35f));
-    EXPECT(nearf(b.anisotropy, 0.55f));
     EXPECT(b.env_mode == 1);
     EXPECT(wcscmp(b.env_path, L"C:\\img\\studio.jpg") == 0);
     EXPECT(b.bevel_mode == 1);

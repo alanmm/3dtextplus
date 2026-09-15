@@ -12,8 +12,6 @@ uniform float uMetalness;    // 0..1
 uniform float uRoughness;    // 0..1 - classico, metalico e vidro
 uniform vec3  uEmissiveColor;
 uniform float uEmissiveAmount;  // 0..1 - classico, vidro e fosco (nao metalico)
-uniform float uClearcoat;       // 0..1 - classico, metalico e fosco (nao vidro)
-uniform float uAnisotropy;      // 0..1 - classico e metalico
 uniform sampler2D uEnvTex;
 uniform int   uHasEnv;       // 0/1
 
@@ -88,56 +86,6 @@ vec3 jitter_reflection(vec3 R, vec3 worldPos, float amount)
     return normalize(R + tx * j.x + ty * j.y);
 }
 
-// versao "escovada" de jitter_reflection: esmaga a variacao do ruido ao
-// longo da direcao de extrusao do texto (Tworld, local Z levado pra
-// espaco de mundo - roda junto com a animacao) e mantem a variacao
-// normal na direcao perpendicular. O resultado sao riscos alongados no
-// reflexo em vez de manchas redondas - o "grao" do metal escovado.
-// Estilizado, igual jitter_reflection normal - nao e' um BRDF fisico.
-vec3 jitter_reflection_aniso(vec3 R, vec3 worldPos, vec3 Tworld, float amount, float anisoAmt)
-{
-    float along = dot(worldPos, Tworld);
-    vec3  perp  = worldPos - Tworld * along;
-    float stretch = mix(1.0, 14.0, anisoAmt);
-    vec2 p = perp.xy * 0.55 + perp.z * 0.3 + vec2(along * (0.55 / stretch));
-    float n1 = value_noise(p) - 0.5;
-    float n2 = value_noise(p + vec2(31.7, 11.3)) - 0.5;
-    vec2 j = vec2(n1, n2) * amount;
-    vec3 up = (abs(R.y) < 0.99) ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
-    vec3 tx = normalize(cross(up, R));
-    vec3 ty = cross(R, tx);
-    return normalize(R + tx * j.x + ty * j.y);
-}
-
-// alonga um brilho especular pow(dot(N,H), power) ao longo de Tworld -
-// usado onde nao ha reflexo de ambiente pra distorcer (ex.: o brilho
-// direto do modo Classico). Reduz a componente "N.H efetivo" quando H se
-// afasta de N na direcao da tangente, esticando a mancha de brilho
-// nessa direcao. Tambem estilizado, nao fisico.
-float aniso_spec_pow(vec3 N, vec3 H, vec3 Tworld, float anisoAmt, float power)
-{
-    vec3 T = normalize(Tworld - N * dot(Tworld, N));
-    float nh = max(dot(N, H), 0.0);
-    float th = dot(T, H);
-    float squash = mix(0.0, 3.0, anisoAmt);
-    float nhEff = max(nh - abs(th) * squash, 0.0);
-    return pow(nhEff, power);
-}
-
-// segunda camada de brilho bem nitido por cima do material base (tipo
-// verniz automotivo) - um highlight estreito de ambiente refletido +
-// uma faisca especular apertada, misturados por cima da cor ja
-// calculada na intensidade "amt".
-vec3 apply_clearcoat(vec3 col, vec3 N, vec3 V, vec3 H, vec3 worldPos, float amt)
-{
-    if (amt <= 0.0) return col;
-    vec3 R = reflect(-V, N);
-    vec3 coatEnv = sample_env(jitter_reflection(R, worldPos, 0.15), 0.05);
-    float coatSpec = pow(max(dot(N, H), 0.0), 300.0);
-    vec3 coat = coatEnv * 0.5 + vec3(1.0) * coatSpec;
-    return mix(col, col + coat, amt);
-}
-
 void main()
 {
     vec3 Nl = normalize(vNrmLocal);
@@ -147,13 +95,14 @@ void main()
     vec3 R = reflect(-V, N);
     vec3 base = uBaseColor;
     float fres = pow(1.0 - max(dot(N, V), 0.0), 5.0);
-    vec3 Tworld = normalize(mat3(uModel) * vec3(0.0, 0.0, 1.0));   // direcao de extrusao, gira com o modelo
     vec3 emissive = uEmissiveColor * uEmissiveAmount;
 
     if (uMode == 1) {                         // metalico
-        vec3 Rj   = (uAnisotropy > 0.0)
-                    ? jitter_reflection_aniso(R, vWorld, Tworld, 0.9 + 1.4 * uRoughness, uAnisotropy)
-                    : jitter_reflection(R, vWorld, 0.9 + 1.4 * uRoughness);
+        // o jitter (efeito "metal martelado") agora escala com a
+        // aspereza a partir de zero - em 0 (liso) a reflexao do
+        // ambiente sai nitida, quase espelhada; antes tinha um piso de
+        // 0.9 que nunca deixava a reflexao ficar realmente nitida.
+        vec3 Rj   = jitter_reflection(R, vWorld, 1.6 * uRoughness);
         vec3 env  = sample_env(Rj, uRoughness);
         vec3 tint = mix(vec3(1.0), base, uMetalness);
         vec3 col  = env * tint;
@@ -165,14 +114,11 @@ void main()
         float fresAmt = min(fres * (0.15 + 0.85 * (1.0 - uRoughness)), 0.10);
         col = mix(col, vec3(1.0), fresAmt);
         vec3 H     = normalize(-KEY_DIR + V);
-        vec3 Hj    = (uAnisotropy > 0.0)
-                     ? jitter_reflection_aniso(H, vWorld + vec3(41.0, 7.0, 23.0), Tworld, 0.35 + 0.5 * uRoughness, uAnisotropy)
-                     : jitter_reflection(H, vWorld + vec3(41.0, 7.0, 23.0), 0.35 + 0.5 * uRoughness);
+        vec3 Hj    = jitter_reflection(H, vWorld + vec3(41.0, 7.0, 23.0), 0.6 * uRoughness);
         float spec = pow(max(dot(N, Hj), 0.0), mix(24.0, 220.0, 1.0 - uRoughness));
         col += tint * spec * (0.35 + 0.35 * (1.0 - uRoughness));
         float kd = max(dot(N, -KEY_DIR), 0.0);
         col = mix(col, base * (0.2 + 0.8 * kd), (1.0 - uMetalness) * 0.5);
-        col = apply_clearcoat(col, N, V, H, vWorld, uClearcoat);
         if (vSurf > 1.5 && vSurf < 2.5) col *= 0.9;
         fragColor = vec4(col, 1.0);
         return;
@@ -180,7 +126,10 @@ void main()
     if (uMode == 2) {                         // vidro (passe transparente)
         vec3 env  = sample_env(R, uRoughness * 0.5);
         vec3 refr = base * 0.6;
-        float m   = clamp(fres + 0.15, 0.0, 1.0);
+        // vidro liso (aspereza baixa) deveria parecer bem mais espelhado/
+        // polido mesmo olhando de frente, nao so nas bordas (fresnel);
+        // vidro aspero fica mais opaco/fosco mesmo de frente.
+        float m   = clamp(fres + 0.15 + (1.0 - uRoughness) * 0.35, 0.0, 1.0);
         vec3 col  = mix(refr, env, m);
         vec3 H = normalize(-KEY_DIR + V);
         col += vec3(1.0) * pow(max(dot(N, H), 0.0), 120.0);
@@ -192,8 +141,6 @@ void main()
         float w = dot(N, -KEY_DIR) * 0.5 + 0.5;
         vec3 col = base * (0.15 + 0.85 * w * w);
         col += base * max(dot(N, -FILL_DIR), 0.0) * 0.20;
-        vec3 Hf = normalize(-KEY_DIR + V);
-        col = apply_clearcoat(col, N, V, Hf, vWorld, uClearcoat);
         col += emissive;
         if (vSurf > 1.5) col *= 0.82;
         fragColor = vec4(col, 1.0);
@@ -205,13 +152,18 @@ void main()
     vec3 col = base * (0.12 + 0.88 * kd) * vec3(1.00, 0.96, 0.88);
     col += base * max(dot(N, -FILL_DIR), 0.0) * 0.30 * vec3(0.55, 0.62, 0.80);
     vec3 H = normalize(-KEY_DIR + V);
-    float specPow  = mix(24.0, 220.0, 1.0 - uRoughness);
-    float specTerm = (uAnisotropy > 0.0)
-                      ? aniso_spec_pow(N, H, Tworld, uAnisotropy, specPow)
-                      : pow(max(dot(N, H), 0.0), specPow);
-    col += vec3(1.0) * specTerm * mix(0.35, 0.85, 1.0 - uRoughness);
+    float specPow  = mix(6.0, 260.0, 1.0 - uRoughness);
+    float specTerm = pow(max(dot(N, H), 0.0), specPow);
+    col += vec3(1.0) * specTerm * mix(0.12, 0.9, 1.0 - uRoughness);
     col += vec3(0.55, 0.68, 0.95) * pow(1.0 - max(dot(N, V), 0.0), 3.0) * 0.35;
-    col = apply_clearcoat(col, N, V, H, vWorld, uClearcoat);
+    // aspereza baixa = verniz/plastico polido: um leve reflexo do
+    // ambiente por cima (como o brilho de uma superficie lisa refletindo
+    // o entorno); some conforme a superficie fica mais aspera/fosca.
+    float glossAmt = (1.0 - uRoughness);
+    if (glossAmt > 0.0) {
+        vec3 glossEnv = sample_env(jitter_reflection(R, vWorld, 1.6 * uRoughness), uRoughness);
+        col += glossEnv * glossAmt * glossAmt * 0.30;
+    }
     col += emissive;
     if (vSurf > 1.5 && vSurf < 2.5) col *= 0.92;
     fragColor = vec4(col, 1.0);

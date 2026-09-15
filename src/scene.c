@@ -44,7 +44,7 @@ struct SceneRenderer {
     int      material_mode;
     float    metalness, roughness;
     v3       emissive_color;
-    float    emissive_amount, clearcoat, anisotropy;
+    float    emissive_amount;
     wchar_t  env_path[512];
     unsigned env_tex;
     int      env_mode;
@@ -519,8 +519,6 @@ void scene_set_config(SceneRenderer *s, const Config *cfg)
     s->roughness = cfg->roughness;
     s->emissive_color = (v3){ cfg->emissive_r, cfg->emissive_g, cfg->emissive_b };
     s->emissive_amount = cfg->emissive_amount;
-    s->clearcoat = cfg->clearcoat;
-    s->anisotropy = cfg->anisotropy;
     s->bevel_mode = cfg->bevel_mode;
     s->bevel_size = cfg->bevel_size;
     s->bevel_depth = cfg->bevel_depth;
@@ -711,7 +709,7 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h, int particles_
 
     material_begin(&s->mat, view, proj, eye, s->base_color);
     material_set_style(&s->mat, s->material_mode, s->metalness, s->roughness, s->env_tex,
-                        s->emissive_color, s->emissive_amount, s->clearcoat, s->anisotropy);
+                        s->emissive_color, s->emissive_amount);
     material_set_model(&s->mat, model);
 
     int glass = (s->material_mode == 2);
