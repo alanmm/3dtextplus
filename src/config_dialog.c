@@ -51,6 +51,16 @@ static bool  g_pv_drag_rot, g_pv_drag_pan;
 static POINT g_pv_last;
 static float g_pv_zoom = 1.0f;   /* espelha o zoom efetivo atual, automatico ou manual */
 
+/* ferramenta de debug visual (tipo os modos de visualizacao de material do
+   Blender) - botao direito no preview alterna entre elas. So' de sessao,
+   nunca persistida em Config. Escolhido botao direito (em vez de atalho de
+   teclado) porque o preview nunca recebe foco de teclado (ver comentario
+   de preview_wndproc mais abaixo) - qualquer tecla so' chegaria aqui se
+   nenhum outro controle do dialogo estivesse com foco, o que nao da pra
+   garantir. Mouse no proprio preview ja funciona de forma confiavel (o
+   arrastar de orbita/pan ja usa esse canal). */
+static int   g_pv_debug_view;   /* 0 normal, 1 fresnel, 2 aresta, 3 normal RGB, 4 tipo de superficie */
+
 #define PV_ROT_SENS  0.4f    /* graus por pixel arrastado */
 #define PV_PAN_SENS  0.02f   /* unidades de mundo por pixel arrastado */
 #define PV_ZOOM_MIN  0.3f
@@ -67,7 +77,8 @@ static void preview_teardown(HWND h)
 
 /* WNDPROC da janela do preview 3D: arrastar com o botao esquerdo gira,
    arrastar com o botao do meio faz pan, ambos via mouse capture (funciona
-   mesmo se o cursor sair da janela durante o arrasto). O wheel (zoom) e
+   mesmo se o cursor sair da janela durante o arrasto). Botao direito
+   alterna a visualizacao de debug (g_pv_debug_view). O wheel (zoom) e
    tratado no dialogo principal (WM_MOUSEWHEEL so chega a janela com foco,
    e este filho nunca recebe foco por tab - ver dlg_proc). */
 static LRESULT CALLBACK preview_wndproc(HWND h, UINT m, WPARAM w, LPARAM l)
@@ -98,6 +109,10 @@ static LRESULT CALLBACK preview_wndproc(HWND h, UINT m, WPARAM w, LPARAM l)
         case WM_CAPTURECHANGED:
             g_pv_drag_rot = false;
             g_pv_drag_pan = false;
+            return 0;
+        case WM_RBUTTONDOWN:
+            g_pv_debug_view = (g_pv_debug_view + 1) % 5;
+            if (g_preview) gl_window_set_debug_view(g_preview, g_pv_debug_view);
             return 0;
         case WM_MOUSEMOVE: {
             if (!g_preview || (!g_pv_drag_rot && !g_pv_drag_pan)) break;
@@ -1928,6 +1943,7 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             g_pv_drag_rot = false;
             g_pv_drag_pan = false;
             g_pv_zoom = 1.0f;
+            g_pv_debug_view = 0;
             {
                 HWND ph = GetDlgItem(h, IDC_PREVIEW);
                 RECT pr; GetClientRect(ph, &pr);

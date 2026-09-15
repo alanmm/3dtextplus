@@ -8,6 +8,10 @@ typedef struct SceneRenderer SceneRenderer;
 SceneRenderer *scene_create(const Config *cfg);
 void scene_set_config(SceneRenderer *s, const Config *cfg);   /* reconstroi a malha so se preciso */
 void scene_set_zoom(SceneRenderer *s, float zoom);   /* 1.0 = enquadramento padrao; >1 aproxima a camera */
+/* ferramenta de debug visual (so' preview, nunca persistido em Config):
+   0 normal, 1 fresnel, 2 mascara de aresta/curvatura, 3 normal como RGB,
+   4 tipo de superficie (tampa/parede/chanfro) como cor - ver model.frag */
+void scene_set_debug_view(SceneRenderer *s, int mode);
 void scene_set_auto_spin(SceneRenderer *s, int enabled);   /* giro continuo, ignora o pendulo configurado */
 /* Controle manual de camera (arrastar/pan do mouse): a primeira chamada a
    qualquer uma das duas assume o controle (desliga auto_spin e o pendulo

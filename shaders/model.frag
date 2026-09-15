@@ -14,6 +14,7 @@ uniform vec3  uEmissiveColor;
 uniform float uEmissiveAmount;  // 0..1 - classico e vidro (nao metalico)
 uniform sampler2D uEnvTex;
 uniform int   uHasEnv;       // 0/1
+uniform int   uDebugView;    // 0 normal, 1 fresnel, 2 aresta/curvatura, 3 normal RGB, 4 tipo de superficie
 
 out vec4  fragColor;               // classico/metalico
 layout(location = 1) out vec4  oAccum;       // vidro (WBOIT) - cor*alpha*peso, alpha*peso no canal A
@@ -99,6 +100,33 @@ void main()
     float fres = pow(1.0 - max(dot(N, V), 0.0), 5.0);
     vec3 emissive = uEmissiveColor * uEmissiveAmount;
 
+    // mascara de aresta/curvatura CONTINUA: mede o quanto a normal muda de
+    // um pixel pro vizinho na tela (dFdx/dFdy), em vez de uma tag discreta
+    // da malha (que daria um salto abrupto exatamente na costura entre
+    // triangulos - um "wireframe" involuntario). Proximo de zero numa face
+    // plana (tampa/parede), sobe suavemente perto de qualquer aresta/vinco/
+    // curva do chanfro. Calculada aqui (fora dos ramos de uMode) pra poder
+    // ser reaproveitada tanto pelo Vidro quanto pela visualizacao de debug.
+    float edgeSignal = length(dFdx(N)) + length(dFdy(N));
+    float edgeAmt = smoothstep(0.0, 0.35, edgeSignal);
+
+    // ferramenta de debug visual (botao direito no preview alterna, ver
+    // config_dialog.c) - mostra uma etapa/aspecto isolado do calculo do
+    // material em vez do resultado final, tipo os modos de visualizacao
+    // de material do Blender. So' de sessao, nao afeta o resultado normal.
+    if (uDebugView == 1) { fragColor = vec4(vec3(fres), 1.0); return; }
+    if (uDebugView == 2) { fragColor = vec4(vec3(edgeAmt), 1.0); return; }
+    if (uDebugView == 3) { fragColor = vec4(N * 0.5 + 0.5, 1.0); return; }
+    if (uDebugView == 4) {
+        vec3 surfColor = vec3(0.15);                          // fallback
+        if (vSurf < 0.5)      surfColor = vec3(0.9, 0.2, 0.2); // 0 tampa da frente
+        else if (vSurf < 1.5) surfColor = vec3(0.2, 0.9, 0.2); // 1 tampa de tras
+        else if (vSurf < 2.5) surfColor = vec3(0.2, 0.4, 0.9); // 2 parede
+        else                  surfColor = vec3(0.95, 0.85, 0.1); // 3 chanfro/aresta
+        fragColor = vec4(surfColor, 1.0);
+        return;
+    }
+
     if (uMode == 1) {                         // metalico
         // o jitter (efeito "metal martelado") agora escala com a
         // aspereza a partir de zero - em 0 (liso) a reflexao do
@@ -147,17 +175,9 @@ void main()
         // de (1-alpha) em 2 saidas separadas. O passe de resolucao
         // (wboit_resolve.frag) desfaz isso depois, independente de ordem.
         float a = mix(0.35, 0.95, m);
-        // mascara aresta/plano CONTINUA: em vez de uma tag discreta da malha
-        // (que daria um salto abrupto exatamente na costura entre triangulos
-        // - um "wireframe" involuntario), mede o quanto a normal muda de um
-        // pixel pro vizinho na tela (dFdx/dFdy). Isso e' proximo de zero numa
-        // face plana (tampa/parede) e sobe suavemente perto de qualquer
-        // aresta/vinco/curva do chanfro, ja que a variacao acontece ao longo
-        // de alguns pixels reais, nao de um salto na costura da geometria.
-        vec3 dNx = dFdx(N);
-        vec3 dNy = dFdy(N);
-        float edgeSignal = length(dNx) + length(dNy);
-        float edgeAmt = smoothstep(0.0, 0.35, edgeSignal);
+        // mascara aresta/plano ja calculada no topo (edgeAmt) - reaproveitada
+        // aqui: aresta fica mais opaca, face plana mais transparente, nunca
+        // batendo em 0% nem 100%.
         a = clamp(a + mix(-0.18, 0.12, edgeAmt), 0.12, 0.88);
         float linearDepth = length(uCamPos - vWorld);
         float weight = a * clamp(0.4 / (1e-5 + pow(linearDepth / 8.0, 4.0)), 1e-2, 3000.0);

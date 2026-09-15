@@ -343,6 +343,12 @@ void gl_window_set_zoom(GlWindow *g, float zoom)
     scene_set_zoom(g->scene, zoom);
 }
 
+void gl_window_set_debug_view(GlWindow *g, int mode)
+{
+    if (!g->scene) return;
+    scene_set_debug_view(g->scene, mode);
+}
+
 void gl_window_set_auto_spin(GlWindow *g, int enabled)
 {
     if (!g->scene) return;

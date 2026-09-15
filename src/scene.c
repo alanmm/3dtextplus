@@ -29,6 +29,7 @@ struct SceneRenderer {
     int      have_mesh;
     float    hx, hy, hz;
     float    zoom;
+    int      debug_view;   /* 0=normal - ver scene_set_debug_view */
     int      auto_spin;
     int      manual_cam;             /* usuario assumiu o controle (arrastar/pan) - desliga auto_spin e pendulo */
     float    man_yaw, man_pitch;     /* graus, acumulado por arrastar com o botao esquerdo */
@@ -594,6 +595,11 @@ void scene_set_zoom(SceneRenderer *s, float zoom)
     s->zoom = zoom;
 }
 
+void scene_set_debug_view(SceneRenderer *s, int mode)
+{
+    s->debug_view = mode;
+}
+
 void scene_set_auto_spin(SceneRenderer *s, int enabled)
 {
     s->auto_spin = enabled;
@@ -805,6 +811,7 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h, int particles_
     material_begin(&s->mat, view, proj, eye, s->base_color);
     material_set_style(&s->mat, s->material_mode, s->metalness, s->roughness, s->env_tex,
                         s->emissive_color, s->emissive_amount);
+    material_set_debug_view(&s->mat, s->debug_view);
     material_set_model(&s->mat, model);
 
     if (s->material_mode == 2) {                     /* vidro: WBOIT */

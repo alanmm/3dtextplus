@@ -18,6 +18,7 @@ GlWindow *gl_window_create(HINSTANCE hInst, DWORD style, DWORD exstyle, HWND par
 void  gl_window_frame(GlWindow *g, double t);          /* render 1 frame + SwapBuffers */
 void  gl_window_set_config(GlWindow *g, const Config *cfg);
 void  gl_window_set_zoom(GlWindow *g, float zoom);     /* 1.0 = enquadramento padrao; >1 aproxima a camera */
+void  gl_window_set_debug_view(GlWindow *g, int mode); /* ferramenta de debug visual - ver scene_set_debug_view */
 void  gl_window_set_auto_spin(GlWindow *g, int enabled);  /* giro continuo, ignora o pendulo configurado */
 void  gl_window_orbit(GlWindow *g, float dyaw_deg, float dpitch_deg);  /* controle manual - assume a camera */
 void  gl_window_pan(GlWindow *g, float dx, float dy);                 /* idem */

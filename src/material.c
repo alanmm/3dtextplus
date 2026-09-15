@@ -21,6 +21,7 @@ int material_init(Material *m)
     m->uHasEnv    = glGetUniformLocation(m->prog, "uHasEnv");
     m->uEmissiveColor  = glGetUniformLocation(m->prog, "uEmissiveColor");
     m->uEmissiveAmount = glGetUniformLocation(m->prog, "uEmissiveAmount");
+    m->uDebugView      = glGetUniformLocation(m->prog, "uDebugView");
     glUseProgram(m->prog);
     glUniform1i(m->uEnvTex, 0);   /* unidade de textura 0 */
     return 1;
@@ -50,6 +51,12 @@ void material_set_style(const Material *m, int mode, float metalness, float roug
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, env_tex);
     }
+}
+
+void material_set_debug_view(const Material *m, int mode)
+{
+    glUseProgram(m->prog);
+    glUniform1i(m->uDebugView, mode);
 }
 
 void material_set_piece_color(const Material *m, v3 color)
