@@ -11,6 +11,7 @@ void preset_scope_copy(Config *dst, const Config *src)
     dst->roughness = src->roughness;
     dst->emissive_r = src->emissive_r; dst->emissive_g = src->emissive_g; dst->emissive_b = src->emissive_b;
     dst->emissive_amount = src->emissive_amount;
+    dst->refraction = src->refraction;
     dst->env_mode = src->env_mode;
     wcsncpy(dst->env_path, src->env_path, 511);
     dst->env_path[511] = 0;
@@ -251,6 +252,7 @@ static void preset_dump_fields(FILE *f, const Config *from)
     fwprintf(f, L"emissive_g=%.5f\r\n", (double)from->emissive_g);
     fwprintf(f, L"emissive_b=%.5f\r\n", (double)from->emissive_b);
     fwprintf(f, L"emissive_amount=%.5f\r\n", (double)from->emissive_amount);
+    fwprintf(f, L"refraction=%.5f\r\n", (double)from->refraction);
     fwprintf(f, L"env_mode=%d\r\n", from->env_mode);
     fwprintf(f, L"env_path=%ls\r\n", from->env_path);
     fwprintf(f, L"bevel_mode=%d\r\n", from->bevel_mode);
