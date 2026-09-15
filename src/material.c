@@ -21,29 +21,23 @@ int material_init(Material *m)
     m->uHasEnv    = glGetUniformLocation(m->prog, "uHasEnv");
     m->uEmissiveColor  = glGetUniformLocation(m->prog, "uEmissiveColor");
     m->uEmissiveAmount = glGetUniformLocation(m->prog, "uEmissiveAmount");
-    m->uGrabTex        = glGetUniformLocation(m->prog, "uGrabTex");
-    m->uRefraction     = glGetUniformLocation(m->prog, "uRefraction");
-    m->uScreenSize     = glGetUniformLocation(m->prog, "uScreenSize");
     glUseProgram(m->prog);
     glUniform1i(m->uEnvTex, 0);   /* unidade de textura 0 */
-    glUniform1i(m->uGrabTex, 1);  /* unidade de textura 1 */
     return 1;
 }
 
-void material_begin(const Material *m, m4 view, m4 proj, v3 campos, v3 base, int fb_w, int fb_h)
+void material_begin(const Material *m, m4 view, m4 proj, v3 campos, v3 base)
 {
     glUseProgram(m->prog);
     glUniformMatrix4fv(m->uView, 1, GL_FALSE, view.m);
     glUniformMatrix4fv(m->uProj, 1, GL_FALSE, proj.m);
     glUniform3f(m->uCamPos, campos.x, campos.y, campos.z);
     glUniform3f(m->uBaseColor, base.x, base.y, base.z);
-    glUniform2f(m->uScreenSize, (float)fb_w, (float)fb_h);
 }
 
 void material_set_style(const Material *m, int mode, float metalness, float roughness,
                         unsigned env_tex,
-                        v3 emissive_color, float emissive_amount,
-                        float refraction)
+                        v3 emissive_color, float emissive_amount)
 {
     glUseProgram(m->prog);
     glUniform1i(m->uMode, mode);
@@ -52,7 +46,6 @@ void material_set_style(const Material *m, int mode, float metalness, float roug
     glUniform1i(m->uHasEnv, env_tex ? 1 : 0);
     glUniform3f(m->uEmissiveColor, emissive_color.x, emissive_color.y, emissive_color.z);
     glUniform1f(m->uEmissiveAmount, emissive_amount);
-    glUniform1f(m->uRefraction, refraction);
     if (env_tex) {
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, env_tex);

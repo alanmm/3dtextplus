@@ -510,7 +510,6 @@ static void material_labels(HWND h)
     swprintf(b, 32, L"%.2f", (double)g_work.metalness);  SetDlgItemTextW(h, IDC_METAL_VAL, b);
     swprintf(b, 32, L"%.2f", (double)g_work.roughness);  SetDlgItemTextW(h, IDC_ROUGH_VAL, b);
     swprintf(b, 32, L"%.2f", (double)g_work.emissive_amount); SetDlgItemTextW(h, IDC_EMISSIVE_VAL, b);
-    swprintf(b, 32, L"%.2f", (double)g_work.refraction); SetDlgItemTextW(h, IDC_REFRACT_VAL, b);
     SetDlgItemTextW(h, IDC_ENVPATH, g_work.env_path[0] ? g_work.env_path : i18n_str(STR_PLACEHOLDER_PROCEDURAL));
 }
 
@@ -521,7 +520,6 @@ static void material_apply_i18n(HWND h)
     SetDlgItemTextW(h, IDC_ROUGH_LABEL, i18n_str(STR_MATERIAL_ROUGHNESS_LABEL));
     SetDlgItemTextW(h, IDC_EMISSIVE_LABEL, i18n_str(STR_MATERIAL_EMISSIVE_LABEL));
     SetDlgItemTextW(h, IDC_EMISSIVE_COLOR, i18n_str(STR_MATERIAL_EMISSIVE_COLOR_BTN));
-    SetDlgItemTextW(h, IDC_REFRACT_LABEL, i18n_str(STR_MATERIAL_REFRACTION_LABEL));
     SetDlgItemTextW(h, IDC_ENV_LABEL, i18n_str(STR_MATERIAL_ENV_LABEL));
     SetDlgItemTextW(h, IDC_ENVMODE_EMBED, i18n_str(STR_MATERIAL_ENV_MODE_EMBEDDED));
     SetDlgItemTextW(h, IDC_ENVMODE_CUSTOM, i18n_str(STR_MATERIAL_ENV_MODE_CUSTOM));
@@ -545,42 +543,43 @@ static void material_apply_i18n(HWND h)
    shaders/model.frag) em alguns modos:
    Metalizacao: so' Metalico.
    Rugosidade: Classico, Metalico e Vidro (todos os modos).
-   Distorcao: so' Vidro.
    Emissivo: Classico e Vidro (Metalico ja' reflete o ambiente, brilho
    proprio por cima ficaria estranho).
-   (Cada bloco tem sua PROPRIA posicao original no .rc - dois blocos
-   compartilhando coordenadas ja causou um bug real: o avanco de
-   cursor do bloco anterior zerava, empurrando o bloco seguinte pra
-   cima do bloco compartilhado. O gap entre blocos agora tambem e' um
-   unico valor uniforme (g_mat_gap), nao um valor por par - protege
-   contra esse mesmo bug se um futuro bloco voltar a compartilhar
-   posicao com outro.)
    Ambiente: Metalico e Vidro (unico jeito de refletir alguma coisa).
    (Fosco foi removido - feedback do usuario apos a aspereza do
    Classico passar a cobrir liso->fosco de verdade, o Fosco separado
    ficou redundante.)
    (Verniz e Anisotropia existiram brevemente mas foram removidos -
    feedback do usuario apos testar: efeito pouco distintivo pra
-   justificar mais 2 controles na UI.) */
+   justificar mais 2 controles na UI. Depois, uma Distorcao/refracao
+   real do Vidro tambem foi tentada e removida - mesmo depois de
+   corrigir 3 bugs reais na implementacao (formula presa as bordas,
+   filtro invalido de blit MSAA, layout quebrado), o resultado nunca
+   convenceu o usuario como efeito visual - abandonado de vez.)
+   (Cada bloco tem sua PROPRIA posicao original no .rc - dois blocos
+   compartilhando coordenadas ja causou um bug real: o avanco de
+   cursor do bloco anterior zerava, empurrando o bloco seguinte pra
+   cima do bloco compartilhado. NUNCA reaproveitar coordenadas entre
+   blocos por economia de espaco.) */
 typedef struct { int id; int x, rel_y; } MatCtrl;
 
-#define MAT_BLOCKS 6
+#define MAT_BLOCKS 5
 static MatCtrl g_mat_blocks[MAT_BLOCKS][4] = {
     { { IDC_METAL_LABEL, 0, 0 }, { IDC_METAL_VAL, 0, 0 }, { IDC_METAL, 0, 0 } },
     { { IDC_ROUGH_LABEL, 0, 0 }, { IDC_ROUGH_VAL, 0, 0 }, { IDC_ROUGH, 0, 0 } },
-    { { IDC_REFRACT_LABEL, 0, 0 }, { IDC_REFRACT_VAL, 0, 0 }, { IDC_REFRACT, 0, 0 } },
     { { IDC_EMISSIVE_LABEL, 0, 0 }, { IDC_EMISSIVE_COLOR, 0, 0 }, { IDC_EMISSIVE_VAL, 0, 0 }, { IDC_EMISSIVE, 0, 0 } },
     { { IDC_ENV_LABEL, 0, 0 }, { IDC_ENVMODE_EMBED, 0, 0 }, { IDC_ENVMODE_CUSTOM, 0, 0 }, { IDC_ENVMODE_NONE, 0, 0 } },
     { { IDC_ENVPATH, 0, 0 }, { IDC_ENVPICK, 0, 0 }, { IDC_ENVCLEAR, 0, 0 } },
 };
-static const int MAT_BLOCK_N[MAT_BLOCKS] = { 3, 3, 3, 4, 4, 3 };
+static const int MAT_BLOCK_N[MAT_BLOCKS] = { 3, 3, 4, 4, 3 };
 static int g_mat_block_top[MAT_BLOCKS];
 static int g_mat_block_h[MAT_BLOCKS];
 static int g_mat_gap = 0;   /* espacamento uniforme entre blocos - todo o .rc usa o
                                mesmo ritmo (6 DU); um unico valor, em vez de um gap
                                por par original, evita o bug de blocos que
-                               compartilham coordenadas (ex.: Metalizacao/Distorcao)
-                               "zerarem" o avanco do cursor pro bloco seguinte. */
+                               compartilham coordenadas "zerarem" o avanco do
+                               cursor pro bloco seguinte (ja aconteceu de verdade -
+                               ver comentario acima). */
 static int g_mat_layout_ready = 0;
 
 /* captura a posicao ORIGINAL (em pixels, ja resolvida do .rc) de cada
@@ -621,11 +620,10 @@ static void material_layout_apply(HWND h)
     int mode = g_work.material_mode;
     int vis_metal      = (mode == 1);
     int vis_rough      = (mode == 0 || mode == 1 || mode == 2);
-    int vis_refract    = (mode == 2);
     int vis_emissive   = (mode == 0 || mode == 2);
     int vis_env_hdr    = (mode == 1 || mode == 2);
     int vis_env_pick   = vis_env_hdr && (g_work.env_mode == 1);
-    int visible[MAT_BLOCKS] = { vis_metal, vis_rough, vis_refract, vis_emissive,
+    int visible[MAT_BLOCKS] = { vis_metal, vis_rough, vis_emissive,
                                  vis_env_hdr, vis_env_pick };
 
     int cursor = g_mat_block_top[0];
@@ -653,7 +651,6 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             set_slider(h, IDC_METAL, 0, 100, (int)(g_work.metalness * 100.0f + 0.5f));
             set_slider(h, IDC_ROUGH, 0, 100, (int)(g_work.roughness * 100.0f + 0.5f));
             set_slider(h, IDC_EMISSIVE, 0, 100, (int)(g_work.emissive_amount * 100.0f + 0.5f));
-            set_slider(h, IDC_REFRACT, 0, 100, (int)(g_work.refraction * 100.0f + 0.5f));
             material_apply_i18n(h);
             CheckRadioButton(h, IDC_ENVMODE_EMBED, IDC_ENVMODE_NONE,
                               g_work.env_mode == 1 ? IDC_ENVMODE_CUSTOM :
@@ -666,7 +663,6 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             g_work.metalness = (float)SendDlgItemMessageW(h, IDC_METAL, TBM_GETPOS, 0, 0) / 100.0f;
             g_work.roughness = (float)SendDlgItemMessageW(h, IDC_ROUGH, TBM_GETPOS, 0, 0) / 100.0f;
             g_work.emissive_amount = (float)SendDlgItemMessageW(h, IDC_EMISSIVE, TBM_GETPOS, 0, 0) / 100.0f;
-            g_work.refraction = (float)SendDlgItemMessageW(h, IDC_REFRACT, TBM_GETPOS, 0, 0) / 100.0f;
             material_labels(h);
             preview_dirty(h);
             return TRUE;

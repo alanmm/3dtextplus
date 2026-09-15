@@ -14,9 +14,6 @@ uniform vec3  uEmissiveColor;
 uniform float uEmissiveAmount;  // 0..1 - classico e vidro (nao metalico)
 uniform sampler2D uEnvTex;
 uniform int   uHasEnv;       // 0/1
-uniform sampler2D uGrabTex;     // fundo capturado antes do vidro ser desenhado (so' usado se uRefraction > 0)
-uniform float uRefraction;      // 0..1 - so' vidro. 0 = desliga (uGrabTex nem e' amostrado)
-uniform vec2  uScreenSize;      // resolucao em pixels, pra converter gl_FragCoord em UV 0..1
 
 out vec4 fragColor;
 
@@ -130,27 +127,12 @@ void main()
         // so' a face voltada pra camera - sem isso, paredes internas/faces
         // de tras (a extrusao inteira desenha dos dois lados, ver
         // glDisable(GL_CULL_FACE) em scene.c) se somam por cima da
-        // transparencia e diluem tanto a leitura do vidro quanto a
-        // distorcao. gl_FrontFacing reflete a orientacao real na tela,
-        // entao funciona igual em malhas importadas com qualquer winding.
+        // transparencia e deixam a leitura do vidro "encardida".
+        // gl_FrontFacing reflete a orientacao real na tela, entao
+        // funciona igual em malhas importadas com qualquer winding.
         if (!gl_FrontFacing) discard;
         vec3 env  = sample_env(R, uRoughness * 0.5);
         vec3 refr = base * 0.6;
-        if (uRefraction > 0.0) {
-            // desloca a amostra do fundo capturado pela posicao de MUNDO
-            // do fragmento (nao pela normal) - a normal sozinha fica perto
-            // de zero em qualquer face voltada de frente pra camera
-            // (a maior parte do texto), deixando o efeito quase invisivel
-            // mesmo em valores altos. Usar a posicao da' uma curvatura tipo
-            // lupa que cresce suavemente do centro de cada letra pra fora,
-            // visivel na face inteira. LOD escala com a aspereza: vidro
-            // liso fica nitido, vidro aspero borra (mipmaps gerados no
-            // momento da captura).
-            vec2 screenUV = gl_FragCoord.xy / uScreenSize;
-            vec2 duv = clamp(screenUV + vWorld.xy * uRefraction * 0.09, 0.002, 0.998);
-            vec3 behind = textureLod(uGrabTex, duv, uRoughness * 5.0).rgb;
-            refr = mix(refr, behind * mix(vec3(1.0), base, 0.4), 0.85);
-        }
         // vidro liso (aspereza baixa) deveria parecer bem mais espelhado/
         // polido mesmo olhando de frente, nao so nas bordas (fresnel);
         // vidro aspero fica mais opaco/fosco mesmo de frente.
