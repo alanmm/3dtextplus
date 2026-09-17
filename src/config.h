@@ -62,6 +62,8 @@ typedef struct {
     float        bg_neb_color2_r, bg_neb_color2_g, bg_neb_color2_b;
     float        bg_grid_color1_r, bg_grid_color1_g, bg_grid_color1_b;  /* fundo - so' type=grade */
     float        bg_grid_color2_r, bg_grid_color2_g, bg_grid_color2_b;  /* linhas - so' type=grade */
+    float        bg_grid_density;    /* celulas na dimensao menor da tela, 4..64 */
+    int          bg_grid_dots;       /* 0 linhas, 1 pontos nos cruzamentos */
     int          particles_on;          /* 0/1 */
     int          particles_kind;        /* 0 dust, 1 bokeh, 2 sparks, 3 stars */
     float        particles_density;     /* 0..1 */

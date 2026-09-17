@@ -1139,6 +1139,7 @@ static void bg_labels(HWND h)
     wchar_t b[32];
     swprintf(b, 32, L"%.0f", (double)g_work.bg_grad_angle); SetDlgItemTextW(h, IDC_BGANGLE_VAL, b);
     swprintf(b, 32, L"%.2f", (double)g_work.bg_pan_speed);  SetDlgItemTextW(h, IDC_BGPAN_VAL, b);
+    swprintf(b, 32, L"%.0f", (double)g_work.bg_grid_density); SetDlgItemTextW(h, IDC_BGGRIDDENS_VAL, b);
     SetDlgItemTextW(h, IDC_BGIMGPATH, g_work.bg_image_path[0] ? g_work.bg_image_path : i18n_str(STR_PLACEHOLDER_NONE_F));
 }
 
@@ -1156,9 +1157,11 @@ static BgCtrl g_bg_blocks[5][9] = {
       { IDC_BGIMGCLEAR, 0, 0 }, { IDC_BGFIT_LABEL, 0, 0 }, { IDC_BGFIT, 0, 0 },
       { IDC_BGPAN_LABEL, 0, 0 }, { IDC_BGPAN_VAL, 0, 0 }, { IDC_BGPAN, 0, 0 } },
     { { IDC_BGNEBULA_LABEL, 0, 0 }, { IDC_BGNEBCOLOR1, 0, 0 }, { IDC_BGNEBCOLOR2, 0, 0 } },
-    { { IDC_BGGRID_LABEL, 0, 0 }, { IDC_BGGRIDCOLOR1, 0, 0 }, { IDC_BGGRIDCOLOR2, 0, 0 } },
+    { { IDC_BGGRID_LABEL, 0, 0 }, { IDC_BGGRIDCOLOR1, 0, 0 }, { IDC_BGGRIDCOLOR2, 0, 0 },
+      { IDC_BGGRIDDENS_LABEL, 0, 0 }, { IDC_BGGRIDDENS_VAL, 0, 0 }, { IDC_BGGRIDDENS, 0, 0 },
+      { IDC_BGGRIDDOTS, 0, 0 } },
 };
-static const int BG_BLOCK_N[5] = { 2, 5, 9, 3, 3 };
+static const int BG_BLOCK_N[5] = { 2, 5, 9, 3, 7 };
 static int g_bg_block_top[5];
 static int g_bg_block_h[5];
 static int g_bg_gap_after[4];
@@ -1231,6 +1234,8 @@ static void bg_apply_i18n(HWND h)
     SetDlgItemTextW(h, IDC_BGGRID_LABEL, i18n_str(STR_BG_GRID_LABEL));
     SetDlgItemTextW(h, IDC_BGGRIDCOLOR1, i18n_str(STR_BG_GRID_COLOR1_BTN));
     SetDlgItemTextW(h, IDC_BGGRIDCOLOR2, i18n_str(STR_BG_GRID_COLOR2_BTN));
+    SetDlgItemTextW(h, IDC_BGGRIDDENS_LABEL, i18n_str(STR_BG_GRID_DENSITY_LABEL));
+    SetDlgItemTextW(h, IDC_BGGRIDDOTS, i18n_str(STR_BG_GRID_DOTS));
 
     HWND ty = GetDlgItem(h, IDC_BGTYPE);
     int cur = (int)SendMessageW(ty, CB_GETCURSEL, 0, 0);
@@ -1260,6 +1265,8 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
         case WM_INITDIALOG: {
             set_slider(h, IDC_BGANGLE, 0, 360, (int)(g_work.bg_grad_angle + 0.5f));
             set_slider(h, IDC_BGPAN, 0, 100, (int)(g_work.bg_pan_speed * 100.0f + 0.5f));
+            set_slider(h, IDC_BGGRIDDENS, 4, 64, (int)(g_work.bg_grid_density + 0.5f));
+            CheckDlgButton(h, IDC_BGGRIDDOTS, g_work.bg_grid_dots ? BST_CHECKED : BST_UNCHECKED);
             bg_apply_i18n(h);
             bg_layout_capture(h);
             bg_layout_apply(h);
@@ -1268,6 +1275,7 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
         case WM_HSCROLL:
             g_work.bg_grad_angle = (float)SendDlgItemMessageW(h, IDC_BGANGLE, TBM_GETPOS, 0, 0);
             g_work.bg_pan_speed  = (float)SendDlgItemMessageW(h, IDC_BGPAN, TBM_GETPOS, 0, 0) / 100.0f;
+            g_work.bg_grid_density = (float)SendDlgItemMessageW(h, IDC_BGGRIDDENS, TBM_GETPOS, 0, 0);
             bg_labels(h);
             preview_dirty(h);
             return TRUE;
@@ -1411,6 +1419,10 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     }
                     break;
                 }
+                case IDC_BGGRIDDOTS:
+                    g_work.bg_grid_dots = (IsDlgButtonChecked(h, IDC_BGGRIDDOTS) == BST_CHECKED);
+                    preview_dirty(h);
+                    break;
                 case IDC_BGIMGPICK: {
                     wchar_t file[512] = L"";
                     OPENFILENAMEW ofn;

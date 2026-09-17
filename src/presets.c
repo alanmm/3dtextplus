@@ -26,6 +26,8 @@ void preset_scope_copy(Config *dst, const Config *src)
     dst->bg_neb_color2_r = src->bg_neb_color2_r; dst->bg_neb_color2_g = src->bg_neb_color2_g; dst->bg_neb_color2_b = src->bg_neb_color2_b;
     dst->bg_grid_color1_r = src->bg_grid_color1_r; dst->bg_grid_color1_g = src->bg_grid_color1_g; dst->bg_grid_color1_b = src->bg_grid_color1_b;
     dst->bg_grid_color2_r = src->bg_grid_color2_r; dst->bg_grid_color2_g = src->bg_grid_color2_g; dst->bg_grid_color2_b = src->bg_grid_color2_b;
+    dst->bg_grid_density = src->bg_grid_density;
+    dst->bg_grid_dots = src->bg_grid_dots;
     dst->bloom_on = src->bloom_on;
     dst->bloom_threshold = src->bloom_threshold;
     dst->bloom_intensity = src->bloom_intensity;
@@ -282,6 +284,8 @@ static void preset_dump_fields(FILE *f, const Config *from)
     fwprintf(f, L"bg_grid_color2_r=%.5f\r\n", (double)from->bg_grid_color2_r);
     fwprintf(f, L"bg_grid_color2_g=%.5f\r\n", (double)from->bg_grid_color2_g);
     fwprintf(f, L"bg_grid_color2_b=%.5f\r\n", (double)from->bg_grid_color2_b);
+    fwprintf(f, L"bg_grid_density=%.5f\r\n", (double)from->bg_grid_density);
+    fwprintf(f, L"bg_grid_dots=%d\r\n", from->bg_grid_dots);
     fwprintf(f, L"bloom_on=%d\r\n", from->bloom_on);
     fwprintf(f, L"bloom_threshold=%.5f\r\n", (double)from->bloom_threshold);
     fwprintf(f, L"bloom_intensity=%.5f\r\n", (double)from->bloom_intensity);

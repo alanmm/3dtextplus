@@ -18,6 +18,8 @@ uniform float uTime;
 uniform vec3  uGridColor1;
 uniform vec3  uGridColor2;
 uniform float uAspect;     /* fb_w / fb_h - mantem as celulas da grade quadradas */
+uniform float uGridDensity;  /* celulas na dimensao menor da tela */
+uniform int   uGridDots;     /* 0 linhas, 1 pontos nos cruzamentos */
 
 float hash21(vec2 p)
 {
@@ -100,10 +102,18 @@ vec3 nebula_bg(void)
    usuario): cor 1 = fundo, cor 2 = linhas. */
 vec3 grid_bg(void)
 {
-    vec2 p = vec2(vUV.x * uAspect, vUV.y) * 24.0;
-    vec2 g = abs(fract(p - 0.5) - 0.5) / max(fwidth(p), vec2(1e-6));
-    float line = min(g.x, g.y);
-    float mask = 1.0 - clamp(line, 0.0, 1.0);
+    vec2 p = vec2(vUV.x * uAspect, vUV.y) * uGridDensity;
+    vec2 f = fract(p - 0.5) - 0.5;
+    float mask;
+    if (uGridDots != 0) {
+        float d = length(f) - 0.08;
+        float pw = max(fwidth(d), 1e-6);
+        mask = 1.0 - smoothstep(-pw, pw, d);
+    } else {
+        vec2 g = abs(f) / max(fwidth(p), vec2(1e-6));
+        float line = min(g.x, g.y);
+        mask = 1.0 - clamp(line, 0.0, 1.0);
+    }
     return mix(uGridColor1, uGridColor2, mask);
 }
 

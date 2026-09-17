@@ -69,6 +69,8 @@ void config_defaults(Config *c)
     c->bg_neb_color2_r = 0.24706f; c->bg_neb_color2_g = 0.09804f; c->bg_neb_color2_b = 0.34902f;
     c->bg_grid_color1_r = 0.09020f; c->bg_grid_color1_g = 0.24706f; c->bg_grid_color1_b = 0.54902f;
     c->bg_grid_color2_r = 1.0f; c->bg_grid_color2_g = 1.0f; c->bg_grid_color2_b = 1.0f;
+    c->bg_grid_density = 24.0f;
+    c->bg_grid_dots = 0;
     c->particles_on = 1;
     c->particles_kind = 0;
     c->particles_density = 0.43f;
@@ -238,6 +240,8 @@ void config_load_from(Config *c, const wchar_t *subkey)
     if (reg_get_f(k, L"bg_grid_color2_r", &f)) c->bg_grid_color2_r = f;
     if (reg_get_f(k, L"bg_grid_color2_g", &f)) c->bg_grid_color2_g = f;
     if (reg_get_f(k, L"bg_grid_color2_b", &f)) c->bg_grid_color2_b = f;
+    if (reg_get_f(k, L"bg_grid_density", &f)) c->bg_grid_density = f;
+    reg_get_i(k, L"bg_grid_dots", &c->bg_grid_dots);
 
     reg_get_i(k, L"particles_on", &c->particles_on);
     reg_get_i(k, L"particles_kind", &c->particles_kind);
@@ -352,6 +356,8 @@ void config_load_from(Config *c, const wchar_t *subkey)
     c->bg_grid_color2_r = clampf(c->bg_grid_color2_r, 0.0f, 1.0f);
     c->bg_grid_color2_g = clampf(c->bg_grid_color2_g, 0.0f, 1.0f);
     c->bg_grid_color2_b = clampf(c->bg_grid_color2_b, 0.0f, 1.0f);
+    c->bg_grid_density = clampf(c->bg_grid_density, 4.0f, 64.0f);
+    if (c->bg_grid_dots != 0 && c->bg_grid_dots != 1) c->bg_grid_dots = 0;
     c->particles_on = c->particles_on ? 1 : 0;
     if (c->particles_kind < 0 || c->particles_kind > 3) c->particles_kind = 0;
     c->particles_density    = clampf(c->particles_density, 0.0f, 1.0f);
@@ -465,6 +471,8 @@ void config_save_to(const Config *c, const wchar_t *subkey)
     set_f(k, L"bg_grid_color2_r", c->bg_grid_color2_r);
     set_f(k, L"bg_grid_color2_g", c->bg_grid_color2_g);
     set_f(k, L"bg_grid_color2_b", c->bg_grid_color2_b);
+    set_f(k, L"bg_grid_density", c->bg_grid_density);
+    set_f(k, L"bg_grid_dots", (float)c->bg_grid_dots);
 
     set_f(k, L"particles_on", (float)c->particles_on);
     set_f(k, L"particles_kind", (float)c->particles_kind);

@@ -65,6 +65,7 @@ static const char *const KEY_NAMES[STR_COUNT] = {
     "bg.fit.contain", "bg.fit.tile", "bg.pan_label",
     "bg.nebula_label", "bg.nebula_color1_btn", "bg.nebula_color2_btn",
     "bg.grid_label", "bg.grid_color1_btn", "bg.grid_color2_btn",
+    "bg.grid_density_label", "bg.grid_dots",
 
     "particles.enable", "particles.kind_label", "particles.kind.dust",
     "particles.kind.bokeh", "particles.kind.sparks",
