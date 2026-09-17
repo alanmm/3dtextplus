@@ -76,6 +76,12 @@ void run_presets_tests(void)
     src.particles_kind = 3;
     src.particles_density = 0.9f; src.particles_speed = 0.5f;
     src.particles_size_scale = 0.7f; src.particles_opacity = 0.78f;
+    src.wireframe_thickness = 4.5f; src.wireframe_xray = 1;
+    src.wireframe_fill = 1;
+    src.wireframe_fill_r = 0.11f; src.wireframe_fill_g = 0.22f; src.wireframe_fill_b = 0.33f;
+    src.bg_grid_color1_r = 0.44f; src.bg_grid_color1_g = 0.55f; src.bg_grid_color1_b = 0.66f;
+    src.bg_grid_color2_r = 0.77f; src.bg_grid_color2_g = 0.88f; src.bg_grid_color2_b = 0.99f;
+    src.bg_grid_density = 40.0f; src.bg_grid_dots = 1;
 
     preset_scope_copy(&dst, &src);
     EXPECT(strcmp(dst.text, "3D Text+") == 0);           /* nao mexeu */
@@ -87,6 +93,11 @@ void run_presets_tests(void)
     EXPECT(nearf(dst.particles_stars_density, 0.9f));       /* memoria do tipo sincronizada */
     EXPECT(nearf(dst.particles_stars_size, 0.7f));
     EXPECT(nearf(dst.particles_stars_opacity, 0.78f));
+    EXPECT(nearf(dst.wireframe_thickness, 4.5f) && dst.wireframe_xray == 1);
+    EXPECT(dst.wireframe_fill == 1);
+    EXPECT(nearf(dst.wireframe_fill_r, 0.11f) && nearf(dst.wireframe_fill_g, 0.22f) && nearf(dst.wireframe_fill_b, 0.33f));
+    EXPECT(nearf(dst.bg_grid_color1_r, 0.44f) && nearf(dst.bg_grid_color2_b, 0.99f));
+    EXPECT(nearf(dst.bg_grid_density, 40.0f) && dst.bg_grid_dots == 1);
 
     /* CRUD de presets salvos - base de teste separada */
     const wchar_t *TBASE = L"Software\\Modern3DText_test_presets";
@@ -109,6 +120,12 @@ void run_presets_tests(void)
     a.particles_size_scale = 0.77f; a.particles_opacity = 0.88f;
     a.base_r = 0.9f; a.base_g = 0.5f; a.base_b = 0.1f;
     a.quality = 1;
+    a.wireframe_thickness = 3.5f; a.wireframe_xray = 1;
+    a.wireframe_fill = 1;
+    a.wireframe_fill_r = 0.15f; a.wireframe_fill_g = 0.25f; a.wireframe_fill_b = 0.65f;
+    a.bg_grid_color1_r = 0.1f; a.bg_grid_color1_g = 0.2f; a.bg_grid_color1_b = 0.3f;
+    a.bg_grid_color2_r = 0.4f; a.bg_grid_color2_g = 0.5f; a.bg_grid_color2_b = 0.6f;
+    a.bg_grid_density = 32.0f; a.bg_grid_dots = 1;
 
     preset_user_save_to(TBASE, L"Zulu", &a);
     preset_user_save_to(TBASE, L"Alfa", &a);
@@ -128,6 +145,11 @@ void run_presets_tests(void)
     EXPECT(nearf(b.particles_sparks_density, 0.55f));
     EXPECT(nearf_color(b.base_r, 0.9f) && nearf_color(b.base_g, 0.5f) && nearf_color(b.base_b, 0.1f));
     EXPECT(b.quality == 1);
+    EXPECT(nearf(b.wireframe_thickness, 3.5f) && b.wireframe_xray == 1);
+    EXPECT(b.wireframe_fill == 1);
+    EXPECT(nearf(b.wireframe_fill_r, 0.15f) && nearf(b.wireframe_fill_g, 0.25f) && nearf(b.wireframe_fill_b, 0.65f));
+    EXPECT(nearf(b.bg_grid_color1_r, 0.1f) && nearf(b.bg_grid_color2_g, 0.5f));
+    EXPECT(nearf(b.bg_grid_density, 32.0f) && b.bg_grid_dots == 1);
 
     EXPECT(preset_user_load_from(TBASE, L"NaoExiste", &b) == 0);
 
@@ -157,6 +179,12 @@ void run_presets_tests(void)
     ea.particles_size_scale = 0.8f; ea.particles_opacity = 0.9f;
     ea.base_r = 0.2f; ea.base_g = 0.4f; ea.base_b = 0.6f;
     ea.quality = 0;
+    ea.wireframe_thickness = 5.0f; ea.wireframe_xray = 1;
+    ea.wireframe_fill = 1;
+    ea.wireframe_fill_r = 0.05f; ea.wireframe_fill_g = 0.35f; ea.wireframe_fill_b = 0.85f;
+    ea.bg_grid_color1_r = 0.15f; ea.bg_grid_color1_g = 0.35f; ea.bg_grid_color1_b = 0.55f;
+    ea.bg_grid_color2_r = 0.65f; ea.bg_grid_color2_g = 0.75f; ea.bg_grid_color2_b = 0.95f;
+    ea.bg_grid_density = 48.0f; ea.bg_grid_dots = 1;
 
     Config ec;
     config_defaults(&ec);
@@ -189,6 +217,11 @@ void run_presets_tests(void)
     EXPECT(nearf(entries[0].cfg.particles_stars_density, 0.6f));
     EXPECT(nearf_color(entries[0].cfg.base_r, 0.2f) && nearf_color(entries[0].cfg.base_g, 0.4f) && nearf_color(entries[0].cfg.base_b, 0.6f));
     EXPECT(entries[0].cfg.quality == 0);
+    EXPECT(nearf(entries[0].cfg.wireframe_thickness, 5.0f) && entries[0].cfg.wireframe_xray == 1);
+    EXPECT(entries[0].cfg.wireframe_fill == 1);
+    EXPECT(nearf(entries[0].cfg.wireframe_fill_r, 0.05f) && nearf(entries[0].cfg.wireframe_fill_g, 0.35f) && nearf(entries[0].cfg.wireframe_fill_b, 0.85f));
+    EXPECT(nearf(entries[0].cfg.bg_grid_color1_r, 0.15f) && nearf(entries[0].cfg.bg_grid_color2_g, 0.75f));
+    EXPECT(nearf(entries[0].cfg.bg_grid_density, 48.0f) && entries[0].cfg.bg_grid_dots == 1);
 
     EXPECT(wcscmp(entries[1].name, L"Charlie") == 0);
     EXPECT(entries[1].cfg.material_mode == 2);
