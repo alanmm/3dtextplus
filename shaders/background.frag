@@ -106,7 +106,7 @@ vec3 grid_bg(void)
     vec2 f = fract(p - 0.5) - 0.5;
     float mask;
     if (uGridDots != 0) {
-        float d = length(f) - 0.08;
+        float d = length(f) - 0.04;
         float pw = max(fwidth(d), 1e-6);
         mask = 1.0 - smoothstep(-pw, pw, d);
     } else {
