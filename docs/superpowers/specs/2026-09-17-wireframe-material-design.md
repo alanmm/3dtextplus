@@ -101,7 +101,18 @@ contato já estabelecidos pra todo campo novo de material nesta sessão
 
 ## 5. Passe de profundidade (`scene.c`)
 
-FBO nova, texture-backed (os helpers existentes de `gl_core.h` só
+O alvo HDR principal já tem seu próprio buffer de profundidade
+(criado por `post_begin`, às vezes com MSAA dependendo da qualidade
+escolhida) - pra **oclusão normal** isso já basta, sem FBO nova
+nenhuma: desenha a malha sólida ali mesmo com `glColorMask` desligado
+(passo 1 abaixo), depois as linhas por cima com teste de profundidade
+ligado.
+
+O **Raio-X** precisa de algo a mais: o shader das linhas precisa
+*amostrar* essa profundidade (não só testar contra ela), e não dá pra
+amostrar o anexo de profundidade de uma FBO multisample direto num
+`sampler2D` comum - por isso ganha uma FBO própria, sempre de UMA
+amostra só, texture-backed (os helpers existentes de `gl_core.h` só
 criam profundidade como **renderbuffer**, não-amostrável - por isso
 não dá pra reaproveitar `gl_fbo_color16f`; montada diretamente, mesmo
 nível de código já usado pra FBO do WBOIT):
@@ -115,20 +126,30 @@ int      wire_depth_w, wire_depth_h;
 GL_DEPTH_COMPONENT, GL_FLOAT, NULL)` + `glFramebufferTexture2D(...,
 GL_DEPTH_ATTACHMENT, ...)`, sem anexo de cor (`glDrawBuffer(GL_NONE);
 glReadBuffer(GL_NONE);`). Criada/redimensionada preguiçosamente
-(`ensure_wire_depth_target`, mesmo padrão de `ensure_wboit_targets`).
+(`ensure_wire_depth_target`, mesmo padrão de `ensure_wboit_targets`) -
+só quando `wireframe_xray` está ligado, já que a oclusão normal nem
+precisa dela.
 
 Sequência quando `material_mode == 3`, dentro de `scene_render()`:
 
-1. Bind `wire_depth_fbo`, `glClear(GL_DEPTH_BUFFER_BIT)`.
-2. `glColorMask(GL_FALSE,GL_FALSE,GL_FALSE,GL_FALSE)`, desenha a
-   malha sólida atual (o mesmo VAO/índices que `draw_content()` já
-   usa) com o programa de material já existente (`m->prog` - a cor
-   não importa, está mascarada; reaproveitar evita escrever um shader
-   novo só pra isso). `glColorMask` de volta pro normal.
-3. Volta pro alvo HDR principal (mesma técnica de
-   `GL_DRAW_FRAMEBUFFER_BINDING` já usada pelo WBOIT).
-4. Desenha o passe de linhas (seção 6), que consulta
-   `wire_depth_tex` de um jeito ou de outro dependendo do Raio-X.
+1. **Sempre** (os 2 modos): `glColorMask(GL_FALSE,GL_FALSE,GL_FALSE,GL_FALSE)`,
+   desenha a malha sólida atual (o mesmo `draw_content()` que
+   Clássico/Metálico já usam) com o programa de material já existente
+   (a cor não importa, está mascarada; reaproveitar evita escrever um
+   shader novo só pra isso) **no alvo HDR principal já ligado** -
+   registra a profundidade real no depth buffer que já está lá.
+   `glColorMask` de volta pro normal.
+2. **Só se `wireframe_xray`**: repete o mesmo desenho (`draw_content()`,
+   `glColorMask` desligado) uma segunda vez, agora dentro de
+   `wire_depth_fbo` (a FBO nova, sempre de 1 amostra) - é essa cópia
+   que o shader das linhas vai poder amostrar como textura no passo 4.
+3. Continua desenhando no alvo HDR principal (já é o que está ligado -
+   nenhum `glBindFramebuffer` extra necessário aqui).
+4. Desenha o passe de linhas (seção 6): com `wireframe_xray` desligado,
+   teste de profundidade ligado contra o buffer já preenchido no passo
+   1 (oclusão de verdade, decidida pela placa de vídeo); ligado, teste
+   de profundidade desligado + `wire_depth_tex` do passo 2 amostrado
+   no shader pra decidir opacidade (seção 7).
 
 ## 6. Passe de linhas (`wireframe.vert`/`.geom`/`.frag`)
 
@@ -157,13 +178,13 @@ Sem cálculo de luz nenhum (nem Fresnel, nem specular) - é exatamente o
 Mesmo passe de profundidade (seção 5) alimenta os 2 modos, só muda
 como o passe de linhas o consome:
 
-- **Oclusão normal** (`wireframe_xray == 0`, padrão): faz
-  `glBlitFramebuffer` copiando a profundidade de `wire_depth_fbo` pro
-  anexo de profundidade do alvo HDR principal (1 chamada). Desenha as
-  linhas com `GL_DEPTH_TEST` ligado (`GL_LEQUAL`) e `glDepthMask(GL_FALSE)`
-  (não precisa escrever, só testar) - qualquer trecho de aresta atrás
-  da malha sólida simplesmente não passa no teste da placa de vídeo,
-  sem custo de shader extra.
+- **Oclusão normal** (`wireframe_xray == 0`, padrão): a profundidade da
+  malha sólida já está no buffer do alvo HDR principal (passo 1 da
+  seção 5 - nenhuma FBO nova envolvida). Desenha as linhas com
+  `GL_DEPTH_TEST` ligado (`GL_LEQUAL`) e `glDepthMask(GL_FALSE)` (não
+  precisa escrever, só testar) - qualquer trecho de aresta atrás da
+  malha sólida simplesmente não passa no teste da placa de vídeo, sem
+  custo de shader extra.
 - **Raio-X** (`wireframe_xray == 1`): SEM blit, `wire_depth_tex` fica
   ligado como sampler (unidade de textura dedicada). Desenha as linhas
   com `GL_DEPTH_TEST` desligado e `GL_BLEND` ligado
