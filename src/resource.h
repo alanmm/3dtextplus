@@ -21,7 +21,6 @@
 #define IDC_FONT          1101
 #define IDC_BOLD          1102
 #define IDC_ITALIC        1103
-#define IDC_COLOR         1104
 #define IDC_CONTMODE      1105
 #define IDC_CLOCKDATE     1106
 #define IDC_CLOCKSEC      1107
@@ -44,6 +43,7 @@
 #define IDC_MODE_LABEL     1124
 #define IDC_COLOR_LABEL    1125
 #define IDC_COLOR_HEX      1126
+#define IDC_COLOR_SWATCH   1127
 
 /* aba Movimento */
 #define IDC_DEPTH         1200
@@ -77,7 +77,6 @@
 #define IDC_EMISSIVE_LABEL 1315
 #define IDC_EMISSIVE_VAL   1316
 #define IDC_EMISSIVE       1317
-#define IDC_EMISSIVE_COLOR 1318
 #define IDC_EDGEBIAS_LABEL 1319
 #define IDC_EDGEBIAS_VAL   1320
 #define IDC_EDGEBIAS       1321
@@ -86,9 +85,10 @@
 #define IDC_WIRE_THICK       1324
 #define IDC_WIRE_XRAY        1325
 #define IDC_WIRE_FILL        1326
-#define IDC_WIRE_FILLCOLOR   1327
 #define IDC_EMISSIVE_HEX     1328
 #define IDC_WIRE_FILLCOLOR_HEX 1329
+#define IDC_EMISSIVE_SWATCH     1330
+#define IDC_WIRE_FILLCOLOR_SWATCH 1331
 
 /* aba Geometria */
 #define IDC_BEVELMODE     1400
@@ -159,8 +159,6 @@
 
 /* aba Fundo */
 #define IDC_BGTYPE        1800
-#define IDC_BGCOLOR1      1801
-#define IDC_BGCOLOR2      1802
 #define IDC_BGANGLE       1803
 #define IDC_BGANGLE_VAL   1804
 #define IDC_BGIMGPATH     1805
@@ -169,10 +167,6 @@
 #define IDC_BGFIT         1808
 #define IDC_BGPAN         1809
 #define IDC_BGPAN_VAL     1810
-#define IDC_BGNEBCOLOR1   1811
-#define IDC_BGNEBCOLOR2   1812
-#define IDC_BGGRIDCOLOR1  1813
-#define IDC_BGGRIDCOLOR2  1814
 #define IDC_BGGRIDDENS    1815
 #define IDC_BGGRIDDENS_VAL 1816
 #define IDC_BGGRIDDOTS    1817
@@ -182,6 +176,12 @@
 #define IDC_BGNEBCOLOR2_HEX  1831
 #define IDC_BGGRIDCOLOR1_HEX 1832
 #define IDC_BGGRIDCOLOR2_HEX 1833
+#define IDC_BGCOLOR1_SWATCH     1840
+#define IDC_BGCOLOR2_SWATCH     1841
+#define IDC_BGNEBCOLOR1_SWATCH  1842
+#define IDC_BGNEBCOLOR2_SWATCH  1843
+#define IDC_BGGRIDCOLOR1_SWATCH 1844
+#define IDC_BGGRIDCOLOR2_SWATCH 1845
 #define IDC_BGTYPE_LABEL   1820
 #define IDC_BGCOLOR1_LABEL 1821
 #define IDC_BGCOLOR2_LABEL 1822

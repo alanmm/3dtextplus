@@ -10,7 +10,7 @@ static const char *const KEY_NAMES[STR_COUNT] = {
     "btn.cancel", "btn.apply",
     "tab.content", "tab.motion", "tab.material", "tab.geometry",
     "tab.effects", "tab.perf", "tab.post", "tab.bg", "tab.particles",
-    "common.choose", "common.clear", "common.choose_color",
+    "common.choose", "common.clear",
     "common.file_label", "placeholder.none_m",
 
     "content.mode_label", "content.mode.text", "content.mode.clock",
@@ -27,10 +27,10 @@ static const char *const KEY_NAMES[STR_COUNT] = {
     "material.mode.glass",
     "material.mode.wireframe",
     "material.metalness_label", "material.roughness_label",
-    "material.emissive_label", "material.emissive_color_btn",
+    "material.emissive_label",
     "material.edgebias_label",
     "material.wire_thickness_label", "material.wire_xray",
-    "material.wire_fill", "material.wire_fill_color_btn",
+    "material.wire_fill",
     "material.env_label", "placeholder.procedural",
     "material.env_mode.embedded", "material.env_mode.custom", "material.env_mode.none",
 
@@ -64,8 +64,8 @@ static const char *const KEY_NAMES[STR_COUNT] = {
     "bg.color2_label", "bg.angle_label", "bg.image_label",
     "placeholder.none_f", "bg.fit_label", "bg.fit.cover",
     "bg.fit.contain", "bg.fit.tile", "bg.pan_label",
-    "bg.nebula_label", "bg.nebula_color1_btn", "bg.nebula_color2_btn",
-    "bg.grid_label", "bg.grid_color1_btn", "bg.grid_color2_btn",
+    "bg.nebula_label",
+    "bg.grid_label",
     "bg.grid_density_label", "bg.grid_dots",
 
     "particles.enable", "particles.kind_label", "particles.kind.dust",

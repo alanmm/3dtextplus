@@ -185,6 +185,7 @@ static int CALLBACK enum_fonts_cb(const LOGFONTW *lf, const TEXTMETRICW *tm, DWO
 static void set_slider(HWND h, int id, int lo, int hi, int pos);
 static void hex_from_rgb(HWND h, int edit_id, float r, float g, float b);
 static int  hex_to_rgb(HWND h, int edit_id, float *r, float *g, float *b);
+static void swatch_set(HWND h, int swatch_id, HBRUSH *brush, float r, float g, float b);
 
 static void content_svg_label(HWND h)
 {
@@ -258,7 +259,6 @@ static void content_apply_i18n(HWND h)
     SetDlgItemTextW(h, IDC_CLOCKDATE, i18n_str(STR_CONTENT_CLOCK_DATE));
     SetDlgItemTextW(h, IDC_CLOCKSEC, i18n_str(STR_CONTENT_CLOCK_SECONDS));
     SetDlgItemTextW(h, IDC_COLOR_LABEL, i18n_str(STR_CONTENT_COLOR_LABEL));
-    SetDlgItemTextW(h, IDC_COLOR, i18n_str(STR_COMMON_CHOOSE_COLOR));
 
     HWND cm = GetDlgItem(h, IDC_CONTMODE);
     int cur = (int)SendMessageW(cm, CB_GETCURSEL, 0, 0);
@@ -280,9 +280,10 @@ static void content_apply_i18n(HWND h)
     content_mesh_label(h);
 }
 
+static HBRUSH g_color_swatch_brush;
+
 static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
 {
-    (void)l;
     switch (m) {
         case WM_INITDIALOG: {
             wchar_t wtext[512];
@@ -298,6 +299,7 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             content_enable(h);
             SendDlgItemMessageW(h, IDC_COLOR_HEX, EM_SETLIMITTEXT, 7, 0);
             hex_from_rgb(h, IDC_COLOR_HEX, g_work.base_r, g_work.base_g, g_work.base_b);
+            swatch_set(h, IDC_COLOR_SWATCH, &g_color_swatch_brush, g_work.base_r, g_work.base_g, g_work.base_b);
 
             HWND cb = GetDlgItem(h, IDC_FONT);
             HDC dc = GetDC(h);
@@ -452,7 +454,8 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     g_work.font_italic = (IsDlgButtonChecked(h, IDC_ITALIC) == BST_CHECKED);
                     preview_dirty(h);
                     break;
-                case IDC_COLOR: {
+                case IDC_COLOR_SWATCH: {
+                    if (HIWORD(w) != STN_CLICKED) break;
                     static COLORREF custom[16];
                     CHOOSECOLORW cc;
                     memset(&cc, 0, sizeof cc);
@@ -468,18 +471,27 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                         g_work.base_g = GetGValue(cc.rgbResult) / 255.0f;
                         g_work.base_b = GetBValue(cc.rgbResult) / 255.0f;
                         hex_from_rgb(h, IDC_COLOR_HEX, g_work.base_r, g_work.base_g, g_work.base_b);
+                        swatch_set(h, IDC_COLOR_SWATCH, &g_color_swatch_brush, g_work.base_r, g_work.base_g, g_work.base_b);
                         preview_dirty(h);
                     }
                     break;
                 }
                 case IDC_COLOR_HEX:
                     if (HIWORD(w) == EN_CHANGE) {
-                        if (hex_to_rgb(h, IDC_COLOR_HEX, &g_work.base_r, &g_work.base_g, &g_work.base_b))
+                        if (hex_to_rgb(h, IDC_COLOR_HEX, &g_work.base_r, &g_work.base_g, &g_work.base_b)) {
+                            swatch_set(h, IDC_COLOR_SWATCH, &g_color_swatch_brush, g_work.base_r, g_work.base_g, g_work.base_b);
                             preview_dirty(h);
+                        }
                     }
                     break;
             }
             return TRUE;
+        case WM_CTLCOLORSTATIC:
+            if (GetDlgCtrlID((HWND)l) == IDC_COLOR_SWATCH) {
+                SetWindowLongPtrW(h, DWLP_MSGRESULT, (LONG_PTR)g_color_swatch_brush);
+                return TRUE;
+            }
+            break;
     }
     return FALSE;
 }
@@ -522,6 +534,23 @@ static int hex_to_rgb(HWND h, int edit_id, float *r, float *g, float *b)
     *g = ((v >> 8) & 0xFF) / 255.0f;
     *b = (v & 0xFF) / 255.0f;
     return 1;
+}
+
+/* recria o pincel solido de um swatch de cor (STATIC ao lado do campo
+   hex) e forca repintura - chamado no WM_INITDIALOG e sempre que a
+   cor muda (ChooseColorW ou digitacao no campo hex). *brush e' um
+   HBRUSH static do proc dono, sobrevive entre aberturas do dialogo -
+   por isso sempre libera o anterior antes de criar o novo, senao
+   vaza um HBRUSH a cada reabertura do dialogo/troca de preset */
+static void swatch_set(HWND h, int swatch_id, HBRUSH *brush, float r, float g, float b)
+{
+    if (*brush) DeleteObject(*brush);
+    int ri = (int)(fmaxf(0.0f, fminf(1.0f, r)) * 255.0f + 0.5f);
+    int gi = (int)(fmaxf(0.0f, fminf(1.0f, g)) * 255.0f + 0.5f);
+    int bi = (int)(fmaxf(0.0f, fminf(1.0f, b)) * 255.0f + 0.5f);
+    *brush = CreateSolidBrush(RGB(ri, gi, bi));
+    HWND ctl = GetDlgItem(h, swatch_id);
+    if (ctl) InvalidateRect(ctl, NULL, TRUE);
 }
 
 static void motion_labels(HWND h)
@@ -580,12 +609,10 @@ static void material_apply_i18n(HWND h)
     SetDlgItemTextW(h, IDC_METAL_LABEL, i18n_str(STR_MATERIAL_METALNESS_LABEL));
     SetDlgItemTextW(h, IDC_ROUGH_LABEL, i18n_str(STR_MATERIAL_ROUGHNESS_LABEL));
     SetDlgItemTextW(h, IDC_EMISSIVE_LABEL, i18n_str(STR_MATERIAL_EMISSIVE_LABEL));
-    SetDlgItemTextW(h, IDC_EMISSIVE_COLOR, i18n_str(STR_MATERIAL_EMISSIVE_COLOR_BTN));
     SetDlgItemTextW(h, IDC_EDGEBIAS_LABEL, i18n_str(STR_MATERIAL_EDGEBIAS_LABEL));
     SetDlgItemTextW(h, IDC_WIRE_THICK_LABEL, i18n_str(STR_MATERIAL_WIRE_THICKNESS_LABEL));
     SetDlgItemTextW(h, IDC_WIRE_XRAY, i18n_str(STR_MATERIAL_WIRE_XRAY));
     SetDlgItemTextW(h, IDC_WIRE_FILL, i18n_str(STR_MATERIAL_WIRE_FILL));
-    SetDlgItemTextW(h, IDC_WIRE_FILLCOLOR, i18n_str(STR_MATERIAL_WIRE_FILL_COLOR_BTN));
     SetDlgItemTextW(h, IDC_ENV_LABEL, i18n_str(STR_MATERIAL_ENV_LABEL));
     SetDlgItemTextW(h, IDC_ENVMODE_EMBED, i18n_str(STR_MATERIAL_ENV_MODE_EMBEDDED));
     SetDlgItemTextW(h, IDC_ENVMODE_CUSTOM, i18n_str(STR_MATERIAL_ENV_MODE_CUSTOM));
@@ -636,12 +663,12 @@ typedef struct { int id; int x, rel_y; } MatCtrl;
 static MatCtrl g_mat_blocks[MAT_BLOCKS][5] = {
     { { IDC_METAL_LABEL, 0, 0 }, { IDC_METAL_VAL, 0, 0 }, { IDC_METAL, 0, 0 } },
     { { IDC_ROUGH_LABEL, 0, 0 }, { IDC_ROUGH_VAL, 0, 0 }, { IDC_ROUGH, 0, 0 } },
-    { { IDC_EMISSIVE_LABEL, 0, 0 }, { IDC_EMISSIVE_COLOR, 0, 0 }, { IDC_EMISSIVE_HEX, 0, 0 },
+    { { IDC_EMISSIVE_LABEL, 0, 0 }, { IDC_EMISSIVE_SWATCH, 0, 0 }, { IDC_EMISSIVE_HEX, 0, 0 },
       { IDC_EMISSIVE_VAL, 0, 0 }, { IDC_EMISSIVE, 0, 0 } },
     { { IDC_EDGEBIAS_LABEL, 0, 0 }, { IDC_EDGEBIAS_VAL, 0, 0 }, { IDC_EDGEBIAS, 0, 0 } },
     { { IDC_WIRE_THICK_LABEL, 0, 0 }, { IDC_WIRE_THICK_VAL, 0, 0 }, { IDC_WIRE_THICK, 0, 0 } },
     { { IDC_WIRE_XRAY, 0, 0 } },
-    { { IDC_WIRE_FILL, 0, 0 }, { IDC_WIRE_FILLCOLOR, 0, 0 }, { IDC_WIRE_FILLCOLOR_HEX, 0, 0 } },
+    { { IDC_WIRE_FILL, 0, 0 }, { IDC_WIRE_FILLCOLOR_SWATCH, 0, 0 }, { IDC_WIRE_FILLCOLOR_HEX, 0, 0 } },
     { { IDC_ENV_LABEL, 0, 0 }, { IDC_ENVMODE_EMBED, 0, 0 }, { IDC_ENVMODE_CUSTOM, 0, 0 }, { IDC_ENVMODE_NONE, 0, 0 } },
     { { IDC_ENVPATH, 0, 0 }, { IDC_ENVPICK, 0, 0 }, { IDC_ENVCLEAR, 0, 0 } },
 };
@@ -721,9 +748,11 @@ static void material_layout_apply(HWND h)
     }
 }
 
+static HBRUSH g_emissive_swatch_brush;
+static HBRUSH g_wire_fill_swatch_brush;
+
 static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
 {
-    (void)l;
     switch (m) {
         case WM_INITDIALOG: {
             set_slider(h, IDC_METAL, 0, 100, (int)(g_work.metalness * 100.0f + 0.5f));
@@ -741,6 +770,8 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             SendDlgItemMessageW(h, IDC_WIRE_FILLCOLOR_HEX, EM_SETLIMITTEXT, 7, 0);
             hex_from_rgb(h, IDC_EMISSIVE_HEX, g_work.emissive_r, g_work.emissive_g, g_work.emissive_b);
             hex_from_rgb(h, IDC_WIRE_FILLCOLOR_HEX, g_work.wireframe_fill_r, g_work.wireframe_fill_g, g_work.wireframe_fill_b);
+            swatch_set(h, IDC_EMISSIVE_SWATCH, &g_emissive_swatch_brush, g_work.emissive_r, g_work.emissive_g, g_work.emissive_b);
+            swatch_set(h, IDC_WIRE_FILLCOLOR_SWATCH, &g_wire_fill_swatch_brush, g_work.wireframe_fill_r, g_work.wireframe_fill_g, g_work.wireframe_fill_b);
             material_layout_capture(h);
             material_layout_apply(h);
             return TRUE;
@@ -764,7 +795,8 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                         preview_dirty(h);
                     }
                     break;
-                case IDC_EMISSIVE_COLOR: {
+                case IDC_EMISSIVE_SWATCH: {
+                    if (HIWORD(w) != STN_CLICKED) break;
                     static COLORREF custom[16];
                     CHOOSECOLORW cc;
                     memset(&cc, 0, sizeof cc);
@@ -780,14 +812,17 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                         g_work.emissive_g = GetGValue(cc.rgbResult) / 255.0f;
                         g_work.emissive_b = GetBValue(cc.rgbResult) / 255.0f;
                         hex_from_rgb(h, IDC_EMISSIVE_HEX, g_work.emissive_r, g_work.emissive_g, g_work.emissive_b);
+                        swatch_set(h, IDC_EMISSIVE_SWATCH, &g_emissive_swatch_brush, g_work.emissive_r, g_work.emissive_g, g_work.emissive_b);
                         preview_dirty(h);
                     }
                     break;
                 }
                 case IDC_EMISSIVE_HEX:
                     if (HIWORD(w) == EN_CHANGE) {
-                        if (hex_to_rgb(h, IDC_EMISSIVE_HEX, &g_work.emissive_r, &g_work.emissive_g, &g_work.emissive_b))
+                        if (hex_to_rgb(h, IDC_EMISSIVE_HEX, &g_work.emissive_r, &g_work.emissive_g, &g_work.emissive_b)) {
+                            swatch_set(h, IDC_EMISSIVE_SWATCH, &g_emissive_swatch_brush, g_work.emissive_r, g_work.emissive_g, g_work.emissive_b);
                             preview_dirty(h);
+                        }
                     }
                     break;
                 case IDC_ENVPICK: {
@@ -846,7 +881,8 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     g_work.wireframe_fill = (IsDlgButtonChecked(h, IDC_WIRE_FILL) == BST_CHECKED);
                     preview_dirty(h);
                     break;
-                case IDC_WIRE_FILLCOLOR: {
+                case IDC_WIRE_FILLCOLOR_SWATCH: {
+                    if (HIWORD(w) != STN_CLICKED) break;
                     static COLORREF custom[16];
                     CHOOSECOLORW cc;
                     memset(&cc, 0, sizeof cc);
@@ -862,18 +898,32 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                         g_work.wireframe_fill_g = GetGValue(cc.rgbResult) / 255.0f;
                         g_work.wireframe_fill_b = GetBValue(cc.rgbResult) / 255.0f;
                         hex_from_rgb(h, IDC_WIRE_FILLCOLOR_HEX, g_work.wireframe_fill_r, g_work.wireframe_fill_g, g_work.wireframe_fill_b);
+                        swatch_set(h, IDC_WIRE_FILLCOLOR_SWATCH, &g_wire_fill_swatch_brush, g_work.wireframe_fill_r, g_work.wireframe_fill_g, g_work.wireframe_fill_b);
                         preview_dirty(h);
                     }
                     break;
                 }
                 case IDC_WIRE_FILLCOLOR_HEX:
                     if (HIWORD(w) == EN_CHANGE) {
-                        if (hex_to_rgb(h, IDC_WIRE_FILLCOLOR_HEX, &g_work.wireframe_fill_r, &g_work.wireframe_fill_g, &g_work.wireframe_fill_b))
+                        if (hex_to_rgb(h, IDC_WIRE_FILLCOLOR_HEX, &g_work.wireframe_fill_r, &g_work.wireframe_fill_g, &g_work.wireframe_fill_b)) {
+                            swatch_set(h, IDC_WIRE_FILLCOLOR_SWATCH, &g_wire_fill_swatch_brush, g_work.wireframe_fill_r, g_work.wireframe_fill_g, g_work.wireframe_fill_b);
                             preview_dirty(h);
+                        }
                     }
                     break;
             }
             return TRUE;
+        case WM_CTLCOLORSTATIC: {
+            int id = GetDlgCtrlID((HWND)l);
+            HBRUSH br = NULL;
+            if (id == IDC_EMISSIVE_SWATCH) br = g_emissive_swatch_brush;
+            else if (id == IDC_WIRE_FILLCOLOR_SWATCH) br = g_wire_fill_swatch_brush;
+            if (br) {
+                SetWindowLongPtrW(h, DWLP_MSGRESULT, (LONG_PTR)br);
+                return TRUE;
+            }
+            break;
+        }
     }
     return FALSE;
 }
@@ -1241,15 +1291,15 @@ static void bg_labels(HWND h)
 typedef struct { int id; int x, rel_y; } BgCtrl;
 
 static BgCtrl g_bg_blocks[5][9] = {
-    { { IDC_BGCOLOR1_LABEL, 0, 0 }, { IDC_BGCOLOR1, 0, 0 }, { IDC_BGCOLOR1_HEX, 0, 0 } },
-    { { IDC_BGCOLOR2_LABEL, 0, 0 }, { IDC_BGCOLOR2, 0, 0 }, { IDC_BGCOLOR2_HEX, 0, 0 },
+    { { IDC_BGCOLOR1_LABEL, 0, 0 }, { IDC_BGCOLOR1_SWATCH, 0, 0 }, { IDC_BGCOLOR1_HEX, 0, 0 } },
+    { { IDC_BGCOLOR2_LABEL, 0, 0 }, { IDC_BGCOLOR2_SWATCH, 0, 0 }, { IDC_BGCOLOR2_HEX, 0, 0 },
       { IDC_BGANGLE_LABEL, 0, 0 }, { IDC_BGANGLE_VAL, 0, 0 }, { IDC_BGANGLE, 0, 0 } },
     { { IDC_BGIMAGE_LABEL, 0, 0 }, { IDC_BGIMGPATH, 0, 0 }, { IDC_BGIMGPICK, 0, 0 },
       { IDC_BGIMGCLEAR, 0, 0 }, { IDC_BGFIT_LABEL, 0, 0 }, { IDC_BGFIT, 0, 0 },
       { IDC_BGPAN_LABEL, 0, 0 }, { IDC_BGPAN_VAL, 0, 0 }, { IDC_BGPAN, 0, 0 } },
-    { { IDC_BGNEBULA_LABEL, 0, 0 }, { IDC_BGNEBCOLOR1, 0, 0 }, { IDC_BGNEBCOLOR2, 0, 0 },
+    { { IDC_BGNEBULA_LABEL, 0, 0 }, { IDC_BGNEBCOLOR1_SWATCH, 0, 0 }, { IDC_BGNEBCOLOR2_SWATCH, 0, 0 },
       { IDC_BGNEBCOLOR1_HEX, 0, 0 }, { IDC_BGNEBCOLOR2_HEX, 0, 0 } },
-    { { IDC_BGGRID_LABEL, 0, 0 }, { IDC_BGGRIDCOLOR1, 0, 0 }, { IDC_BGGRIDCOLOR2, 0, 0 },
+    { { IDC_BGGRID_LABEL, 0, 0 }, { IDC_BGGRIDCOLOR1_SWATCH, 0, 0 }, { IDC_BGGRIDCOLOR2_SWATCH, 0, 0 },
       { IDC_BGGRIDCOLOR1_HEX, 0, 0 }, { IDC_BGGRIDCOLOR2_HEX, 0, 0 },
       { IDC_BGGRIDDENS_LABEL, 0, 0 }, { IDC_BGGRIDDENS_VAL, 0, 0 }, { IDC_BGGRIDDENS, 0, 0 },
       { IDC_BGGRIDDOTS, 0, 0 } },
@@ -1312,9 +1362,7 @@ static void bg_apply_i18n(HWND h)
 {
     SetDlgItemTextW(h, IDC_BGTYPE_LABEL, i18n_str(STR_BG_TYPE_LABEL));
     SetDlgItemTextW(h, IDC_BGCOLOR1_LABEL, i18n_str(STR_BG_COLOR1_LABEL));
-    SetDlgItemTextW(h, IDC_BGCOLOR1, i18n_str(STR_COMMON_CHOOSE_COLOR));
     SetDlgItemTextW(h, IDC_BGCOLOR2_LABEL, i18n_str(STR_BG_COLOR2_LABEL));
-    SetDlgItemTextW(h, IDC_BGCOLOR2, i18n_str(STR_COMMON_CHOOSE_COLOR));
     SetDlgItemTextW(h, IDC_BGANGLE_LABEL, i18n_str(STR_BG_ANGLE_LABEL));
     SetDlgItemTextW(h, IDC_BGIMAGE_LABEL, i18n_str(STR_BG_IMAGE_LABEL));
     SetDlgItemTextW(h, IDC_BGIMGPICK, i18n_str(STR_COMMON_CHOOSE));
@@ -1322,11 +1370,7 @@ static void bg_apply_i18n(HWND h)
     SetDlgItemTextW(h, IDC_BGFIT_LABEL, i18n_str(STR_BG_FIT_LABEL));
     SetDlgItemTextW(h, IDC_BGPAN_LABEL, i18n_str(STR_BG_PAN_LABEL));
     SetDlgItemTextW(h, IDC_BGNEBULA_LABEL, i18n_str(STR_BG_NEBULA_LABEL));
-    SetDlgItemTextW(h, IDC_BGNEBCOLOR1, i18n_str(STR_BG_NEBULA_COLOR1_BTN));
-    SetDlgItemTextW(h, IDC_BGNEBCOLOR2, i18n_str(STR_BG_NEBULA_COLOR2_BTN));
     SetDlgItemTextW(h, IDC_BGGRID_LABEL, i18n_str(STR_BG_GRID_LABEL));
-    SetDlgItemTextW(h, IDC_BGGRIDCOLOR1, i18n_str(STR_BG_GRID_COLOR1_BTN));
-    SetDlgItemTextW(h, IDC_BGGRIDCOLOR2, i18n_str(STR_BG_GRID_COLOR2_BTN));
     SetDlgItemTextW(h, IDC_BGGRIDDENS_LABEL, i18n_str(STR_BG_GRID_DENSITY_LABEL));
     SetDlgItemTextW(h, IDC_BGGRIDDOTS, i18n_str(STR_BG_GRID_DOTS));
 
@@ -1351,28 +1395,36 @@ static void bg_apply_i18n(HWND h)
     bg_labels(h);
 }
 
+static HBRUSH g_bgcolor1_swatch_brush;
+static HBRUSH g_bgcolor2_swatch_brush;
+static HBRUSH g_bgnebcolor1_swatch_brush;
+static HBRUSH g_bgnebcolor2_swatch_brush;
+static HBRUSH g_bggridcolor1_swatch_brush;
+static HBRUSH g_bggridcolor2_swatch_brush;
+
+typedef struct { int hex_id, swatch_id; HBRUSH *brush; float *r, *g, *b; } BgHexField;
+static const BgHexField g_bg_hex_fields[] = {
+    { IDC_BGCOLOR1_HEX, IDC_BGCOLOR1_SWATCH, &g_bgcolor1_swatch_brush, &g_work.bg_color1_r, &g_work.bg_color1_g, &g_work.bg_color1_b },
+    { IDC_BGCOLOR2_HEX, IDC_BGCOLOR2_SWATCH, &g_bgcolor2_swatch_brush, &g_work.bg_color2_r, &g_work.bg_color2_g, &g_work.bg_color2_b },
+    { IDC_BGNEBCOLOR1_HEX, IDC_BGNEBCOLOR1_SWATCH, &g_bgnebcolor1_swatch_brush, &g_work.bg_neb_color1_r, &g_work.bg_neb_color1_g, &g_work.bg_neb_color1_b },
+    { IDC_BGNEBCOLOR2_HEX, IDC_BGNEBCOLOR2_SWATCH, &g_bgnebcolor2_swatch_brush, &g_work.bg_neb_color2_r, &g_work.bg_neb_color2_g, &g_work.bg_neb_color2_b },
+    { IDC_BGGRIDCOLOR1_HEX, IDC_BGGRIDCOLOR1_SWATCH, &g_bggridcolor1_swatch_brush, &g_work.bg_grid_color1_r, &g_work.bg_grid_color1_g, &g_work.bg_grid_color1_b },
+    { IDC_BGGRIDCOLOR2_HEX, IDC_BGGRIDCOLOR2_SWATCH, &g_bggridcolor2_swatch_brush, &g_work.bg_grid_color2_r, &g_work.bg_grid_color2_g, &g_work.bg_grid_color2_b },
+};
+
 static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
 {
-    (void)l;
     switch (m) {
         case WM_INITDIALOG: {
             set_slider(h, IDC_BGANGLE, 0, 360, (int)(g_work.bg_grad_angle + 0.5f));
             set_slider(h, IDC_BGPAN, 0, 100, (int)(g_work.bg_pan_speed * 100.0f + 0.5f));
             set_slider(h, IDC_BGGRIDDENS, 4, 64, (int)(g_work.bg_grid_density + 0.5f));
             CheckDlgButton(h, IDC_BGGRIDDOTS, g_work.bg_grid_dots ? BST_CHECKED : BST_UNCHECKED);
-            {
-                static const struct { int hex_id; float *r, *g, *b; } hexes[] = {
-                    { IDC_BGCOLOR1_HEX, &g_work.bg_color1_r, &g_work.bg_color1_g, &g_work.bg_color1_b },
-                    { IDC_BGCOLOR2_HEX, &g_work.bg_color2_r, &g_work.bg_color2_g, &g_work.bg_color2_b },
-                    { IDC_BGNEBCOLOR1_HEX, &g_work.bg_neb_color1_r, &g_work.bg_neb_color1_g, &g_work.bg_neb_color1_b },
-                    { IDC_BGNEBCOLOR2_HEX, &g_work.bg_neb_color2_r, &g_work.bg_neb_color2_g, &g_work.bg_neb_color2_b },
-                    { IDC_BGGRIDCOLOR1_HEX, &g_work.bg_grid_color1_r, &g_work.bg_grid_color1_g, &g_work.bg_grid_color1_b },
-                    { IDC_BGGRIDCOLOR2_HEX, &g_work.bg_grid_color2_r, &g_work.bg_grid_color2_g, &g_work.bg_grid_color2_b },
-                };
-                for (size_t i = 0; i < sizeof hexes / sizeof hexes[0]; ++i) {
-                    SendDlgItemMessageW(h, hexes[i].hex_id, EM_SETLIMITTEXT, 7, 0);
-                    hex_from_rgb(h, hexes[i].hex_id, *hexes[i].r, *hexes[i].g, *hexes[i].b);
-                }
+            for (size_t i = 0; i < sizeof g_bg_hex_fields / sizeof g_bg_hex_fields[0]; ++i) {
+                const BgHexField *f = &g_bg_hex_fields[i];
+                SendDlgItemMessageW(h, f->hex_id, EM_SETLIMITTEXT, 7, 0);
+                hex_from_rgb(h, f->hex_id, *f->r, *f->g, *f->b);
+                swatch_set(h, f->swatch_id, f->brush, *f->r, *f->g, *f->b);
             }
             bg_apply_i18n(h);
             bg_layout_capture(h);
@@ -1410,7 +1462,8 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                         preview_dirty(h);
                     }
                     break;
-                case IDC_BGCOLOR1: {
+                case IDC_BGCOLOR1_SWATCH: {
+                    if (HIWORD(w) != STN_CLICKED) break;
                     static COLORREF custom[16];
                     CHOOSECOLORW cc;
                     memset(&cc, 0, sizeof cc);
@@ -1428,6 +1481,7 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                         if (g_work.background_type == 0) g_work.bg_solid_customized = 1;
                         else if (g_work.background_type == 1) g_work.bg_gradient_customized = 1;
                         hex_from_rgb(h, IDC_BGCOLOR1_HEX, g_work.bg_color1_r, g_work.bg_color1_g, g_work.bg_color1_b);
+                        swatch_set(h, IDC_BGCOLOR1_SWATCH, &g_bgcolor1_swatch_brush, g_work.bg_color1_r, g_work.bg_color1_g, g_work.bg_color1_b);
                         preview_dirty(h);
                     }
                     break;
@@ -1437,11 +1491,13 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                         if (hex_to_rgb(h, IDC_BGCOLOR1_HEX, &g_work.bg_color1_r, &g_work.bg_color1_g, &g_work.bg_color1_b)) {
                             if (g_work.background_type == 0) g_work.bg_solid_customized = 1;
                             else if (g_work.background_type == 1) g_work.bg_gradient_customized = 1;
+                            swatch_set(h, IDC_BGCOLOR1_SWATCH, &g_bgcolor1_swatch_brush, g_work.bg_color1_r, g_work.bg_color1_g, g_work.bg_color1_b);
                             preview_dirty(h);
                         }
                     }
                     break;
-                case IDC_BGCOLOR2: {
+                case IDC_BGCOLOR2_SWATCH: {
+                    if (HIWORD(w) != STN_CLICKED) break;
                     static COLORREF custom[16];
                     CHOOSECOLORW cc;
                     memset(&cc, 0, sizeof cc);
@@ -1457,17 +1513,21 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                         g_work.bg_color2_g = GetGValue(cc.rgbResult) / 255.0f;
                         g_work.bg_color2_b = GetBValue(cc.rgbResult) / 255.0f;
                         hex_from_rgb(h, IDC_BGCOLOR2_HEX, g_work.bg_color2_r, g_work.bg_color2_g, g_work.bg_color2_b);
+                        swatch_set(h, IDC_BGCOLOR2_SWATCH, &g_bgcolor2_swatch_brush, g_work.bg_color2_r, g_work.bg_color2_g, g_work.bg_color2_b);
                         preview_dirty(h);
                     }
                     break;
                 }
                 case IDC_BGCOLOR2_HEX:
                     if (HIWORD(w) == EN_CHANGE) {
-                        if (hex_to_rgb(h, IDC_BGCOLOR2_HEX, &g_work.bg_color2_r, &g_work.bg_color2_g, &g_work.bg_color2_b))
+                        if (hex_to_rgb(h, IDC_BGCOLOR2_HEX, &g_work.bg_color2_r, &g_work.bg_color2_g, &g_work.bg_color2_b)) {
+                            swatch_set(h, IDC_BGCOLOR2_SWATCH, &g_bgcolor2_swatch_brush, g_work.bg_color2_r, g_work.bg_color2_g, g_work.bg_color2_b);
                             preview_dirty(h);
+                        }
                     }
                     break;
-                case IDC_BGNEBCOLOR1: {
+                case IDC_BGNEBCOLOR1_SWATCH: {
+                    if (HIWORD(w) != STN_CLICKED) break;
                     static COLORREF custom[16];
                     CHOOSECOLORW cc;
                     memset(&cc, 0, sizeof cc);
@@ -1483,17 +1543,21 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                         g_work.bg_neb_color1_g = GetGValue(cc.rgbResult) / 255.0f;
                         g_work.bg_neb_color1_b = GetBValue(cc.rgbResult) / 255.0f;
                         hex_from_rgb(h, IDC_BGNEBCOLOR1_HEX, g_work.bg_neb_color1_r, g_work.bg_neb_color1_g, g_work.bg_neb_color1_b);
+                        swatch_set(h, IDC_BGNEBCOLOR1_SWATCH, &g_bgnebcolor1_swatch_brush, g_work.bg_neb_color1_r, g_work.bg_neb_color1_g, g_work.bg_neb_color1_b);
                         preview_dirty(h);
                     }
                     break;
                 }
                 case IDC_BGNEBCOLOR1_HEX:
                     if (HIWORD(w) == EN_CHANGE) {
-                        if (hex_to_rgb(h, IDC_BGNEBCOLOR1_HEX, &g_work.bg_neb_color1_r, &g_work.bg_neb_color1_g, &g_work.bg_neb_color1_b))
+                        if (hex_to_rgb(h, IDC_BGNEBCOLOR1_HEX, &g_work.bg_neb_color1_r, &g_work.bg_neb_color1_g, &g_work.bg_neb_color1_b)) {
+                            swatch_set(h, IDC_BGNEBCOLOR1_SWATCH, &g_bgnebcolor1_swatch_brush, g_work.bg_neb_color1_r, g_work.bg_neb_color1_g, g_work.bg_neb_color1_b);
                             preview_dirty(h);
+                        }
                     }
                     break;
-                case IDC_BGNEBCOLOR2: {
+                case IDC_BGNEBCOLOR2_SWATCH: {
+                    if (HIWORD(w) != STN_CLICKED) break;
                     static COLORREF custom[16];
                     CHOOSECOLORW cc;
                     memset(&cc, 0, sizeof cc);
@@ -1509,17 +1573,21 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                         g_work.bg_neb_color2_g = GetGValue(cc.rgbResult) / 255.0f;
                         g_work.bg_neb_color2_b = GetBValue(cc.rgbResult) / 255.0f;
                         hex_from_rgb(h, IDC_BGNEBCOLOR2_HEX, g_work.bg_neb_color2_r, g_work.bg_neb_color2_g, g_work.bg_neb_color2_b);
+                        swatch_set(h, IDC_BGNEBCOLOR2_SWATCH, &g_bgnebcolor2_swatch_brush, g_work.bg_neb_color2_r, g_work.bg_neb_color2_g, g_work.bg_neb_color2_b);
                         preview_dirty(h);
                     }
                     break;
                 }
                 case IDC_BGNEBCOLOR2_HEX:
                     if (HIWORD(w) == EN_CHANGE) {
-                        if (hex_to_rgb(h, IDC_BGNEBCOLOR2_HEX, &g_work.bg_neb_color2_r, &g_work.bg_neb_color2_g, &g_work.bg_neb_color2_b))
+                        if (hex_to_rgb(h, IDC_BGNEBCOLOR2_HEX, &g_work.bg_neb_color2_r, &g_work.bg_neb_color2_g, &g_work.bg_neb_color2_b)) {
+                            swatch_set(h, IDC_BGNEBCOLOR2_SWATCH, &g_bgnebcolor2_swatch_brush, g_work.bg_neb_color2_r, g_work.bg_neb_color2_g, g_work.bg_neb_color2_b);
                             preview_dirty(h);
+                        }
                     }
                     break;
-                case IDC_BGGRIDCOLOR1: {
+                case IDC_BGGRIDCOLOR1_SWATCH: {
+                    if (HIWORD(w) != STN_CLICKED) break;
                     static COLORREF custom[16];
                     CHOOSECOLORW cc;
                     memset(&cc, 0, sizeof cc);
@@ -1535,17 +1603,21 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                         g_work.bg_grid_color1_g = GetGValue(cc.rgbResult) / 255.0f;
                         g_work.bg_grid_color1_b = GetBValue(cc.rgbResult) / 255.0f;
                         hex_from_rgb(h, IDC_BGGRIDCOLOR1_HEX, g_work.bg_grid_color1_r, g_work.bg_grid_color1_g, g_work.bg_grid_color1_b);
+                        swatch_set(h, IDC_BGGRIDCOLOR1_SWATCH, &g_bggridcolor1_swatch_brush, g_work.bg_grid_color1_r, g_work.bg_grid_color1_g, g_work.bg_grid_color1_b);
                         preview_dirty(h);
                     }
                     break;
                 }
                 case IDC_BGGRIDCOLOR1_HEX:
                     if (HIWORD(w) == EN_CHANGE) {
-                        if (hex_to_rgb(h, IDC_BGGRIDCOLOR1_HEX, &g_work.bg_grid_color1_r, &g_work.bg_grid_color1_g, &g_work.bg_grid_color1_b))
+                        if (hex_to_rgb(h, IDC_BGGRIDCOLOR1_HEX, &g_work.bg_grid_color1_r, &g_work.bg_grid_color1_g, &g_work.bg_grid_color1_b)) {
+                            swatch_set(h, IDC_BGGRIDCOLOR1_SWATCH, &g_bggridcolor1_swatch_brush, g_work.bg_grid_color1_r, g_work.bg_grid_color1_g, g_work.bg_grid_color1_b);
                             preview_dirty(h);
+                        }
                     }
                     break;
-                case IDC_BGGRIDCOLOR2: {
+                case IDC_BGGRIDCOLOR2_SWATCH: {
+                    if (HIWORD(w) != STN_CLICKED) break;
                     static COLORREF custom[16];
                     CHOOSECOLORW cc;
                     memset(&cc, 0, sizeof cc);
@@ -1561,14 +1633,17 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                         g_work.bg_grid_color2_g = GetGValue(cc.rgbResult) / 255.0f;
                         g_work.bg_grid_color2_b = GetBValue(cc.rgbResult) / 255.0f;
                         hex_from_rgb(h, IDC_BGGRIDCOLOR2_HEX, g_work.bg_grid_color2_r, g_work.bg_grid_color2_g, g_work.bg_grid_color2_b);
+                        swatch_set(h, IDC_BGGRIDCOLOR2_SWATCH, &g_bggridcolor2_swatch_brush, g_work.bg_grid_color2_r, g_work.bg_grid_color2_g, g_work.bg_grid_color2_b);
                         preview_dirty(h);
                     }
                     break;
                 }
                 case IDC_BGGRIDCOLOR2_HEX:
                     if (HIWORD(w) == EN_CHANGE) {
-                        if (hex_to_rgb(h, IDC_BGGRIDCOLOR2_HEX, &g_work.bg_grid_color2_r, &g_work.bg_grid_color2_g, &g_work.bg_grid_color2_b))
+                        if (hex_to_rgb(h, IDC_BGGRIDCOLOR2_HEX, &g_work.bg_grid_color2_r, &g_work.bg_grid_color2_g, &g_work.bg_grid_color2_b)) {
+                            swatch_set(h, IDC_BGGRIDCOLOR2_SWATCH, &g_bggridcolor2_swatch_brush, g_work.bg_grid_color2_r, g_work.bg_grid_color2_g, g_work.bg_grid_color2_b);
                             preview_dirty(h);
+                        }
                     }
                     break;
                 case IDC_BGGRIDDOTS:
@@ -1606,6 +1681,16 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     break;
             }
             return TRUE;
+        case WM_CTLCOLORSTATIC: {
+            int id = GetDlgCtrlID((HWND)l);
+            for (size_t i = 0; i < sizeof g_bg_hex_fields / sizeof g_bg_hex_fields[0]; ++i) {
+                if (g_bg_hex_fields[i].swatch_id == id) {
+                    SetWindowLongPtrW(h, DWLP_MSGRESULT, (LONG_PTR)*g_bg_hex_fields[i].brush);
+                    return TRUE;
+                }
+            }
+            break;
+        }
     }
     return FALSE;
 }
