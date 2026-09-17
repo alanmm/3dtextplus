@@ -40,6 +40,11 @@ static HWND       g_particles;   /* sub-dialogo da aba Particulas */
 static bool       g_selftest;
 static GlWindow  *g_preview;
 static bool       g_dirty;
+static int        g_suppress_preview_dirty;  /* true durante a (re)criacao das 9 sub-abas -
+   os campos de hex ja disparam EN_CHANGE so' de ter seu texto inicial preenchido via
+   SetDlgItemTextW (comportamento nativo de Edit control, mesmo fora de edicao real do
+   usuario), o que chamaria preview_dirty() por engano - ver reload_all_tabs() e o
+   WM_INITDIALOG do dialogo principal */
 static LARGE_INTEGER g_pstart, g_pfreq;
 
 /* navegacao manual do preview (arrastar p/ girar, botao do meio p/ pan,
@@ -226,6 +231,7 @@ static bool env_selftest(void)
 
 static void preview_dirty(HWND child)
 {
+    if (g_suppress_preview_dirty) return;
     /* child = janela do sub-dialogo da aba (o "h" recebido em cada *_proc);
        seu pai direto e o dialogo principal, que trata WM_PREVIEW_DIRTY. */
     PostMessageW(GetParent(child), WM_PREVIEW_DIRTY, 0, 0);
@@ -2173,14 +2179,18 @@ static int g_preset_sel = -1;   /* -1 = nenhum preset selecionado ainda - indice
                                     depois salvos) - NAO e' o indice do combo, que
                                     tem mais 1 pelo item "Escolher..." na frente */
 static int g_preset_dirty;      /* 1 = g_work mudou desde o ultimo preset
-                                    selecionado/salvo - combo mostra "Salvar como
-                                    novo preset" em vez do nome do preset. Flag
+                                    selecionado/salvo - combo perde a selecao
+                                    (CB_SETCURSEL -1) e WM_DRAWITEM desenha
+                                    "Salvar como novo preset" por cima da area
+                                    de selecao no lugar do nome do preset. Flag
                                     simples (nao compara campo a campo) de proposito. */
 
-/* repopula o combo: o placeholder "Escolher...", os embutidos (traduzidos),
-   os salvos em ordem alfabetica, e por fim "Salvar como novo preset". A
-   selecao visual e' derivada de g_preset_sel/g_preset_dirty, nunca guardada
-   separadamente. */
+/* repopula o combo: o placeholder "Escolher..." e depois os presets (embutidos
+   traduzidos, seguidos dos salvos em ordem alfabetica). "Salvar como novo
+   preset" NAO e' um item de verdade - e' desenhado por cima da area de
+   selecao (WM_DRAWITEM, ODS_COMBOBOXEDIT) quando g_preset_dirty, sem
+   aparecer na lista suspensa. A selecao visual e' derivada de
+   g_preset_sel/g_preset_dirty, nunca guardada separadamente. */
 static void preset_refresh_combo(HWND dlg)
 {
     HWND cb = GetDlgItem(dlg, IDC_PRESET_COMBO);
@@ -2195,8 +2205,6 @@ static void preset_refresh_combo(HWND dlg)
     int n = preset_user_list(names, 64);
     for (int i = 0; i < n; ++i)
         SendMessageW(cb, CB_ADDSTRING, 0, (LPARAM)names[i]);
-
-    SendMessageW(cb, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_PRESET_SAVE_AS_NEW));
 
     int total = BUILTIN_PRESET_COUNT + n;
     if (g_preset_sel >= total) g_preset_sel = -1;
@@ -2232,6 +2240,8 @@ static void reload_all_tabs(HWND dlg)
     DestroyWindow(g_bg);
     DestroyWindow(g_particles);
 
+    g_suppress_preview_dirty = 1;
+
     g_content = CreateDialogW(GetModuleHandleW(NULL),
                               MAKEINTRESOURCEW(IDD_TAB_CONTENT), dlg, content_proc);
     g_motion = CreateDialogW(GetModuleHandleW(NULL),
@@ -2260,6 +2270,8 @@ static void reload_all_tabs(HWND dlg)
     place_tab_child(dlg, tabs, g_post);
     place_tab_child(dlg, tabs, g_bg);
     place_tab_child(dlg, tabs, g_particles);
+
+    g_suppress_preview_dirty = 0;
 
     select_tab(g_cur_tab);   /* mantem a aba atual selecionada, marca o preview sujo */
 }
@@ -2338,6 +2350,8 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             g_preset_sel = -1;
             preset_apply_i18n(h);
 
+            g_suppress_preview_dirty = 1;
+
             g_content = CreateDialogW(GetModuleHandleW(NULL),
                                       MAKEINTRESOURCEW(IDD_TAB_CONTENT), h, content_proc);
             g_motion = CreateDialogW(GetModuleHandleW(NULL),
@@ -2365,6 +2379,9 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             place_tab_child(h, tabs, g_post);
             place_tab_child(h, tabs, g_bg);
             place_tab_child(h, tabs, g_particles);
+
+            g_suppress_preview_dirty = 0;
+
             select_tab(0);
 
             /* mini-preview 3D ao vivo */
@@ -2468,6 +2485,55 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                 return TRUE;
             }
             break;
+        case WM_MEASUREITEM: {
+            MEASUREITEMSTRUCT *mis = (MEASUREITEMSTRUCT *)l;
+            if (mis->CtlID != IDC_PRESET_COMBO) break;
+            HWND cb = GetDlgItem(h, IDC_PRESET_COMBO);
+            HFONT font = (HFONT)SendMessageW(cb, WM_GETFONT, 0, 0);
+            HDC dc = GetDC(cb);
+            HFONT old = (HFONT)SelectObject(dc, font);
+            TEXTMETRICW tm;
+            GetTextMetricsW(dc, &tm);
+            SelectObject(dc, old);
+            ReleaseDC(cb, dc);
+            mis->itemHeight = (UINT)tm.tmHeight + 4;
+            return TRUE;
+        }
+        case WM_DRAWITEM: {
+            const DRAWITEMSTRUCT *dis = (const DRAWITEMSTRUCT *)l;
+            if (dis->CtlID != IDC_PRESET_COMBO) break;
+
+            /* ODS_COMBOBOXEDIT = desenhando a area de selecao (sempre visivel),
+               nao um item da lista suspensa - e' aqui que sobrepomos "Salvar
+               como novo preset" sem que o texto vire uma opcao clicavel. */
+            BOOL is_edit_field = (dis->itemState & ODS_COMBOBOXEDIT) != 0;
+            BOOL selected = !is_edit_field && (dis->itemState & ODS_SELECTED);
+
+            COLORREF bg = selected ? GetSysColor(COLOR_HIGHLIGHT) : GetSysColor(COLOR_WINDOW);
+            COLORREF fg = selected ? GetSysColor(COLOR_HIGHLIGHTTEXT) : GetSysColor(COLOR_WINDOWTEXT);
+            HBRUSH br = CreateSolidBrush(bg);
+            FillRect(dis->hDC, &dis->rcItem, br);
+            DeleteObject(br);
+
+            wchar_t buf[PRESET_NAME_MAX];
+            const wchar_t *text = L"";
+            if (is_edit_field && g_preset_dirty) {
+                text = i18n_str(STR_PRESET_SAVE_AS_NEW);
+            } else if ((int)dis->itemID >= 0) {
+                SendMessageW(dis->hwndItem, CB_GETLBTEXT, dis->itemID, (LPARAM)buf);
+                text = buf;
+            }
+
+            SetBkMode(dis->hDC, TRANSPARENT);
+            SetTextColor(dis->hDC, fg);
+            RECT r = dis->rcItem;
+            r.left += 4;
+            DrawTextW(dis->hDC, text, -1, &r, DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX);
+
+            if (dis->itemState & ODS_FOCUS)
+                DrawFocusRect(dis->hDC, &dis->rcItem);
+            return TRUE;
+        }
         case WM_GETMINMAXINFO:
             if (g_resize_baseline_ready) {
                 int minW, minH;
@@ -2487,8 +2553,9 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             if (!g_preset_dirty) {
                 g_preset_dirty = 1;
                 HWND cb = GetDlgItem(h, IDC_PRESET_COMBO);
-                int count = (int)SendMessageW(cb, CB_GETCOUNT, 0, 0);
-                if (count > 0) SendMessageW(cb, CB_SETCURSEL, count - 1, 0);
+                SendMessageW(cb, CB_SETCURSEL, (WPARAM)-1, 0);   /* sem selecao real - WM_DRAWITEM
+                                                                     mostra "Salvar como novo preset" */
+                InvalidateRect(cb, NULL, TRUE);
             }
             return TRUE;
         case WM_MOUSEWHEEL: {
@@ -2534,23 +2601,15 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     if (HIWORD(w) != CBN_SELCHANGE) break;
                     HWND cb = GetDlgItem(h, IDC_PRESET_COMBO);
                     int wsel = (int)SendMessageW(cb, CB_GETCURSEL, 0, 0);
-                    int count = (int)SendMessageW(cb, CB_GETCOUNT, 0, 0);
-                    int restore_idx = g_preset_dirty ? count - 1 : (g_preset_sel < 0 ? 0 : g_preset_sel + 1);
+                    /* -1 (sem selecao) e' o proprio estado "sujo" - so' chega aqui
+                       ao reverter uma escolha, nunca como selecao nova do usuario */
+                    int restore_idx = g_preset_dirty ? -1 : (g_preset_sel < 0 ? 0 : g_preset_sel + 1);
                     if (wsel < 0) break;
 
                     if (wsel == 0) {
                         /* "Escolher..." - so' rotulo/placeholder, nao e' uma opcao de
                            verdade pra selecionar; devolve a selecao pro estado real */
                         SendMessageW(cb, CB_SETCURSEL, restore_idx, 0);
-                        break;
-                    }
-                    if (wsel == count - 1) {
-                        /* "Salvar como novo preset" - mesmo fluxo do botao "+";
-                           reentra o proprio WM_COMMAND, que ja trata IDC_PRESET_SAVE
-                           (inclui o proprio preset_refresh_combo no final) */
-                        SendMessageW(h, WM_COMMAND, MAKEWPARAM(IDC_PRESET_SAVE, BN_CLICKED), 0);
-                        if (g_preset_dirty)   /* prompt cancelado - devolve a selecao */
-                            SendMessageW(cb, CB_SETCURSEL, count - 1, 0);
                         break;
                     }
 
