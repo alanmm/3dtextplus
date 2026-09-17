@@ -6,6 +6,7 @@ void run_cmdline_tests(void);
 void run_log_tests(void);
 void run_mathx_tests(void);
 void run_font_outline_tests(void);
+void run_feature_edges_tests(void);
 void run_contour_mesh_tests(void);
 void run_config_tests(void);
 void run_render_tiers_tests(void);
@@ -21,6 +22,7 @@ int main(void)
     run_log_tests();
     run_mathx_tests();
     run_font_outline_tests();
+    run_feature_edges_tests();
     run_contour_mesh_tests();
     run_config_tests();
     run_render_tiers_tests();

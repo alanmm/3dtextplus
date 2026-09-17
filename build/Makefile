@@ -37,7 +37,7 @@ SRC_C := src/main.c src/cmdline.c src/util/log.c src/util/mathx.c src/util/clock
          src/material.c src/scene.c src/env.c src/post.c src/particles.c \
          src/render_tiers.c src/render_tiers_gl.c src/i18n.c \
          src/geometry/font_outline.c src/geometry/stb_impl.c src/geometry/contour_mesh.c \
-         src/geometry/svg_shapes.c src/geometry/mesh_import.c
+         src/geometry/svg_shapes.c src/geometry/mesh_import.c src/geometry/feature_edges.c
 TP_C  := third_party/glad/src/gl.c $(wildcard third_party/libtess2/Source/*.c)
 
 SRC_OBJ := $(patsubst src/%.c,build/obj/src/%.o,$(SRC_C))
@@ -101,11 +101,12 @@ config: debug
 
 TEST_SRC   := build/tests/test_main.c build/tests/test_cmdline.c build/tests/test_log.c \
               build/tests/test_mathx.c build/tests/test_font_outline.c \
+              build/tests/test_feature_edges.c \
               build/tests/test_contour_mesh.c build/tests/test_config.c \
               build/tests/test_render_tiers.c build/tests/test_clockfmt.c build/tests/test_svg_shapes.c \
               build/tests/test_mesh_import.c build/tests/test_i18n.c build/tests/test_presets.c
 TEST_UNITS := src/cmdline.c src/util/log.c src/util/mathx.c src/util/clockfmt.c \
-              src/geometry/font_outline.c src/geometry/contour_mesh.c src/config.c \
+              src/geometry/font_outline.c src/geometry/feature_edges.c src/geometry/contour_mesh.c src/config.c \
               src/render_tiers.c src/geometry/svg_shapes.c src/geometry/mesh_import.c \
               src/i18n.c src/presets.c
 TEST_INC   := -Isrc -Ithird_party -Ithird_party/libtess2/Include -Ibuild/tests -Igenerated
