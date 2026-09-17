@@ -125,14 +125,19 @@ void main()
     // anterior, descartada: saturava perto de 0 ou 1 quase em toda a
     // superficie, sem meio-termo pro slider de vies atuar em cima).
     // uEdgeBias controla o expoente da curva (tipo "curvas" de editor de
-    // imagem): 0.5 = neutro (expoente 4, Fresnel tipico); <0.5 sobe o
-    // expoente (faixa de opacidade mais estreita, so' bem perto da
-    // silhueta = mais area lida como "plana"/transparente); >0.5 desce o
-    // expoente (faixa mais larga = mais area lida como "aresta"/opaca).
-    // Calculada aqui (fora dos ramos de uMode) pra ser reaproveitada pela
-    // visualizacao de debug.
+    // imagem): 0.5 = neutro (expoente 10); <0.5 sobe o expoente (faixa de
+    // opacidade mais estreita, so' bem perto da silhueta = mais area lida
+    // como "plana"/transparente); >0.5 desce o expoente (faixa mais larga
+    // = mais area lida como "aresta"/opaca). Base 10 (nao 4) e o mix() do
+    // delta de alpha logo abaixo em +-0.35 (nao +-0.18/0.12) - ampliados
+    // a pedido do usuario, que achou a faixa original pouco perceptivel;
+    // mesmo assim o efeito fica concentrado perto da aresta/chanfro, nunca
+    // muda drasticamente o miolo de uma face plana (limite geometrico: a
+    // normal quase nao varia ali, entao pow(quase-zero, qualquer_expoente)
+    // continua quase zero). Calculada aqui (fora dos ramos de uMode) pra
+    // ser reaproveitada pela visualizacao de debug.
     float NdotV = clamp(dot(N, V), 0.0, 1.0);
-    float rimExp = pow(4.0, 2.0 * (1.0 - uEdgeBias));
+    float rimExp = pow(10.0, 2.0 * (1.0 - uEdgeBias));
     float rimAmt = pow(1.0 - NdotV, rimExp);
 
     // ferramenta de debug visual (botao direito no preview alterna, ver
@@ -203,7 +208,7 @@ void main()
         // mascara de opacidade ja calculada no topo (rimAmt, Fresnel/Facing) -
         // silhueta/aresta fica mais opaca, face de frente mais transparente,
         // nunca batendo em 0% nem 100%.
-        a = clamp(a + mix(-0.18, 0.12, rimAmt), 0.12, 0.88);
+        a = clamp(a + mix(-0.35, 0.35, rimAmt), 0.08, 0.92);
         float linearDepth = length(uCamPos - vWorld);
         float weight = a * clamp(0.4 / (1e-5 + pow(linearDepth / 8.0, 4.0)), 1e-2, 3000.0);
         oAccum = vec4(col * a * weight, a * weight);
