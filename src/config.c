@@ -282,7 +282,7 @@ void config_load_from(Config *c, const wchar_t *subkey)
     c->base_r = clampf(c->base_r, 0.0f, 1.0f);
     c->base_g = clampf(c->base_g, 0.0f, 1.0f);
     c->base_b = clampf(c->base_b, 0.0f, 1.0f);
-    if (c->material_mode < 0 || c->material_mode > 2) c->material_mode = 0;
+    if (c->material_mode < 0 || c->material_mode > 3) c->material_mode = 0;
     c->metalness = clampf(c->metalness, 0.0f, 1.0f);
     c->roughness = clampf(c->roughness, 0.0f, 1.0f);
     c->emissive_r = clampf(c->emissive_r, 0.0f, 1.0f);

@@ -718,6 +718,41 @@ void scene_pan(SceneRenderer *s, float dx, float dy)
    Vidro - 2 anexos de cor (RGBA16F acumulacao, R16F log de revelacao),
    sem depth (a mistura aditiva de ambos nao depende de teste de
    profundidade - ver spec secao 4, passo 1). */
+/* FBO de profundidade dedicada, de 1 amostra so', texture-backed -
+   so' usada no modo Raio-X do Wireframe, pra que o passe de linhas
+   possa AMOSTRAR (nao so' testar) a profundidade da malha solida no
+   fragment shader. Ver spec 2026-09-17-wireframe-material-design.md
+   secao 5 pra por que isso nao pode ser so' um blit do buffer de
+   profundidade do alvo HDR principal (que pode estar em MSAA). */
+static void ensure_wire_depth_target(SceneRenderer *s, int w, int h)
+{
+    if (s->wire_depth_fbo && s->wire_depth_w == w && s->wire_depth_h == h) return;
+    if (s->wire_depth_fbo) {
+        glDeleteFramebuffers(1, &s->wire_depth_fbo);
+        glDeleteTextures(1, &s->wire_depth_tex);
+    }
+    glGenTextures(1, &s->wire_depth_tex);
+    glBindTexture(GL_TEXTURE_2D, s->wire_depth_tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, w, h, 0,
+                 GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glGenFramebuffers(1, &s->wire_depth_fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, s->wire_depth_fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, s->wire_depth_tex, 0);
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        log_errorf("scene: FBO de profundidade do Wireframe incompleta");
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    s->wire_depth_w = w;
+    s->wire_depth_h = h;
+}
+
 static void ensure_wboit_targets(SceneRenderer *s, int w, int h)
 {
     if (s->wboit_fbo && s->wboit_w == w && s->wboit_h == h) return;
@@ -788,6 +823,45 @@ static void draw_content(SceneRenderer *s)
     } else {
         gl_mesh_draw(&s->mesh);
     }
+}
+
+static void draw_wireframe_lines(SceneRenderer *s, m4 view, m4 proj, m4 model, int fb_w, int fb_h)
+{
+    if (s->wire_edge_count == 0 || !s->wire_prog) return;
+
+    glUseProgram(s->wire_prog);
+    glUniformMatrix4fv(glGetUniformLocation(s->wire_prog, "uModel"), 1, GL_FALSE, model.m);
+    glUniformMatrix4fv(glGetUniformLocation(s->wire_prog, "uView"),  1, GL_FALSE, view.m);
+    glUniformMatrix4fv(glGetUniformLocation(s->wire_prog, "uProj"),  1, GL_FALSE, proj.m);
+    glUniform2f(glGetUniformLocation(s->wire_prog, "uViewportSize"), (float)fb_w, (float)fb_h);
+    glUniform1f(glGetUniformLocation(s->wire_prog, "uThicknessPx"), s->wireframe_thickness);
+    glUniform3f(glGetUniformLocation(s->wire_prog, "uLineColor"),
+                s->base_color.x, s->base_color.y, s->base_color.z);
+    glUniform3f(glGetUniformLocation(s->wire_prog, "uEmissiveColor"),
+                s->emissive_color.x, s->emissive_color.y, s->emissive_color.z);
+    glUniform1f(glGetUniformLocation(s->wire_prog, "uEmissiveAmount"), s->emissive_amount);
+    glUniform1i(glGetUniformLocation(s->wire_prog, "uXray"), s->wireframe_xray);
+
+    glBindVertexArray(s->wire_vao);
+
+    if (s->wireframe_xray) {
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, s->wire_depth_tex);
+        glUniform1i(glGetUniformLocation(s->wire_prog, "uSolidDepth"), 0);
+        glDisable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDrawArrays(GL_LINES, 0, s->wire_edge_count * 2);
+        glDisable(GL_BLEND);
+        glEnable(GL_DEPTH_TEST);
+        glActiveTexture(GL_TEXTURE0);
+    } else {
+        glDepthMask(GL_FALSE);
+        glDrawArrays(GL_LINES, 0, s->wire_edge_count * 2);
+        glDepthMask(GL_TRUE);
+    }
+
+    glBindVertexArray(0);
 }
 
 void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h, int particles_active)
@@ -958,6 +1032,37 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h, int particles_
         glActiveTexture(GL_TEXTURE0);
         glDisable(GL_BLEND);
         glEnable(GL_DEPTH_TEST);
+    } else if (s->material_mode == 3) {                     /* wireframe */
+        /* passo 1 (sempre): profundidade "invisivel" da malha solida
+           direto no alvo HDR principal ja ligado - nenhuma FBO nova
+           precisa pra oclusao normal, o buffer que ja esta' la
+           (post_begin) basta. */
+        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+        draw_content(s);
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+        if (s->wireframe_xray) {
+            /* passo 2 (so' raio-x): repete o mesmo desenho numa FBO
+               dedicada de 1 amostra so', texture-backed - o shader das
+               linhas precisa AMOSTRAR essa profundidade (nao so'
+               testar contra ela), e nao da' pra amostrar direto o
+               anexo de profundidade do alvo principal quando ele e'
+               multisample (MSAA liga/desliga conforme a qualidade
+               escolhida pelo usuario). */
+            ensure_wire_depth_target(s, fb_w, fb_h);
+            GLint prev_fbo = 0;
+            glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prev_fbo);
+            glBindFramebuffer(GL_FRAMEBUFFER, s->wire_depth_fbo);
+            glViewport(0, 0, fb_w, fb_h);
+            glClear(GL_DEPTH_BUFFER_BIT);
+            glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+            draw_content(s);
+            glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+            glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
+            glViewport(0, 0, fb_w, fb_h);
+        }
+
+        draw_wireframe_lines(s, view, proj, model, fb_w, fb_h);
     } else {
         draw_content(s);
     }
