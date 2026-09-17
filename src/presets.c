@@ -93,28 +93,98 @@ void preset_scope_copy(Config *dst, const Config *src)
     dst->quality = src->quality;
 }
 
-/* "Inicial" = exatamente o padrao de fabrica estabelecido na Fase 8b-1
-   (config_defaults() ja e' esse baseline - nenhum campo extra a sobrescrever) */
+/* Os 6 presets prontos abaixo foram re-tunados pelo usuario ao vivo no
+   app (ajuste fino de cada slider) e exportados via "Fazer backup dos
+   presets..." pra virarem os novos valores oficiais - substituem os
+   valores anteriores desta fase, "Inicial" incluido (deixou de ser
+   literalmente igual a config_defaults() pra virar mais um preset com
+   nome, igual aos outros 4 ja eram). Cada um agora tambem define
+   Movimento e Geometria (antes so' bevel_mode entrava no escopo). */
 static void preset_inicial(Config *out)
 {
     config_defaults(out);
+    out->max_angle_y = 42.0f; out->tilt_x = 8.0f; out->period = 12.0f;
+    out->depth = 0.12f;
+    out->bevel_mode = 1;
+    out->bevel_size = 0.005f; out->bevel_depth = 0.012f; out->bevel_segments = 8;
+    out->shell = 0; out->wall_thickness = 0.015f;
+    out->material_mode = 1;
+    out->metalness = 0.9f; out->roughness = 0.25f; out->env_mode = 0;
+    out->base_r = 0.72157f; out->base_g = 0.74118f; out->base_b = 0.78039f;
+    out->background_type = 1;
+    out->bg_color1_r = 0.06275f; out->bg_color1_g = 0.03922f; out->bg_color1_b = 0.03922f;
+    out->bg_color2_r = 0.04706f; out->bg_color2_g = 0.07451f; out->bg_color2_b = 0.13730f;
+    out->bg_grad_angle = 101.0f;
+    out->bloom_on = 1; out->bloom_threshold = 0.58f; out->bloom_intensity = 0.65f; out->bloom_radius = 0.27f;
+    out->streaks_mode = 2; out->streaks_intensity = 0.76f; out->streaks_length = 0.14f;
+    out->chroma_on = 1; out->chroma_strength = 0.52f;
+    out->vignette_on = 1; out->vignette_amount = 0.35f;
+    out->fxaa_on = 1;
+    out->particles_on = 1; out->particles_kind = 0;
+    out->particles_density = 0.43f; out->particles_speed = 0.76f; out->particles_size_scale = 0.80f; out->particles_opacity = 0.50f;
+    out->quality = 2;
+}
+
+/* "Blueprint" - Wireframe + fundo Grade, preset do proprio usuario a
+   pedido dele. env_mode/env_path do arquivo exportado apontavam pra um
+   HDRI local (D:\...\interior_hdri_firefly_blur.jpg) que nao existe na
+   maquina de outro usuario - e, como o material Wireframe nao amostra
+   ambiente nenhum (model.frag so' sai uMode==3 com a cor solida), esse
+   campo nao muda nada visualmente aqui - deixado em 0/vazio (padrao)
+   de proposito, em vez de embutir um caminho local que quebraria pra
+   qualquer outra pessoa. */
+static void preset_blueprint(Config *out)
+{
+    config_defaults(out);
+    out->max_angle_y = 52.0f; out->tilt_x = 5.0f; out->period = 16.0f;
+    out->depth = 0.10f;
+    out->bevel_mode = 2;
+    out->bevel_size = 0.0f; out->bevel_depth = 0.0f; out->bevel_segments = 6;
+    out->shell = 0; out->wall_thickness = 0.015f;
+    out->material_mode = 3;
+    out->metalness = 0.18f; out->roughness = 0.36f; out->env_mode = 0;
+    out->edge_bias = 0.46f;
+    out->wireframe_thickness = 2.0f; out->wireframe_xray = 1; out->wireframe_fill = 1;
+    out->wireframe_fill_r = 0.09020f; out->wireframe_fill_g = 0.24710f; out->wireframe_fill_b = 0.54900f;
+    out->base_r = 0.72157f; out->base_g = 0.74118f; out->base_b = 0.78039f;
+    out->background_type = 4;
+    out->bg_color1_r = 0.07451f; out->bg_color1_g = 0.12940f; out->bg_color1_b = 0.50980f;
+    out->bg_color2_r = 0.04706f; out->bg_color2_g = 0.07843f; out->bg_color2_b = 0.13730f;
+    out->bg_grad_angle = 101.0f;
+    out->bg_neb_color1_r = 0.03137f; out->bg_neb_color1_g = 0.01961f; out->bg_neb_color1_b = 0.07843f;
+    out->bg_neb_color2_r = 0.25100f; out->bg_neb_color2_g = 0.10200f; out->bg_neb_color2_b = 0.34900f;
+    out->bg_grid_color1_r = 0.09020f; out->bg_grid_color1_g = 0.24710f; out->bg_grid_color1_b = 0.54900f;
+    out->bg_grid_color2_r = 0.07451f; out->bg_grid_color2_g = 0.30980f; out->bg_grid_color2_b = 0.85100f;
+    out->bg_grid_density = 13.0f; out->bg_grid_dots = 0;
+    out->bloom_on = 0; out->bloom_threshold = 0.68f; out->bloom_intensity = 0.65f; out->bloom_radius = 0.27f;
+    out->streaks_mode = 0; out->streaks_intensity = 0.76f; out->streaks_length = 0.14f;
+    out->chroma_on = 0; out->chroma_strength = 0.52f;
+    out->vignette_on = 1; out->vignette_amount = 0.61f;
+    out->fxaa_on = 1;
+    out->particles_on = 0; out->particles_kind = 0;
+    out->particles_density = 0.43f; out->particles_speed = 0.76f; out->particles_size_scale = 0.83f; out->particles_opacity = 0.49f;
+    out->quality = 2;
 }
 
 static void preset_classico(Config *out)
 {
     config_defaults(out);
-    out->material_mode = 0;
-    out->metalness = 0.9f; out->roughness = 0.5f; out->env_mode = 0;
+    out->max_angle_y = 86.0f; out->tilt_x = 8.0f; out->period = 14.0f;
+    out->depth = 0.10f;
     out->bevel_mode = 0;
+    out->bevel_size = 0.007f; out->bevel_depth = 0.010f; out->bevel_segments = 6;
+    out->shell = 0; out->wall_thickness = 0.015f;
+    out->material_mode = 0;
+    out->metalness = 0.9f; out->roughness = 0.18f; out->env_mode = 0;
     out->base_r = 0.72157f; out->base_g = 0.74118f; out->base_b = 0.78039f;
     out->background_type = 1;
-    out->bg_color1_r = 0.06275f; out->bg_color1_g = 0.03922f; out->bg_color1_b = 0.03922f;
-    out->bg_color2_r = 0.04706f; out->bg_color2_g = 0.07451f; out->bg_color2_b = 0.13725f;
-    out->bg_grad_angle = 101.0f;
+    out->bg_color1_r = 0.06275f; out->bg_color1_g = 0.03922f; out->bg_color1_b = 0.04706f;
+    out->bg_color2_r = 0.10980f; out->bg_color2_g = 0.21570f; out->bg_color2_b = 0.25100f;
+    out->bg_grad_angle = 87.0f;
     out->bloom_on = 1; out->bloom_threshold = 1.0f; out->bloom_intensity = 0.3f; out->bloom_radius = 0.18f;
     out->streaks_mode = 0; out->streaks_intensity = 0.76f; out->streaks_length = 0.14f;
     out->chroma_on = 0; out->chroma_strength = 0.52f;
-    out->vignette_on = 0; out->vignette_amount = 0.35f;
+    out->vignette_on = 1; out->vignette_amount = 0.35f;
     out->fxaa_on = 1;
     out->particles_on = 0; out->particles_kind = 0;
     out->particles_density = 0.43f; out->particles_speed = 0.76f; out->particles_size_scale = 0.80f; out->particles_opacity = 0.50f;
@@ -124,78 +194,90 @@ static void preset_classico(Config *out)
 static void preset_cinema(Config *out)
 {
     config_defaults(out);
-    out->material_mode = 1;
-    out->metalness = 0.9f; out->roughness = 0.5f; out->env_mode = 0;
+    out->max_angle_y = 42.0f; out->tilt_x = 10.0f; out->period = 13.0f;
+    out->depth = 0.10f;
     out->bevel_mode = 1;
+    out->bevel_size = 0.006f; out->bevel_depth = 0.007f; out->bevel_segments = 8;
+    out->shell = 0; out->wall_thickness = 0.015f;
+    out->material_mode = 1;
+    out->metalness = 0.8f; out->roughness = 0.44f; out->env_mode = 0;
     out->base_r = 0.72157f; out->base_g = 0.74118f; out->base_b = 0.78039f;
     out->background_type = 3;
     out->bg_color1_r = 0.06275f; out->bg_color1_g = 0.03922f; out->bg_color1_b = 0.03922f;
-    out->bg_color2_r = 0.04706f; out->bg_color2_g = 0.07451f; out->bg_color2_b = 0.13725f;
+    out->bg_color2_r = 0.04706f; out->bg_color2_g = 0.07451f; out->bg_color2_b = 0.13730f;
     out->bg_grad_angle = 101.0f;
-    out->bg_neb_color1_r = 0.02745f; out->bg_neb_color1_g = 0.01961f; out->bg_neb_color1_b = 0.07843f;
-    out->bg_neb_color2_r = 0.24706f; out->bg_neb_color2_g = 0.09804f; out->bg_neb_color2_b = 0.34902f;
-    out->bloom_on = 1; out->bloom_threshold = 0.64f; out->bloom_intensity = 0.65f; out->bloom_radius = 0.27f;
-    out->streaks_mode = 2; out->streaks_intensity = 0.76f; out->streaks_length = 0.14f;
-    out->chroma_on = 1; out->chroma_strength = 0.30f;
-    out->vignette_on = 1; out->vignette_amount = 0.35f;
+    out->bg_neb_color1_r = 0.04706f; out->bg_neb_color1_g = 0.01176f; out->bg_neb_color1_b = 0.08627f;
+    out->bg_neb_color2_r = 0.14900f; out->bg_neb_color2_g = 0.04314f; out->bg_neb_color2_b = 0.15690f;
+    out->bloom_on = 0; out->bloom_threshold = 0.43f; out->bloom_intensity = 0.0f; out->bloom_radius = 0.05f;
+    out->streaks_mode = 1; out->streaks_intensity = 1.0f; out->streaks_length = 0.6f;
+    out->chroma_on = 1; out->chroma_strength = 0.96f;
+    out->vignette_on = 1; out->vignette_amount = 0.5f;
     out->fxaa_on = 1;
     out->particles_on = 1; out->particles_kind = 1;
-    out->particles_density = 0.43f; out->particles_speed = 0.76f; out->particles_size_scale = 0.81f; out->particles_opacity = 0.42f;
+    out->particles_density = 0.44f; out->particles_speed = 0.76f; out->particles_size_scale = 0.87f; out->particles_opacity = 0.42f;
     out->quality = 2;
 }
 
 static void preset_neon(Config *out)
 {
     config_defaults(out);
-    out->material_mode = 0;
-    out->metalness = 0.9f; out->roughness = 0.5f; out->env_mode = 0;
-    out->bevel_mode = 1;
-    out->base_r = 1.0f; out->base_g = 0.1f; out->base_b = 0.6f;
+    out->max_angle_y = 42.0f; out->tilt_x = 8.0f; out->period = 9.0f;
+    out->depth = 0.05f;
+    out->bevel_mode = 2;
+    out->bevel_size = 0.005f; out->bevel_depth = 0.007f; out->bevel_segments = 6;
+    out->shell = 0; out->wall_thickness = 0.015f;
+    out->material_mode = 2;
+    out->metalness = 0.9f; out->roughness = 0.75f; out->env_mode = 0;
+    out->emissive_r = 0.3333f; out->emissive_g = 0.5843f; out->emissive_b = 1.0f;
+    out->emissive_amount = 0.62f;
+    out->edge_bias = 0.55f;
+    out->base_r = 0.32549f; out->base_g = 0.47451f; out->base_b = 1.0f;
     out->background_type = 0;
-    out->bg_color1_r = 0.03f; out->bg_color1_g = 0.01f; out->bg_color1_b = 0.05f;
-    out->bg_color2_r = 0.04706f; out->bg_color2_g = 0.07451f; out->bg_color2_b = 0.13725f;
+    out->bg_color1_r = 0.03137f; out->bg_color1_g = 0.01176f; out->bg_color1_b = 0.05098f;
+    out->bg_color2_r = 0.04706f; out->bg_color2_g = 0.07451f; out->bg_color2_b = 0.13730f;
     out->bg_grad_angle = 101.0f;
-    out->bg_neb_color1_r = 0.02745f; out->bg_neb_color1_g = 0.01961f; out->bg_neb_color1_b = 0.07843f;
-    out->bg_neb_color2_r = 0.24706f; out->bg_neb_color2_g = 0.09804f; out->bg_neb_color2_b = 0.34902f;
-    out->bloom_on = 1; out->bloom_threshold = 0.4f; out->bloom_intensity = 1.3f; out->bloom_radius = 0.4f;
-    out->streaks_mode = 1; out->streaks_intensity = 1.2f; out->streaks_length = 0.2f;
+    out->bloom_on = 1; out->bloom_threshold = 0.33f; out->bloom_intensity = 1.3f; out->bloom_radius = 0.4f;
+    out->streaks_mode = 2; out->streaks_intensity = 0.63f; out->streaks_length = 0.07f;
     out->chroma_on = 1; out->chroma_strength = 0.6f;
-    out->vignette_on = 1; out->vignette_amount = 0.45f;
+    out->vignette_on = 1; out->vignette_amount = 0.24f;
     out->fxaa_on = 1;
-    out->particles_on = 1; out->particles_kind = 2;
-    out->particles_density = 0.42f; out->particles_speed = 0.76f; out->particles_size_scale = 0.72f; out->particles_opacity = 0.42f;
+    out->particles_on = 1; out->particles_kind = 0;
+    out->particles_density = 0.43f; out->particles_speed = 0.76f; out->particles_size_scale = 0.43f; out->particles_opacity = 0.50f;
     out->quality = 2;
 }
 
 static void preset_suave(Config *out)
 {
     config_defaults(out);
+    out->max_angle_y = 80.0f; out->tilt_x = 8.0f; out->period = 18.0f;
+    out->depth = 0.10f;
+    out->bevel_mode = 0;
+    out->bevel_size = 0.006f; out->bevel_depth = 0.014f; out->bevel_segments = 7;
+    out->shell = 0; out->wall_thickness = 0.015f;
     out->material_mode = 0;
-    out->metalness = 0.9f; out->roughness = 0.8f; out->env_mode = 0;
-    out->bevel_mode = 1;
-    out->base_r = 0.20f; out->base_g = 0.21f; out->base_b = 0.24f;
+    out->metalness = 0.9f; out->roughness = 0.70f; out->env_mode = 0;
+    out->base_r = 0.2f; out->base_g = 0.21176f; out->base_b = 0.23922f;
     out->background_type = 1;
-    out->bg_color1_r = 0.85f; out->bg_color1_g = 0.87f; out->bg_color1_b = 0.92f;
-    out->bg_color2_r = 0.78f; out->bg_color2_g = 0.82f; out->bg_color2_b = 0.90f;
+    out->bg_color1_r = 0.85100f; out->bg_color1_g = 0.87060f; out->bg_color1_b = 0.92160f;
+    out->bg_color2_r = 0.78040f; out->bg_color2_g = 0.81960f; out->bg_color2_b = 0.90200f;
     out->bg_grad_angle = 90.0f;
-    out->bg_neb_color1_r = 0.02745f; out->bg_neb_color1_g = 0.01961f; out->bg_neb_color1_b = 0.07843f;
-    out->bg_neb_color2_r = 0.24706f; out->bg_neb_color2_g = 0.09804f; out->bg_neb_color2_b = 0.34902f;
-    out->bloom_on = 1; out->bloom_threshold = 1.6f; out->bloom_intensity = 0.12f; out->bloom_radius = 0.12f;
+    out->bloom_on = 0; out->bloom_threshold = 1.6f; out->bloom_intensity = 0.12f; out->bloom_radius = 0.12f;
     out->streaks_mode = 0; out->streaks_intensity = 0.76f; out->streaks_length = 0.14f;
-    out->chroma_on = 0; out->chroma_strength = 0.52f;
-    out->vignette_on = 0; out->vignette_amount = 0.35f;
+    out->chroma_on = 0; out->chroma_strength = 0.77f;
+    out->vignette_on = 1; out->vignette_amount = 0.35f;
     out->fxaa_on = 1;
-    out->particles_on = 1; out->particles_kind = 0;
-    out->particles_density = 0.43f; out->particles_speed = 0.76f; out->particles_size_scale = 0.80f; out->particles_opacity = 0.50f;
+    out->particles_on = 1; out->particles_kind = 1;
+    out->particles_density = 0.38f; out->particles_speed = 0.67f; out->particles_size_scale = 1.70f; out->particles_opacity = 0.42f;
     out->quality = 1;
 }
 
 const BuiltinPreset g_builtin_presets[BUILTIN_PRESET_COUNT] = {
-    { STR_PRESET_NAME_INICIAL,  preset_inicial },
-    { STR_PRESET_NAME_CLASSICO, preset_classico },
-    { STR_PRESET_NAME_CINEMA,   preset_cinema },
-    { STR_PRESET_NAME_NEON,     preset_neon },
-    { STR_PRESET_NAME_SUAVE,    preset_suave },
+    { STR_PRESET_NAME_INICIAL,   preset_inicial },
+    { STR_PRESET_NAME_CLASSICO,  preset_classico },
+    { STR_PRESET_NAME_CINEMA,    preset_cinema },
+    { STR_PRESET_NAME_NEON,      preset_neon },
+    { STR_PRESET_NAME_SUAVE,     preset_suave },
+    { STR_PRESET_NAME_BLUEPRINT, preset_blueprint },
 };
 
 static const wchar_t *PRESETS_BASE = L"Software\\Modern3DText\\Presets";

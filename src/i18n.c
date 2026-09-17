@@ -91,6 +91,7 @@ static const char *const KEY_NAMES[STR_COUNT] = {
     "preset.name.inicial",
     "preset.name.classico", "preset.name.cinema",
     "preset.name.neon", "preset.name.suave",
+    "preset.name.blueprint",
     "filter.ini",
     "preset.restore_failed_title", "preset.restore_failed",
     "preset.backup_failed_title", "preset.backup_failed",

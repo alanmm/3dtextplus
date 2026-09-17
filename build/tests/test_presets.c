@@ -12,57 +12,75 @@ static int nearf_color(float a, float b) { return fabsf(a - b) < 0.006f; }
 
 void run_presets_tests(void)
 {
-    Config c, d;
+    Config c;
 
-    g_builtin_presets[0].build(&c);   /* Inicial - deve ser identico a config_defaults() */
-    config_defaults(&d);
-    EXPECT(c.material_mode == d.material_mode);
-    EXPECT(nearf(c.metalness, d.metalness) && nearf(c.roughness, d.roughness));
-    EXPECT(c.env_mode == d.env_mode);
-    EXPECT(c.bevel_mode == d.bevel_mode);
-    EXPECT(c.background_type == d.background_type);
-    EXPECT(nearf(c.bg_grad_angle, d.bg_grad_angle));
-    EXPECT(c.bloom_on == d.bloom_on && nearf(c.bloom_threshold, d.bloom_threshold));
-    EXPECT(c.streaks_mode == d.streaks_mode);
-    EXPECT(c.particles_on == d.particles_on && c.particles_kind == d.particles_kind);
-    EXPECT(c.quality == d.quality);
+    g_builtin_presets[0].build(&c);   /* Inicial */
+    EXPECT(c.material_mode == 1);
+    EXPECT(nearf(c.metalness, 0.9f) && nearf(c.roughness, 0.25f));
+    EXPECT(c.env_mode == 0);
+    EXPECT(c.bevel_mode == 1);
+    EXPECT(nearf(c.max_angle_y, 42.0f) && nearf(c.tilt_x, 8.0f) && nearf(c.period, 12.0f));
+    EXPECT(nearf(c.depth, 0.12f));
+    EXPECT(nearf(c.bevel_size, 0.005f) && c.bevel_segments == 8);
+    EXPECT(c.background_type == 1);
+    EXPECT(nearf(c.bg_grad_angle, 101.0f));
+    EXPECT(c.bloom_on == 1 && nearf(c.bloom_threshold, 0.58f));
+    EXPECT(c.streaks_mode == 2);
+    EXPECT(c.particles_on == 1 && c.particles_kind == 0);
+    EXPECT(c.quality == 2);
 
     g_builtin_presets[1].build(&c);   /* Classico */
     EXPECT(c.material_mode == 0);
     EXPECT(c.bevel_mode == 0);
-    EXPECT(nearf(c.bg_grad_angle, 101.0f));
+    EXPECT(nearf(c.max_angle_y, 86.0f));
+    EXPECT(nearf(c.depth, 0.10f) && c.bevel_segments == 6);
+    EXPECT(nearf(c.bg_grad_angle, 87.0f));
     EXPECT(c.bloom_on == 1 && nearf(c.bloom_threshold, 1.0f));
     EXPECT(c.streaks_mode == 0);
     EXPECT(c.chroma_on == 0);
-    EXPECT(c.vignette_on == 0);
+    EXPECT(c.vignette_on == 1);
     EXPECT(c.particles_on == 0);
     EXPECT(c.quality == 2);
 
     g_builtin_presets[2].build(&c);   /* Cinema */
     EXPECT(c.material_mode == 1);
-    EXPECT(nearf(c.metalness, 0.9f) && nearf(c.roughness, 0.5f));
+    EXPECT(nearf(c.metalness, 0.8f) && nearf(c.roughness, 0.44f));
     EXPECT(c.env_mode == 0);
     EXPECT(c.background_type == 3);
-    EXPECT(c.streaks_mode == 2);
-    EXPECT(nearf(c.chroma_strength, 0.30f));
+    EXPECT(nearf(c.tilt_x, 10.0f) && nearf(c.period, 13.0f));
+    EXPECT(c.streaks_mode == 1);
+    EXPECT(nearf(c.chroma_strength, 0.96f));
     EXPECT(c.particles_on == 1 && c.particles_kind == 1);
-    EXPECT(nearf(c.particles_size_scale, 0.81f));
+    EXPECT(nearf(c.particles_size_scale, 0.87f));
 
     g_builtin_presets[3].build(&c);   /* Neon */
-    EXPECT(c.material_mode == 0);
+    EXPECT(c.material_mode == 2);
     EXPECT(c.background_type == 0);
-    EXPECT(nearf(c.base_r, 1.0f) && nearf(c.base_g, 0.1f) && nearf(c.base_b, 0.6f));
-    EXPECT(c.streaks_mode == 1);
+    EXPECT(nearf(c.base_r, 0.32549f) && nearf(c.base_g, 0.47451f) && nearf(c.base_b, 1.0f));
+    EXPECT(nearf(c.emissive_amount, 0.62f));
+    EXPECT(c.streaks_mode == 2);
     EXPECT(nearf(c.bloom_intensity, 1.3f));
-    EXPECT(c.particles_kind == 2);
+    EXPECT(c.particles_kind == 0);
+    EXPECT(nearf(c.depth, 0.05f));
 
     g_builtin_presets[4].build(&c);   /* Suave */
     EXPECT(c.material_mode == 0);
     EXPECT(c.background_type == 1);
-    EXPECT(nearf(c.bg_color1_r, 0.85f));
-    EXPECT(c.bloom_on == 1 && nearf(c.bloom_intensity, 0.12f));
-    EXPECT(c.particles_kind == 0);
+    EXPECT(nearf_color(c.bg_color1_r, 0.851f));
+    EXPECT(c.bloom_on == 0 && nearf(c.bloom_intensity, 0.12f));
+    EXPECT(c.particles_kind == 1);
+    EXPECT(nearf(c.particles_size_scale, 1.70f));
     EXPECT(c.quality == 1);
+
+    g_builtin_presets[5].build(&c);   /* Blueprint */
+    EXPECT(c.material_mode == 3);
+    EXPECT(c.background_type == 4);
+    EXPECT(c.wireframe_xray == 1 && c.wireframe_fill == 1);
+    EXPECT(nearf(c.bg_grid_density, 13.0f));
+    EXPECT(nearf(c.bg_grid_color2_r, 0.07451f) && nearf(c.bg_grid_color2_b, 0.85100f));
+    EXPECT(c.bevel_mode == 2);
+    EXPECT(c.env_mode == 0 && c.env_path[0] == 0);   /* nao herda o HDRI local do arquivo exportado */
+    EXPECT(nearf(c.max_angle_y, 52.0f) && nearf(c.tilt_x, 5.0f) && nearf(c.period, 16.0f));
 
     /* preset_scope_copy: so os campos do escopo mudam, resto fica intocado */
     Config dst, src;

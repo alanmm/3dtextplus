@@ -187,6 +187,7 @@ preset.name.classico=Clássico
 preset.name.cinema=Cinema
 preset.name.neon=Néon
 preset.name.suave=Suave
+preset.name.blueprint=Blueprint
 filter.ini=Presets
 preset.restore_failed_title=Falha ao restaurar
 preset.restore_failed=Não foi possível ler o arquivo de backup selecionado.
