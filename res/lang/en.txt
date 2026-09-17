@@ -120,6 +120,7 @@ bg.type.solid=Solid
 bg.type.gradient=Gradient
 bg.type.image=Image
 bg.type.nebula=Nebula
+bg.type.grid=Grid
 bg.color1_label=Color 1:
 bg.color2_label=Color 2:
 bg.angle_label=Gradient angle (degrees):
@@ -133,6 +134,9 @@ bg.pan_label=Pan speed:
 bg.nebula_label=Nebula:
 bg.nebula_color1_btn=Color 1...
 bg.nebula_color2_btn=Color 2...
+bg.grid_label=Grid:
+bg.grid_color1_btn=Color 1...
+bg.grid_color2_btn=Color 2...
 
 # Particles tab
 particles.enable=Enable particles

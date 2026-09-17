@@ -67,6 +67,8 @@ void config_defaults(Config *c)
     c->bg_pan_speed = 0.02f;
     c->bg_neb_color1_r = 0.02745f; c->bg_neb_color1_g = 0.01961f; c->bg_neb_color1_b = 0.07843f;
     c->bg_neb_color2_r = 0.24706f; c->bg_neb_color2_g = 0.09804f; c->bg_neb_color2_b = 0.34902f;
+    c->bg_grid_color1_r = 0.09020f; c->bg_grid_color1_g = 0.24706f; c->bg_grid_color1_b = 0.54902f;
+    c->bg_grid_color2_r = 1.0f; c->bg_grid_color2_g = 1.0f; c->bg_grid_color2_b = 1.0f;
     c->particles_on = 1;
     c->particles_kind = 0;
     c->particles_density = 0.43f;
@@ -230,6 +232,12 @@ void config_load_from(Config *c, const wchar_t *subkey)
     if (reg_get_f(k, L"bg_neb_color2_r", &f)) c->bg_neb_color2_r = f;
     if (reg_get_f(k, L"bg_neb_color2_g", &f)) c->bg_neb_color2_g = f;
     if (reg_get_f(k, L"bg_neb_color2_b", &f)) c->bg_neb_color2_b = f;
+    if (reg_get_f(k, L"bg_grid_color1_r", &f)) c->bg_grid_color1_r = f;
+    if (reg_get_f(k, L"bg_grid_color1_g", &f)) c->bg_grid_color1_g = f;
+    if (reg_get_f(k, L"bg_grid_color1_b", &f)) c->bg_grid_color1_b = f;
+    if (reg_get_f(k, L"bg_grid_color2_r", &f)) c->bg_grid_color2_r = f;
+    if (reg_get_f(k, L"bg_grid_color2_g", &f)) c->bg_grid_color2_g = f;
+    if (reg_get_f(k, L"bg_grid_color2_b", &f)) c->bg_grid_color2_b = f;
 
     reg_get_i(k, L"particles_on", &c->particles_on);
     reg_get_i(k, L"particles_kind", &c->particles_kind);
@@ -322,7 +330,7 @@ void config_load_from(Config *c, const wchar_t *subkey)
     c->vignette_on = c->vignette_on ? 1 : 0;
     c->vignette_amount = clampf(c->vignette_amount, 0.0f, 1.0f);
     c->fxaa_on = c->fxaa_on ? 1 : 0;
-    if (c->background_type < 0 || c->background_type > 3) c->background_type = 0;
+    if (c->background_type < 0 || c->background_type > 4) c->background_type = 0;
     c->bg_color1_r = clampf(c->bg_color1_r, 0.0f, 1.0f);
     c->bg_color1_g = clampf(c->bg_color1_g, 0.0f, 1.0f);
     c->bg_color1_b = clampf(c->bg_color1_b, 0.0f, 1.0f);
@@ -338,6 +346,12 @@ void config_load_from(Config *c, const wchar_t *subkey)
     c->bg_neb_color2_r = clampf(c->bg_neb_color2_r, 0.0f, 1.0f);
     c->bg_neb_color2_g = clampf(c->bg_neb_color2_g, 0.0f, 1.0f);
     c->bg_neb_color2_b = clampf(c->bg_neb_color2_b, 0.0f, 1.0f);
+    c->bg_grid_color1_r = clampf(c->bg_grid_color1_r, 0.0f, 1.0f);
+    c->bg_grid_color1_g = clampf(c->bg_grid_color1_g, 0.0f, 1.0f);
+    c->bg_grid_color1_b = clampf(c->bg_grid_color1_b, 0.0f, 1.0f);
+    c->bg_grid_color2_r = clampf(c->bg_grid_color2_r, 0.0f, 1.0f);
+    c->bg_grid_color2_g = clampf(c->bg_grid_color2_g, 0.0f, 1.0f);
+    c->bg_grid_color2_b = clampf(c->bg_grid_color2_b, 0.0f, 1.0f);
     c->particles_on = c->particles_on ? 1 : 0;
     if (c->particles_kind < 0 || c->particles_kind > 3) c->particles_kind = 0;
     c->particles_density    = clampf(c->particles_density, 0.0f, 1.0f);
@@ -445,6 +459,12 @@ void config_save_to(const Config *c, const wchar_t *subkey)
     set_f(k, L"bg_neb_color2_r", c->bg_neb_color2_r);
     set_f(k, L"bg_neb_color2_g", c->bg_neb_color2_g);
     set_f(k, L"bg_neb_color2_b", c->bg_neb_color2_b);
+    set_f(k, L"bg_grid_color1_r", c->bg_grid_color1_r);
+    set_f(k, L"bg_grid_color1_g", c->bg_grid_color1_g);
+    set_f(k, L"bg_grid_color1_b", c->bg_grid_color1_b);
+    set_f(k, L"bg_grid_color2_r", c->bg_grid_color2_r);
+    set_f(k, L"bg_grid_color2_g", c->bg_grid_color2_g);
+    set_f(k, L"bg_grid_color2_b", c->bg_grid_color2_b);
 
     set_f(k, L"particles_on", (float)c->particles_on);
     set_f(k, L"particles_kind", (float)c->particles_kind);

@@ -58,6 +58,8 @@ void run_config_tests(void)
     EXPECT(nearf(d.bg_grad_angle, 101.0f));
     EXPECT(nearf(d.bg_neb_color1_r, 0.02745f) && nearf(d.bg_neb_color1_g, 0.01961f) && nearf(d.bg_neb_color1_b, 0.07843f));
     EXPECT(nearf(d.bg_neb_color2_r, 0.24706f) && nearf(d.bg_neb_color2_g, 0.09804f) && nearf(d.bg_neb_color2_b, 0.34902f));
+    EXPECT(nearf(d.bg_grid_color1_r, 0.09020f) && nearf(d.bg_grid_color1_g, 0.24706f) && nearf(d.bg_grid_color1_b, 0.54902f));
+    EXPECT(nearf(d.bg_grid_color2_r, 1.0f) && nearf(d.bg_grid_color2_g, 1.0f) && nearf(d.bg_grid_color2_b, 1.0f));
     EXPECT(d.bg_solid_customized == 0);
     EXPECT(d.bg_gradient_customized == 0);
     EXPECT(nearf(d.particles_dust_density, 0.43f));
@@ -144,6 +146,8 @@ void run_config_tests(void)
     a.bg_pan_speed = 0.35f;
     a.bg_neb_color1_r = 0.05f; a.bg_neb_color1_g = 0.05f; a.bg_neb_color1_b = 0.20f;
     a.bg_neb_color2_r = 0.80f; a.bg_neb_color2_g = 0.30f; a.bg_neb_color2_b = 0.10f;
+    a.bg_grid_color1_r = 0.15f; a.bg_grid_color1_g = 0.25f; a.bg_grid_color1_b = 0.60f;
+    a.bg_grid_color2_r = 0.90f; a.bg_grid_color2_g = 0.95f; a.bg_grid_color2_b = 1.0f;
     a.particles_on = 1;
     a.particles_kind = 2;
     a.particles_density = 0.75f;
@@ -216,6 +220,8 @@ void run_config_tests(void)
     EXPECT(nearf(b.bg_pan_speed, 0.35f));
     EXPECT(nearf(b.bg_neb_color1_b, 0.20f));
     EXPECT(nearf(b.bg_neb_color2_r, 0.80f));
+    EXPECT(nearf(b.bg_grid_color1_b, 0.60f));
+    EXPECT(nearf(b.bg_grid_color2_r, 0.90f));
     EXPECT(b.particles_on == 1);
     EXPECT(b.particles_kind == 2);
     EXPECT(nearf(b.particles_density, 0.75f));

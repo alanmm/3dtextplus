@@ -57,11 +57,14 @@ static const char *const KEY_NAMES[STR_COUNT] = {
     "post.vignette_intensity_label", "post.fxaa", "post.hint",
 
     "bg.type_label", "bg.type.solid", "bg.type.gradient",
-    "bg.type.image", "bg.type.nebula", "bg.color1_label",
+    "bg.type.image", "bg.type.nebula",
+    "bg.type.grid",
+    "bg.color1_label",
     "bg.color2_label", "bg.angle_label", "bg.image_label",
     "placeholder.none_f", "bg.fit_label", "bg.fit.cover",
     "bg.fit.contain", "bg.fit.tile", "bg.pan_label",
     "bg.nebula_label", "bg.nebula_color1_btn", "bg.nebula_color2_btn",
+    "bg.grid_label", "bg.grid_color1_btn", "bg.grid_color2_btn",
 
     "particles.enable", "particles.kind_label", "particles.kind.dust",
     "particles.kind.bokeh", "particles.kind.sparks",

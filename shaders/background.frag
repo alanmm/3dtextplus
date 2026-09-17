@@ -2,7 +2,7 @@
 in vec2 vUV;
 out vec4 fragColor;
 
-uniform int   uType;        /* 0 solido, 1 gradiente, 2 imagem, 3 nebulosa */
+uniform int   uType;        /* 0 solido, 1 gradiente, 2 imagem, 3 nebulosa, 4 grade */
 uniform vec3  uColor1;
 uniform vec3  uColor2;
 uniform float uGradAngle;   /* radianos */
@@ -15,6 +15,9 @@ uniform float uPanSpeed;
 uniform vec3  uNebColor1;
 uniform vec3  uNebColor2;
 uniform float uTime;
+uniform vec3  uGridColor1;
+uniform vec3  uGridColor2;
+uniform float uAspect;     /* fb_w / fb_h - mantem as celulas da grade quadradas */
 
 float hash21(vec2 p)
 {
@@ -91,12 +94,26 @@ vec3 nebula_bg(void)
     return mix(uNebColor1, uNebColor2, clamp(n, 0.0, 1.0));
 }
 
+/* grade estilo "papel milimetrado" - celulas quadradas (corrigidas pela
+   razao de aspecto da tela) com linha fina anti-serrilhada via fwidth,
+   independente de resolucao/zoom. Estilo "blueprint" (pedido do
+   usuario): cor 1 = fundo, cor 2 = linhas. */
+vec3 grid_bg(void)
+{
+    vec2 p = vec2(vUV.x * uAspect, vUV.y) * 24.0;
+    vec2 g = abs(fract(p - 0.5) - 0.5) / max(fwidth(p), vec2(1e-6));
+    float line = min(g.x, g.y);
+    float mask = 1.0 - clamp(line, 0.0, 1.0);
+    return mix(uGridColor1, uGridColor2, mask);
+}
+
 void main()
 {
     vec3 col;
     if (uType == 1) col = gradient_bg();
     else if (uType == 2 && uHasBgTex != 0) col = image_bg();
     else if (uType == 3) col = nebula_bg();
+    else if (uType == 4) col = grid_bg();
     else col = uColor1;
     fragColor = vec4(col, 1.0);
 }

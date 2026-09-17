@@ -51,7 +51,7 @@ typedef struct {
     int          vignette_on;          /* 0/1 */
     float        vignette_amount;      /* 0 .. 1 */
     int          fxaa_on;              /* 0/1 */
-    int          background_type;      /* 0 solido, 1 gradiente, 2 imagem, 3 nebulosa */
+    int          background_type;      /* 0 solido, 1 gradiente, 2 imagem, 3 nebulosa, 4 grade */
     float        bg_color1_r, bg_color1_g, bg_color1_b;
     float        bg_color2_r, bg_color2_g, bg_color2_b;
     float        bg_grad_angle;        /* graus, 0..360 */
@@ -60,6 +60,8 @@ typedef struct {
     float        bg_pan_speed;         /* 0..1 (UV/seg), so' com type=imagem */
     float        bg_neb_color1_r, bg_neb_color1_g, bg_neb_color1_b;
     float        bg_neb_color2_r, bg_neb_color2_g, bg_neb_color2_b;
+    float        bg_grid_color1_r, bg_grid_color1_g, bg_grid_color1_b;  /* fundo - so' type=grade */
+    float        bg_grid_color2_r, bg_grid_color2_g, bg_grid_color2_b;  /* linhas - so' type=grade */
     int          particles_on;          /* 0/1 */
     int          particles_kind;        /* 0 dust, 1 bokeh, 2 sparks, 3 stars */
     float        particles_density;     /* 0..1 */

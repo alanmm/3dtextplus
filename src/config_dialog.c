@@ -1148,7 +1148,7 @@ static void bg_labels(HWND h)
    de um tipo so */
 typedef struct { int id; int x, rel_y; } BgCtrl;
 
-static BgCtrl g_bg_blocks[4][9] = {
+static BgCtrl g_bg_blocks[5][9] = {
     { { IDC_BGCOLOR1_LABEL, 0, 0 }, { IDC_BGCOLOR1, 0, 0 } },
     { { IDC_BGCOLOR2_LABEL, 0, 0 }, { IDC_BGCOLOR2, 0, 0 },
       { IDC_BGANGLE_LABEL, 0, 0 }, { IDC_BGANGLE_VAL, 0, 0 }, { IDC_BGANGLE, 0, 0 } },
@@ -1156,18 +1156,19 @@ static BgCtrl g_bg_blocks[4][9] = {
       { IDC_BGIMGCLEAR, 0, 0 }, { IDC_BGFIT_LABEL, 0, 0 }, { IDC_BGFIT, 0, 0 },
       { IDC_BGPAN_LABEL, 0, 0 }, { IDC_BGPAN_VAL, 0, 0 }, { IDC_BGPAN, 0, 0 } },
     { { IDC_BGNEBULA_LABEL, 0, 0 }, { IDC_BGNEBCOLOR1, 0, 0 }, { IDC_BGNEBCOLOR2, 0, 0 } },
+    { { IDC_BGGRID_LABEL, 0, 0 }, { IDC_BGGRIDCOLOR1, 0, 0 }, { IDC_BGGRIDCOLOR2, 0, 0 } },
 };
-static const int BG_BLOCK_N[4] = { 2, 5, 9, 3 };
-static int g_bg_block_top[4];
-static int g_bg_block_h[4];
-static int g_bg_gap_after[3];
+static const int BG_BLOCK_N[5] = { 2, 5, 9, 3, 3 };
+static int g_bg_block_top[5];
+static int g_bg_block_h[5];
+static int g_bg_gap_after[4];
 static int g_bg_layout_ready = 0;
 
 static void bg_layout_capture(HWND h)
 {
     if (g_bg_layout_ready) return;
 
-    for (int b = 0; b < 4; ++b) {
+    for (int b = 0; b < 5; ++b) {
         int top = 0x7fffffff, bottom = -0x7fffffff;
         for (int i = 0; i < BG_BLOCK_N[b]; ++i) {
             RECT r;
@@ -1184,7 +1185,7 @@ static void bg_layout_capture(HWND h)
         for (int i = 0; i < BG_BLOCK_N[b]; ++i)
             g_bg_blocks[b][i].rel_y -= top;
     }
-    for (int b = 0; b < 3; ++b)
+    for (int b = 0; b < 4; ++b)
         g_bg_gap_after[b] = g_bg_block_top[b + 1] - (g_bg_block_top[b] + g_bg_block_h[b]);
     g_bg_layout_ready = 1;
 }
@@ -1192,10 +1193,10 @@ static void bg_layout_capture(HWND h)
 static void bg_layout_apply(HWND h)
 {
     int t = g_work.background_type;
-    int visible[4] = { t == 0 || t == 1, t == 1, t == 2, t == 3 };
+    int visible[5] = { t == 0 || t == 1, t == 1, t == 2, t == 3, t == 4 };
 
     int cursor = g_bg_block_top[0];
-    for (int b = 0; b < 4; ++b) {
+    for (int b = 0; b < 5; ++b) {
         if (!visible[b]) {
             for (int i = 0; i < BG_BLOCK_N[b]; ++i)
                 ShowWindow(GetDlgItem(h, g_bg_blocks[b][i].id), SW_HIDE);
@@ -1207,7 +1208,7 @@ static void bg_layout_apply(HWND h)
                          0, 0, SWP_NOSIZE | SWP_NOZORDER);
             ShowWindow(ctrl, SW_SHOW);
         }
-        cursor += g_bg_block_h[b] + (b < 3 ? g_bg_gap_after[b] : 0);
+        cursor += g_bg_block_h[b] + (b < 4 ? g_bg_gap_after[b] : 0);
     }
 }
 
@@ -1227,6 +1228,9 @@ static void bg_apply_i18n(HWND h)
     SetDlgItemTextW(h, IDC_BGNEBULA_LABEL, i18n_str(STR_BG_NEBULA_LABEL));
     SetDlgItemTextW(h, IDC_BGNEBCOLOR1, i18n_str(STR_BG_NEBULA_COLOR1_BTN));
     SetDlgItemTextW(h, IDC_BGNEBCOLOR2, i18n_str(STR_BG_NEBULA_COLOR2_BTN));
+    SetDlgItemTextW(h, IDC_BGGRID_LABEL, i18n_str(STR_BG_GRID_LABEL));
+    SetDlgItemTextW(h, IDC_BGGRIDCOLOR1, i18n_str(STR_BG_GRID_COLOR1_BTN));
+    SetDlgItemTextW(h, IDC_BGGRIDCOLOR2, i18n_str(STR_BG_GRID_COLOR2_BTN));
 
     HWND ty = GetDlgItem(h, IDC_BGTYPE);
     int cur = (int)SendMessageW(ty, CB_GETCURSEL, 0, 0);
@@ -1235,6 +1239,7 @@ static void bg_apply_i18n(HWND h)
     SendMessageW(ty, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_BG_TYPE_GRADIENT));
     SendMessageW(ty, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_BG_TYPE_IMAGE));
     SendMessageW(ty, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_BG_TYPE_NEBULA));
+    SendMessageW(ty, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_BG_TYPE_GRID));
     SendMessageW(ty, CB_SETCURSEL, cur < 0 ? g_work.background_type : cur, 0);
 
     HWND fit = GetDlgItem(h, IDC_BGFIT);
@@ -1364,6 +1369,44 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                         g_work.bg_neb_color2_r = GetRValue(cc.rgbResult) / 255.0f;
                         g_work.bg_neb_color2_g = GetGValue(cc.rgbResult) / 255.0f;
                         g_work.bg_neb_color2_b = GetBValue(cc.rgbResult) / 255.0f;
+                        preview_dirty(h);
+                    }
+                    break;
+                }
+                case IDC_BGGRIDCOLOR1: {
+                    static COLORREF custom[16];
+                    CHOOSECOLORW cc;
+                    memset(&cc, 0, sizeof cc);
+                    cc.lStructSize = sizeof cc;
+                    cc.hwndOwner = h;
+                    cc.lpCustColors = custom;
+                    cc.rgbResult = RGB((int)(g_work.bg_grid_color1_r * 255.0f),
+                                       (int)(g_work.bg_grid_color1_g * 255.0f),
+                                       (int)(g_work.bg_grid_color1_b * 255.0f));
+                    cc.Flags = CC_FULLOPEN | CC_RGBINIT;
+                    if (ChooseColorW(&cc)) {
+                        g_work.bg_grid_color1_r = GetRValue(cc.rgbResult) / 255.0f;
+                        g_work.bg_grid_color1_g = GetGValue(cc.rgbResult) / 255.0f;
+                        g_work.bg_grid_color1_b = GetBValue(cc.rgbResult) / 255.0f;
+                        preview_dirty(h);
+                    }
+                    break;
+                }
+                case IDC_BGGRIDCOLOR2: {
+                    static COLORREF custom[16];
+                    CHOOSECOLORW cc;
+                    memset(&cc, 0, sizeof cc);
+                    cc.lStructSize = sizeof cc;
+                    cc.hwndOwner = h;
+                    cc.lpCustColors = custom;
+                    cc.rgbResult = RGB((int)(g_work.bg_grid_color2_r * 255.0f),
+                                       (int)(g_work.bg_grid_color2_g * 255.0f),
+                                       (int)(g_work.bg_grid_color2_b * 255.0f));
+                    cc.Flags = CC_FULLOPEN | CC_RGBINIT;
+                    if (ChooseColorW(&cc)) {
+                        g_work.bg_grid_color2_r = GetRValue(cc.rgbResult) / 255.0f;
+                        g_work.bg_grid_color2_g = GetGValue(cc.rgbResult) / 255.0f;
+                        g_work.bg_grid_color2_b = GetBValue(cc.rgbResult) / 255.0f;
                         preview_dirty(h);
                     }
                     break;

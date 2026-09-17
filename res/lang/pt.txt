@@ -120,6 +120,7 @@ bg.type.solid=Sólido
 bg.type.gradient=Gradiente
 bg.type.image=Imagem
 bg.type.nebula=Nebulosa
+bg.type.grid=Grade
 bg.color1_label=Cor 1:
 bg.color2_label=Cor 2:
 bg.angle_label=Ângulo do gradiente (graus):
@@ -133,6 +134,9 @@ bg.pan_label=Velocidade de pan:
 bg.nebula_label=Nebulosa:
 bg.nebula_color1_btn=Cor 1...
 bg.nebula_color2_btn=Cor 2...
+bg.grid_label=Grade:
+bg.grid_color1_btn=Cor 1...
+bg.grid_color2_btn=Cor 2...
 
 # aba Particulas
 particles.enable=Ativar partículas

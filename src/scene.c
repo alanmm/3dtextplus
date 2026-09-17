@@ -87,6 +87,7 @@ struct SceneRenderer {
     int      bg_image_fit;
     float    bg_pan_speed;
     v3       bg_neb_color1, bg_neb_color2;
+    v3       bg_grid_color1, bg_grid_color2;
 
     /* particulas */
     ParticleSystem *particles;
@@ -656,6 +657,8 @@ void scene_set_config(SceneRenderer *s, const Config *cfg)
     s->bg_pan_speed = cfg->bg_pan_speed;
     s->bg_neb_color1 = (v3){ cfg->bg_neb_color1_r, cfg->bg_neb_color1_g, cfg->bg_neb_color1_b };
     s->bg_neb_color2 = (v3){ cfg->bg_neb_color2_r, cfg->bg_neb_color2_g, cfg->bg_neb_color2_b };
+    s->bg_grid_color1 = (v3){ cfg->bg_grid_color1_r, cfg->bg_grid_color1_g, cfg->bg_grid_color1_b };
+    s->bg_grid_color2 = (v3){ cfg->bg_grid_color2_r, cfg->bg_grid_color2_g, cfg->bg_grid_color2_b };
 
     if (wcscmp(s->bg_image_path, cfg->bg_image_path) != 0) {
         if (s->bg_tex) glDeleteTextures(1, &s->bg_tex);
@@ -903,6 +906,9 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h, int particles_
     glUniform1f(glGetUniformLocation(s->bg_prog, "uGradAngle"), m3dt_radians(s->bg_grad_angle));
     glUniform3f(glGetUniformLocation(s->bg_prog, "uNebColor1"), s->bg_neb_color1.x, s->bg_neb_color1.y, s->bg_neb_color1.z);
     glUniform3f(glGetUniformLocation(s->bg_prog, "uNebColor2"), s->bg_neb_color2.x, s->bg_neb_color2.y, s->bg_neb_color2.z);
+    glUniform3f(glGetUniformLocation(s->bg_prog, "uGridColor1"), s->bg_grid_color1.x, s->bg_grid_color1.y, s->bg_grid_color1.z);
+    glUniform3f(glGetUniformLocation(s->bg_prog, "uGridColor2"), s->bg_grid_color2.x, s->bg_grid_color2.y, s->bg_grid_color2.z);
+    glUniform1f(glGetUniformLocation(s->bg_prog, "uAspect"), (float)fb_w / (float)fb_h);
     glUniform1f(glGetUniformLocation(s->bg_prog, "uTime"), (float)t);
 
     int has_img = (s->background_type == 2 && s->bg_tex) ? 1 : 0;
