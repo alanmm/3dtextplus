@@ -6,6 +6,15 @@
 
 void preset_scope_copy(Config *dst, const Config *src)
 {
+    dst->max_angle_y = src->max_angle_y;
+    dst->tilt_x = src->tilt_x;
+    dst->period = src->period;
+    dst->depth = src->depth;
+    dst->bevel_size = src->bevel_size;
+    dst->bevel_depth = src->bevel_depth;
+    dst->bevel_segments = src->bevel_segments;
+    dst->shell = src->shell;
+    dst->wall_thickness = src->wall_thickness;
     dst->material_mode = src->material_mode;
     dst->metalness = src->metalness;
     dst->roughness = src->roughness;
@@ -24,6 +33,16 @@ void preset_scope_copy(Config *dst, const Config *src)
     dst->bg_color1_r = src->bg_color1_r; dst->bg_color1_g = src->bg_color1_g; dst->bg_color1_b = src->bg_color1_b;
     dst->bg_color2_r = src->bg_color2_r; dst->bg_color2_g = src->bg_color2_g; dst->bg_color2_b = src->bg_color2_b;
     dst->bg_grad_angle = src->bg_grad_angle;
+    /* bg_image_path fica de fora de proposito - e' um caminho de arquivo local,
+       nao portavel entre maquinas/presets exportados (mesmo motivo de svg_path/
+       mesh_path/texto ficarem fora - dado especifico do usuario, nao "estilo") */
+    dst->bg_image_fit = src->bg_image_fit;
+    dst->bg_pan_speed = src->bg_pan_speed;
+    /* aplicar um preset e' uma escolha deliberada de cor - marca como "ja
+       customizada" pra IDC_BGTYPE nao sobrescrever com a sugestao automatica
+       (ver config_dialog.c) na proxima troca de tipo Solido/Gradiente */
+    dst->bg_solid_customized = 1;
+    dst->bg_gradient_customized = 1;
     dst->bg_neb_color1_r = src->bg_neb_color1_r; dst->bg_neb_color1_g = src->bg_neb_color1_g; dst->bg_neb_color1_b = src->bg_neb_color1_b;
     dst->bg_neb_color2_r = src->bg_neb_color2_r; dst->bg_neb_color2_g = src->bg_neb_color2_g; dst->bg_neb_color2_b = src->bg_neb_color2_b;
     dst->bg_grid_color1_r = src->bg_grid_color1_r; dst->bg_grid_color1_g = src->bg_grid_color1_g; dst->bg_grid_color1_b = src->bg_grid_color1_b;
@@ -253,6 +272,15 @@ static void preset_dump_fields(FILE *f, const Config *from)
     unsigned g = (unsigned)(from->base_g * 255.0f + 0.5f);
     unsigned bl = (unsigned)(from->base_b * 255.0f + 0.5f);
 
+    fwprintf(f, L"max_angle_y=%.5f\r\n", (double)from->max_angle_y);
+    fwprintf(f, L"tilt_x=%.5f\r\n", (double)from->tilt_x);
+    fwprintf(f, L"period=%.5f\r\n", (double)from->period);
+    fwprintf(f, L"depth=%.5f\r\n", (double)from->depth);
+    fwprintf(f, L"bevel_size=%.5f\r\n", (double)from->bevel_size);
+    fwprintf(f, L"bevel_depth=%.5f\r\n", (double)from->bevel_depth);
+    fwprintf(f, L"bevel_segments=%d\r\n", from->bevel_segments);
+    fwprintf(f, L"shell=%d\r\n", from->shell);
+    fwprintf(f, L"wall_thickness=%.5f\r\n", (double)from->wall_thickness);
     fwprintf(f, L"material_mode=%d\r\n", from->material_mode);
     fwprintf(f, L"metalness=%.5f\r\n", (double)from->metalness);
     fwprintf(f, L"roughness=%.5f\r\n", (double)from->roughness);
@@ -278,6 +306,8 @@ static void preset_dump_fields(FILE *f, const Config *from)
     fwprintf(f, L"bg_color2_g=%.5f\r\n", (double)from->bg_color2_g);
     fwprintf(f, L"bg_color2_b=%.5f\r\n", (double)from->bg_color2_b);
     fwprintf(f, L"bg_grad_angle=%.5f\r\n", (double)from->bg_grad_angle);
+    fwprintf(f, L"bg_image_fit=%d\r\n", from->bg_image_fit);
+    fwprintf(f, L"bg_pan_speed=%.5f\r\n", (double)from->bg_pan_speed);
     fwprintf(f, L"bg_neb_color1_r=%.5f\r\n", (double)from->bg_neb_color1_r);
     fwprintf(f, L"bg_neb_color1_g=%.5f\r\n", (double)from->bg_neb_color1_g);
     fwprintf(f, L"bg_neb_color1_b=%.5f\r\n", (double)from->bg_neb_color1_b);

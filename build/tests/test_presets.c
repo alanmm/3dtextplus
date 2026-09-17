@@ -69,7 +69,13 @@ void run_presets_tests(void)
     config_defaults(&dst);
     config_defaults(&src);
     strcpy(src.text, "Nao deve vazar");
-    src.max_angle_y = 999.0f;
+    src.content_scale = 1.99f;
+    src.max_angle_y = 111.0f;
+    src.tilt_x = 22.0f;
+    src.period = 15.0f;
+    src.depth = 0.77f;
+    src.bevel_size = 0.09f; src.bevel_depth = 0.08f; src.bevel_segments = 5;
+    src.shell = 1; src.wall_thickness = 0.06f;
     src.material_mode = 2;
     src.env_mode = 1;
     wcscpy(src.env_path, L"C:\\imagens\\ambiente.jpg");
@@ -82,10 +88,16 @@ void run_presets_tests(void)
     src.bg_grid_color1_r = 0.44f; src.bg_grid_color1_g = 0.55f; src.bg_grid_color1_b = 0.66f;
     src.bg_grid_color2_r = 0.77f; src.bg_grid_color2_g = 0.88f; src.bg_grid_color2_b = 0.99f;
     src.bg_grid_density = 40.0f; src.bg_grid_dots = 1;
+    src.bg_image_fit = 2; src.bg_pan_speed = 0.42f;
 
     preset_scope_copy(&dst, &src);
-    EXPECT(strcmp(dst.text, "3D Text+") == 0);           /* nao mexeu */
-    EXPECT(!nearf(dst.max_angle_y, 999.0f));               /* nao mexeu */
+    EXPECT(strcmp(dst.text, "3D Text+") == 0);           /* nao mexeu (conteudo, fora do escopo) */
+    EXPECT(!nearf(dst.content_scale, 1.99f));              /* nao mexeu (idem) */
+    EXPECT(nearf(dst.max_angle_y, 111.0f));                /* mexeu (Movimento) */
+    EXPECT(nearf(dst.tilt_x, 22.0f) && nearf(dst.period, 15.0f));
+    EXPECT(nearf(dst.depth, 0.77f));                       /* mexeu (Geometria) */
+    EXPECT(nearf(dst.bevel_size, 0.09f) && nearf(dst.bevel_depth, 0.08f) && dst.bevel_segments == 5);
+    EXPECT(dst.shell == 1 && nearf(dst.wall_thickness, 0.06f));
     EXPECT(dst.material_mode == 2);                        /* mexeu */
     EXPECT(dst.env_mode == 1);
     EXPECT(wcscmp(dst.env_path, L"C:\\imagens\\ambiente.jpg") == 0);
@@ -98,6 +110,8 @@ void run_presets_tests(void)
     EXPECT(nearf(dst.wireframe_fill_r, 0.11f) && nearf(dst.wireframe_fill_g, 0.22f) && nearf(dst.wireframe_fill_b, 0.33f));
     EXPECT(nearf(dst.bg_grid_color1_r, 0.44f) && nearf(dst.bg_grid_color2_b, 0.99f));
     EXPECT(nearf(dst.bg_grid_density, 40.0f) && dst.bg_grid_dots == 1);
+    EXPECT(dst.bg_image_fit == 2 && nearf(dst.bg_pan_speed, 0.42f));
+    EXPECT(dst.bg_solid_customized == 1 && dst.bg_gradient_customized == 1);   /* aplicar preset = escolha deliberada */
 
     /* CRUD de presets salvos - base de teste separada */
     const wchar_t *TBASE = L"Software\\Modern3DText_test_presets";
@@ -126,6 +140,11 @@ void run_presets_tests(void)
     a.bg_grid_color1_r = 0.1f; a.bg_grid_color1_g = 0.2f; a.bg_grid_color1_b = 0.3f;
     a.bg_grid_color2_r = 0.4f; a.bg_grid_color2_g = 0.5f; a.bg_grid_color2_b = 0.6f;
     a.bg_grid_density = 32.0f; a.bg_grid_dots = 1;
+    a.max_angle_y = 60.0f; a.tilt_x = 12.0f; a.period = 7.0f;
+    a.depth = 0.35f;
+    a.bevel_size = 0.05f; a.bevel_depth = 0.04f; a.bevel_segments = 4;
+    a.shell = 1; a.wall_thickness = 0.03f;
+    a.bg_image_fit = 1; a.bg_pan_speed = 0.2f;
 
     preset_user_save_to(TBASE, L"Zulu", &a);
     preset_user_save_to(TBASE, L"Alfa", &a);
@@ -150,6 +169,11 @@ void run_presets_tests(void)
     EXPECT(nearf(b.wireframe_fill_r, 0.15f) && nearf(b.wireframe_fill_g, 0.25f) && nearf(b.wireframe_fill_b, 0.65f));
     EXPECT(nearf(b.bg_grid_color1_r, 0.1f) && nearf(b.bg_grid_color2_g, 0.5f));
     EXPECT(nearf(b.bg_grid_density, 32.0f) && b.bg_grid_dots == 1);
+    EXPECT(nearf(b.max_angle_y, 60.0f) && nearf(b.tilt_x, 12.0f) && nearf(b.period, 7.0f));
+    EXPECT(nearf(b.depth, 0.35f));
+    EXPECT(nearf(b.bevel_size, 0.05f) && nearf(b.bevel_depth, 0.04f) && b.bevel_segments == 4);
+    EXPECT(b.shell == 1 && nearf(b.wall_thickness, 0.03f));
+    EXPECT(b.bg_image_fit == 1 && nearf(b.bg_pan_speed, 0.2f));
 
     EXPECT(preset_user_load_from(TBASE, L"NaoExiste", &b) == 0);
 
@@ -185,6 +209,11 @@ void run_presets_tests(void)
     ea.bg_grid_color1_r = 0.15f; ea.bg_grid_color1_g = 0.35f; ea.bg_grid_color1_b = 0.55f;
     ea.bg_grid_color2_r = 0.65f; ea.bg_grid_color2_g = 0.75f; ea.bg_grid_color2_b = 0.95f;
     ea.bg_grid_density = 48.0f; ea.bg_grid_dots = 1;
+    ea.max_angle_y = 75.0f; ea.tilt_x = 18.0f; ea.period = 11.0f;
+    ea.depth = 0.5f;
+    ea.bevel_size = 0.07f; ea.bevel_depth = 0.06f; ea.bevel_segments = 6;
+    ea.shell = 1; ea.wall_thickness = 0.045f;
+    ea.bg_image_fit = 2; ea.bg_pan_speed = 0.33f;
 
     Config ec;
     config_defaults(&ec);
@@ -222,6 +251,11 @@ void run_presets_tests(void)
     EXPECT(nearf(entries[0].cfg.wireframe_fill_r, 0.05f) && nearf(entries[0].cfg.wireframe_fill_g, 0.35f) && nearf(entries[0].cfg.wireframe_fill_b, 0.85f));
     EXPECT(nearf(entries[0].cfg.bg_grid_color1_r, 0.15f) && nearf(entries[0].cfg.bg_grid_color2_g, 0.75f));
     EXPECT(nearf(entries[0].cfg.bg_grid_density, 48.0f) && entries[0].cfg.bg_grid_dots == 1);
+    EXPECT(nearf(entries[0].cfg.max_angle_y, 75.0f) && nearf(entries[0].cfg.tilt_x, 18.0f) && nearf(entries[0].cfg.period, 11.0f));
+    EXPECT(nearf(entries[0].cfg.depth, 0.5f));
+    EXPECT(nearf(entries[0].cfg.bevel_size, 0.07f) && nearf(entries[0].cfg.bevel_depth, 0.06f) && entries[0].cfg.bevel_segments == 6);
+    EXPECT(entries[0].cfg.shell == 1 && nearf(entries[0].cfg.wall_thickness, 0.045f));
+    EXPECT(entries[0].cfg.bg_image_fit == 2 && nearf(entries[0].cfg.bg_pan_speed, 0.33f));
 
     EXPECT(wcscmp(entries[1].name, L"Charlie") == 0);
     EXPECT(entries[1].cfg.material_mode == 2);
