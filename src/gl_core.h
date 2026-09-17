@@ -6,6 +6,7 @@ typedef struct { unsigned vao, vbo, ebo; int index_count; } GlMesh;
 
 int      gl_load(void);
 unsigned gl_program(const char *vs_src, const char *fs_src);
+unsigned gl_program_gs(const char *vs_src, const char *gs_src, const char *fs_src);
 GlMesh   gl_mesh_upload(const MeshVertex *v, int nverts, const unsigned *idx, int nidx);
 void     gl_mesh_draw(const GlMesh *m);
 void     gl_mesh_free(GlMesh *m);

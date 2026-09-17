@@ -36,7 +36,9 @@ static unsigned compile(GLenum type, const char *src)
     if (!ok) {
         char buf[2048];
         glGetShaderInfoLog(s, sizeof buf, NULL, buf);
-        log_errorf("shader %s: %s", type == GL_VERTEX_SHADER ? "vert" : "frag", buf);
+        const char *kind = type == GL_VERTEX_SHADER ? "vert" :
+                            type == GL_GEOMETRY_SHADER ? "geom" : "frag";
+        log_errorf("shader %s: %s", kind, buf);
         glDeleteShader(s);
         return 0;
     }
@@ -45,19 +47,28 @@ static unsigned compile(GLenum type, const char *src)
 
 unsigned gl_program(const char *vs_src, const char *fs_src)
 {
+    return gl_program_gs(vs_src, NULL, fs_src);
+}
+
+unsigned gl_program_gs(const char *vs_src, const char *gs_src, const char *fs_src)
+{
     unsigned vs = compile(GL_VERTEX_SHADER, vs_src);
+    unsigned gs = gs_src ? compile(GL_GEOMETRY_SHADER, gs_src) : 0;
     unsigned fs = compile(GL_FRAGMENT_SHADER, fs_src);
-    if (!vs || !fs) {
+    if (!vs || (gs_src && !gs) || !fs) {
         if (vs) glDeleteShader(vs);
+        if (gs) glDeleteShader(gs);
         if (fs) glDeleteShader(fs);
         return 0;
     }
 
     unsigned p = glCreateProgram();
     glAttachShader(p, vs);
+    if (gs) glAttachShader(p, gs);
     glAttachShader(p, fs);
     glLinkProgram(p);
     glDeleteShader(vs);
+    if (gs) glDeleteShader(gs);
     glDeleteShader(fs);
 
     int ok = 0;
