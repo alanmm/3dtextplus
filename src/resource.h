@@ -80,6 +80,10 @@
 #define IDC_EDGEBIAS_LABEL 1319
 #define IDC_EDGEBIAS_VAL   1320
 #define IDC_EDGEBIAS       1321
+#define IDC_WIRE_THICK_LABEL 1322
+#define IDC_WIRE_THICK_VAL   1323
+#define IDC_WIRE_THICK       1324
+#define IDC_WIRE_XRAY        1325
 
 /* aba Geometria */
 #define IDC_BEVELMODE     1400
