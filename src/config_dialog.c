@@ -2168,15 +2168,25 @@ static int show_preset_conflict_dialog(HWND owner, const wchar_t *name)
     return 0;
 }
 
-static int g_preset_sel = -1;   /* -1 = nenhum preset selecionado ainda */
+static int g_preset_sel = -1;   /* -1 = nenhum preset selecionado ainda - indice
+                                    LOGICO (embutidos 0..BUILTIN_PRESET_COUNT-1,
+                                    depois salvos) - NAO e' o indice do combo, que
+                                    tem mais 1 pelo item "Escolher..." na frente */
+static int g_preset_dirty;      /* 1 = g_work mudou desde o ultimo preset
+                                    selecionado/salvo - combo mostra "Salvar como
+                                    novo preset" em vez do nome do preset. Flag
+                                    simples (nao compara campo a campo) de proposito. */
 
-/* repopula o combo: os 4 embutidos primeiro (traduzidos), depois os
-   salvos em ordem alfabetica. Preserva a selecao visual em g_preset_sel
-   se ainda for valida, senao limpa. */
+/* repopula o combo: o placeholder "Escolher...", os embutidos (traduzidos),
+   os salvos em ordem alfabetica, e por fim "Salvar como novo preset". A
+   selecao visual e' derivada de g_preset_sel/g_preset_dirty, nunca guardada
+   separadamente. */
 static void preset_refresh_combo(HWND dlg)
 {
     HWND cb = GetDlgItem(dlg, IDC_PRESET_COMBO);
     SendMessageW(cb, CB_RESETCONTENT, 0, 0);
+
+    SendMessageW(cb, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_PRESET_PLACEHOLDER));
 
     for (int i = 0; i < BUILTIN_PRESET_COUNT; ++i)
         SendMessageW(cb, CB_ADDSTRING, 0, (LPARAM)i18n_str(g_builtin_presets[i].name));
@@ -2186,9 +2196,12 @@ static void preset_refresh_combo(HWND dlg)
     for (int i = 0; i < n; ++i)
         SendMessageW(cb, CB_ADDSTRING, 0, (LPARAM)names[i]);
 
+    SendMessageW(cb, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_PRESET_SAVE_AS_NEW));
+
     int total = BUILTIN_PRESET_COUNT + n;
     if (g_preset_sel >= total) g_preset_sel = -1;
-    SendMessageW(cb, CB_SETCURSEL, g_preset_sel, 0);
+    g_preset_dirty = 0;
+    SendMessageW(cb, CB_SETCURSEL, g_preset_sel < 0 ? 0 : g_preset_sel + 1, 0);
     EnableWindow(GetDlgItem(dlg, IDC_PRESET_DELETE), g_preset_sel >= BUILTIN_PRESET_COUNT);
 }
 
@@ -2373,6 +2386,7 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             QueryPerformanceFrequency(&g_pfreq);
             QueryPerformanceCounter(&g_pstart);
             g_dirty = false;
+            g_preset_dirty = 0;
             if (g_preview) SetTimer(h, TIMER_PREVIEW, 33, NULL);
 
             resize_capture_baseline(h);
@@ -2470,6 +2484,12 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
         case WM_PREVIEW_DIRTY:
             g_dirty = true;   /* aplicado no proximo tick do preview (debounce natural) */
             EnableWindow(GetDlgItem(h, IDC_APPLY), TRUE);
+            if (!g_preset_dirty) {
+                g_preset_dirty = 1;
+                HWND cb = GetDlgItem(h, IDC_PRESET_COMBO);
+                int count = (int)SendMessageW(cb, CB_GETCOUNT, 0, 0);
+                if (count > 0) SendMessageW(cb, CB_SETCURSEL, count - 1, 0);
+            }
             return TRUE;
         case WM_MOUSEWHEEL: {
             /* WM_MOUSEWHEEL so chega a janela com foco - a do preview nunca
@@ -2513,17 +2533,38 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                 case IDC_PRESET_COMBO: {
                     if (HIWORD(w) != CBN_SELCHANGE) break;
                     HWND cb = GetDlgItem(h, IDC_PRESET_COMBO);
-                    int sel = (int)SendMessageW(cb, CB_GETCURSEL, 0, 0);
-                    if (sel < 0 || sel == g_preset_sel) break;
+                    int wsel = (int)SendMessageW(cb, CB_GETCURSEL, 0, 0);
+                    int count = (int)SendMessageW(cb, CB_GETCOUNT, 0, 0);
+                    int restore_idx = g_preset_dirty ? count - 1 : (g_preset_sel < 0 ? 0 : g_preset_sel + 1);
+                    if (wsel < 0) break;
+
+                    if (wsel == 0) {
+                        /* "Escolher..." - so' rotulo/placeholder, nao e' uma opcao de
+                           verdade pra selecionar; devolve a selecao pro estado real */
+                        SendMessageW(cb, CB_SETCURSEL, restore_idx, 0);
+                        break;
+                    }
+                    if (wsel == count - 1) {
+                        /* "Salvar como novo preset" - mesmo fluxo do botao "+";
+                           reentra o proprio WM_COMMAND, que ja trata IDC_PRESET_SAVE
+                           (inclui o proprio preset_refresh_combo no final) */
+                        SendMessageW(h, WM_COMMAND, MAKEWPARAM(IDC_PRESET_SAVE, BN_CLICKED), 0);
+                        if (g_preset_dirty)   /* prompt cancelado - devolve a selecao */
+                            SendMessageW(cb, CB_SETCURSEL, count - 1, 0);
+                        break;
+                    }
+
+                    int sel = wsel - 1;   /* indice logico - mesma base de g_preset_sel */
+                    if (sel == g_preset_sel && !g_preset_dirty) break;
 
                     wchar_t display[PRESET_NAME_MAX];
-                    SendMessageW(cb, CB_GETLBTEXT, sel, (LPARAM)display);
+                    SendMessageW(cb, CB_GETLBTEXT, wsel, (LPARAM)display);
 
                     wchar_t msg[256];
                     swprintf(msg, 256, i18n_str(STR_PRESET_APPLY_CONFIRM), display);
                     if (MessageBoxW(h, msg, i18n_str(STR_PRESET_APPLY_CONFIRM_TITLE),
                                     MB_YESNO | MB_ICONQUESTION) != IDYES) {
-                        SendMessageW(cb, CB_SETCURSEL, g_preset_sel, 0);
+                        SendMessageW(cb, CB_SETCURSEL, restore_idx, 0);
                         break;
                     }
 
@@ -2538,6 +2579,7 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     }
                     preset_scope_copy(&g_work, &tmp);
                     g_preset_sel = sel;
+                    g_preset_dirty = 0;
                     EnableWindow(GetDlgItem(h, IDC_PRESET_DELETE), sel >= BUILTIN_PRESET_COUNT);
                     reload_all_tabs(h);
                     EnableWindow(GetDlgItem(h, IDC_APPLY), TRUE);
@@ -2567,13 +2609,13 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     }
 
                     preset_user_save(name, &g_work);
-                    preset_refresh_combo(h);
+                    preset_refresh_combo(h);   /* ja' zera g_preset_dirty */
 
                     wchar_t names[64][PRESET_NAME_MAX];
                     int n = preset_user_list(names, 64);
                     for (int i = 0; i < n; ++i)
                         if (wcscmp(names[i], name) == 0) { g_preset_sel = BUILTIN_PRESET_COUNT + i; break; }
-                    SendMessageW(GetDlgItem(h, IDC_PRESET_COMBO), CB_SETCURSEL, g_preset_sel, 0);
+                    SendMessageW(GetDlgItem(h, IDC_PRESET_COMBO), CB_SETCURSEL, g_preset_sel + 1, 0);
                     EnableWindow(GetDlgItem(h, IDC_PRESET_DELETE), TRUE);
                     break;
                 }

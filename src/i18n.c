@@ -83,6 +83,7 @@ static const char *const KEY_NAMES[STR_COUNT] = {
     "error.mesh_invalid", "error.svg_no_shape", "error.svg_empty",
 
     "preset.label", "preset.save_btn", "preset.delete_btn",
+    "preset.placeholder", "preset.save_as_new",
     "preset.name_title", "preset.name_label",
     "preset.apply_confirm_title", "preset.apply_confirm",
     "preset.delete_confirm_title", "preset.delete_confirm",
