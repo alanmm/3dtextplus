@@ -43,6 +43,7 @@
 #define IDC_MESHUSEMAT     1123
 #define IDC_MODE_LABEL     1124
 #define IDC_COLOR_LABEL    1125
+#define IDC_COLOR_HEX      1126
 
 /* aba Movimento */
 #define IDC_DEPTH         1200
@@ -86,6 +87,8 @@
 #define IDC_WIRE_XRAY        1325
 #define IDC_WIRE_FILL        1326
 #define IDC_WIRE_FILLCOLOR   1327
+#define IDC_EMISSIVE_HEX     1328
+#define IDC_WIRE_FILLCOLOR_HEX 1329
 
 /* aba Geometria */
 #define IDC_BEVELMODE     1400
@@ -173,6 +176,12 @@
 #define IDC_BGGRIDDENS    1815
 #define IDC_BGGRIDDENS_VAL 1816
 #define IDC_BGGRIDDOTS    1817
+#define IDC_BGCOLOR1_HEX     1818
+#define IDC_BGCOLOR2_HEX     1819
+#define IDC_BGNEBCOLOR1_HEX  1830
+#define IDC_BGNEBCOLOR2_HEX  1831
+#define IDC_BGGRIDCOLOR1_HEX 1832
+#define IDC_BGGRIDCOLOR2_HEX 1833
 #define IDC_BGTYPE_LABEL   1820
 #define IDC_BGCOLOR1_LABEL 1821
 #define IDC_BGCOLOR2_LABEL 1822

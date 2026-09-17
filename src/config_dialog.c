@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <wctype.h>
 
 #include "stb_image_write.h"
 
@@ -182,6 +183,8 @@ static int CALLBACK enum_fonts_cb(const LOGFONTW *lf, const TEXTMETRICW *tm, DWO
 }
 
 static void set_slider(HWND h, int id, int lo, int hi, int pos);
+static void hex_from_rgb(HWND h, int edit_id, float r, float g, float b);
+static int  hex_to_rgb(HWND h, int edit_id, float *r, float *g, float *b);
 
 static void content_svg_label(HWND h)
 {
@@ -293,6 +296,8 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             set_slider(h, IDC_MESHSCALE, 0, 200, (int)(g_work.mesh_size_scale * 100.0f + 0.5f));
             content_apply_i18n(h);
             content_enable(h);
+            SendDlgItemMessageW(h, IDC_COLOR_HEX, EM_SETLIMITTEXT, 7, 0);
+            hex_from_rgb(h, IDC_COLOR_HEX, g_work.base_r, g_work.base_g, g_work.base_b);
 
             HWND cb = GetDlgItem(h, IDC_FONT);
             HDC dc = GetDC(h);
@@ -462,10 +467,17 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                         g_work.base_r = GetRValue(cc.rgbResult) / 255.0f;
                         g_work.base_g = GetGValue(cc.rgbResult) / 255.0f;
                         g_work.base_b = GetBValue(cc.rgbResult) / 255.0f;
+                        hex_from_rgb(h, IDC_COLOR_HEX, g_work.base_r, g_work.base_g, g_work.base_b);
                         preview_dirty(h);
                     }
                     break;
                 }
+                case IDC_COLOR_HEX:
+                    if (HIWORD(w) == EN_CHANGE) {
+                        if (hex_to_rgb(h, IDC_COLOR_HEX, &g_work.base_r, &g_work.base_g, &g_work.base_b))
+                            preview_dirty(h);
+                    }
+                    break;
             }
             return TRUE;
     }
@@ -478,6 +490,38 @@ static void set_slider(HWND h, int id, int lo, int hi, int pos)
 {
     SendDlgItemMessageW(h, id, TBM_SETRANGE, TRUE, MAKELPARAM(lo, hi));
     SendDlgItemMessageW(h, id, TBM_SETPOS, TRUE, pos);
+}
+
+/* espelha um r/g/b (0..1) no campo de texto hex ao lado do botao de cor -
+   chamado apos WM_INITDIALOG e apos qualquer ChooseColorW bem-sucedido,
+   pra manter os dois em sincronia */
+static void hex_from_rgb(HWND h, int edit_id, float r, float g, float b)
+{
+    wchar_t buf[16];
+    int ri = (int)(fmaxf(0.0f, fminf(1.0f, r)) * 255.0f + 0.5f);
+    int gi = (int)(fmaxf(0.0f, fminf(1.0f, g)) * 255.0f + 0.5f);
+    int bi = (int)(fmaxf(0.0f, fminf(1.0f, b)) * 255.0f + 0.5f);
+    swprintf(buf, 16, L"#%02X%02X%02X", ri, gi, bi);
+    SetDlgItemTextW(h, edit_id, buf);
+}
+
+/* le o campo de texto hex (aceita "#RRGGBB" ou "RRGGBB"); se for valido,
+   escreve em *r/g/b e retorna 1 - senao nao mexe em nada, retorna 0 (o
+   chamador ignora digitacao incompleta em vez de reclamar) */
+static int hex_to_rgb(HWND h, int edit_id, float *r, float *g, float *b)
+{
+    wchar_t buf[16];
+    GetDlgItemTextW(h, edit_id, buf, 16);
+    wchar_t *p = buf;
+    if (*p == L'#') ++p;
+    if (wcslen(p) != 6) return 0;
+    for (int i = 0; i < 6; ++i)
+        if (!iswxdigit(p[i])) return 0;
+    unsigned v = (unsigned)wcstoul(p, NULL, 16);
+    *r = ((v >> 16) & 0xFF) / 255.0f;
+    *g = ((v >> 8) & 0xFF) / 255.0f;
+    *b = (v & 0xFF) / 255.0f;
+    return 1;
 }
 
 static void motion_labels(HWND h)
@@ -589,18 +633,19 @@ static void material_apply_i18n(HWND h)
 typedef struct { int id; int x, rel_y; } MatCtrl;
 
 #define MAT_BLOCKS 9
-static MatCtrl g_mat_blocks[MAT_BLOCKS][4] = {
+static MatCtrl g_mat_blocks[MAT_BLOCKS][5] = {
     { { IDC_METAL_LABEL, 0, 0 }, { IDC_METAL_VAL, 0, 0 }, { IDC_METAL, 0, 0 } },
     { { IDC_ROUGH_LABEL, 0, 0 }, { IDC_ROUGH_VAL, 0, 0 }, { IDC_ROUGH, 0, 0 } },
-    { { IDC_EMISSIVE_LABEL, 0, 0 }, { IDC_EMISSIVE_COLOR, 0, 0 }, { IDC_EMISSIVE_VAL, 0, 0 }, { IDC_EMISSIVE, 0, 0 } },
+    { { IDC_EMISSIVE_LABEL, 0, 0 }, { IDC_EMISSIVE_COLOR, 0, 0 }, { IDC_EMISSIVE_HEX, 0, 0 },
+      { IDC_EMISSIVE_VAL, 0, 0 }, { IDC_EMISSIVE, 0, 0 } },
     { { IDC_EDGEBIAS_LABEL, 0, 0 }, { IDC_EDGEBIAS_VAL, 0, 0 }, { IDC_EDGEBIAS, 0, 0 } },
     { { IDC_WIRE_THICK_LABEL, 0, 0 }, { IDC_WIRE_THICK_VAL, 0, 0 }, { IDC_WIRE_THICK, 0, 0 } },
     { { IDC_WIRE_XRAY, 0, 0 } },
-    { { IDC_WIRE_FILL, 0, 0 }, { IDC_WIRE_FILLCOLOR, 0, 0 } },
+    { { IDC_WIRE_FILL, 0, 0 }, { IDC_WIRE_FILLCOLOR, 0, 0 }, { IDC_WIRE_FILLCOLOR_HEX, 0, 0 } },
     { { IDC_ENV_LABEL, 0, 0 }, { IDC_ENVMODE_EMBED, 0, 0 }, { IDC_ENVMODE_CUSTOM, 0, 0 }, { IDC_ENVMODE_NONE, 0, 0 } },
     { { IDC_ENVPATH, 0, 0 }, { IDC_ENVPICK, 0, 0 }, { IDC_ENVCLEAR, 0, 0 } },
 };
-static const int MAT_BLOCK_N[MAT_BLOCKS] = { 3, 3, 4, 3, 3, 1, 2, 4, 3 };
+static const int MAT_BLOCK_N[MAT_BLOCKS] = { 3, 3, 5, 3, 3, 1, 3, 4, 3 };
 static int g_mat_block_top[MAT_BLOCKS];
 static int g_mat_block_h[MAT_BLOCKS];
 static int g_mat_gap = 0;   /* espacamento uniforme entre blocos - todo o .rc usa o
@@ -692,6 +737,10 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                               g_work.env_mode == 2 ? IDC_ENVMODE_NONE : IDC_ENVMODE_EMBED);
             CheckDlgButton(h, IDC_WIRE_XRAY, g_work.wireframe_xray ? BST_CHECKED : BST_UNCHECKED);
             CheckDlgButton(h, IDC_WIRE_FILL, g_work.wireframe_fill ? BST_CHECKED : BST_UNCHECKED);
+            SendDlgItemMessageW(h, IDC_EMISSIVE_HEX, EM_SETLIMITTEXT, 7, 0);
+            SendDlgItemMessageW(h, IDC_WIRE_FILLCOLOR_HEX, EM_SETLIMITTEXT, 7, 0);
+            hex_from_rgb(h, IDC_EMISSIVE_HEX, g_work.emissive_r, g_work.emissive_g, g_work.emissive_b);
+            hex_from_rgb(h, IDC_WIRE_FILLCOLOR_HEX, g_work.wireframe_fill_r, g_work.wireframe_fill_g, g_work.wireframe_fill_b);
             material_layout_capture(h);
             material_layout_apply(h);
             return TRUE;
@@ -730,10 +779,17 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                         g_work.emissive_r = GetRValue(cc.rgbResult) / 255.0f;
                         g_work.emissive_g = GetGValue(cc.rgbResult) / 255.0f;
                         g_work.emissive_b = GetBValue(cc.rgbResult) / 255.0f;
+                        hex_from_rgb(h, IDC_EMISSIVE_HEX, g_work.emissive_r, g_work.emissive_g, g_work.emissive_b);
                         preview_dirty(h);
                     }
                     break;
                 }
+                case IDC_EMISSIVE_HEX:
+                    if (HIWORD(w) == EN_CHANGE) {
+                        if (hex_to_rgb(h, IDC_EMISSIVE_HEX, &g_work.emissive_r, &g_work.emissive_g, &g_work.emissive_b))
+                            preview_dirty(h);
+                    }
+                    break;
                 case IDC_ENVPICK: {
                     wchar_t file[512] = L"";
                     OPENFILENAMEW ofn;
@@ -805,10 +861,17 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                         g_work.wireframe_fill_r = GetRValue(cc.rgbResult) / 255.0f;
                         g_work.wireframe_fill_g = GetGValue(cc.rgbResult) / 255.0f;
                         g_work.wireframe_fill_b = GetBValue(cc.rgbResult) / 255.0f;
+                        hex_from_rgb(h, IDC_WIRE_FILLCOLOR_HEX, g_work.wireframe_fill_r, g_work.wireframe_fill_g, g_work.wireframe_fill_b);
                         preview_dirty(h);
                     }
                     break;
                 }
+                case IDC_WIRE_FILLCOLOR_HEX:
+                    if (HIWORD(w) == EN_CHANGE) {
+                        if (hex_to_rgb(h, IDC_WIRE_FILLCOLOR_HEX, &g_work.wireframe_fill_r, &g_work.wireframe_fill_g, &g_work.wireframe_fill_b))
+                            preview_dirty(h);
+                    }
+                    break;
             }
             return TRUE;
     }
@@ -1178,18 +1241,20 @@ static void bg_labels(HWND h)
 typedef struct { int id; int x, rel_y; } BgCtrl;
 
 static BgCtrl g_bg_blocks[5][9] = {
-    { { IDC_BGCOLOR1_LABEL, 0, 0 }, { IDC_BGCOLOR1, 0, 0 } },
-    { { IDC_BGCOLOR2_LABEL, 0, 0 }, { IDC_BGCOLOR2, 0, 0 },
+    { { IDC_BGCOLOR1_LABEL, 0, 0 }, { IDC_BGCOLOR1, 0, 0 }, { IDC_BGCOLOR1_HEX, 0, 0 } },
+    { { IDC_BGCOLOR2_LABEL, 0, 0 }, { IDC_BGCOLOR2, 0, 0 }, { IDC_BGCOLOR2_HEX, 0, 0 },
       { IDC_BGANGLE_LABEL, 0, 0 }, { IDC_BGANGLE_VAL, 0, 0 }, { IDC_BGANGLE, 0, 0 } },
     { { IDC_BGIMAGE_LABEL, 0, 0 }, { IDC_BGIMGPATH, 0, 0 }, { IDC_BGIMGPICK, 0, 0 },
       { IDC_BGIMGCLEAR, 0, 0 }, { IDC_BGFIT_LABEL, 0, 0 }, { IDC_BGFIT, 0, 0 },
       { IDC_BGPAN_LABEL, 0, 0 }, { IDC_BGPAN_VAL, 0, 0 }, { IDC_BGPAN, 0, 0 } },
-    { { IDC_BGNEBULA_LABEL, 0, 0 }, { IDC_BGNEBCOLOR1, 0, 0 }, { IDC_BGNEBCOLOR2, 0, 0 } },
+    { { IDC_BGNEBULA_LABEL, 0, 0 }, { IDC_BGNEBCOLOR1, 0, 0 }, { IDC_BGNEBCOLOR2, 0, 0 },
+      { IDC_BGNEBCOLOR1_HEX, 0, 0 }, { IDC_BGNEBCOLOR2_HEX, 0, 0 } },
     { { IDC_BGGRID_LABEL, 0, 0 }, { IDC_BGGRIDCOLOR1, 0, 0 }, { IDC_BGGRIDCOLOR2, 0, 0 },
+      { IDC_BGGRIDCOLOR1_HEX, 0, 0 }, { IDC_BGGRIDCOLOR2_HEX, 0, 0 },
       { IDC_BGGRIDDENS_LABEL, 0, 0 }, { IDC_BGGRIDDENS_VAL, 0, 0 }, { IDC_BGGRIDDENS, 0, 0 },
       { IDC_BGGRIDDOTS, 0, 0 } },
 };
-static const int BG_BLOCK_N[5] = { 2, 5, 9, 3, 7 };
+static const int BG_BLOCK_N[5] = { 3, 6, 9, 5, 9 };
 static int g_bg_block_top[5];
 static int g_bg_block_h[5];
 static int g_bg_gap_after[4];
@@ -1295,6 +1360,20 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             set_slider(h, IDC_BGPAN, 0, 100, (int)(g_work.bg_pan_speed * 100.0f + 0.5f));
             set_slider(h, IDC_BGGRIDDENS, 4, 64, (int)(g_work.bg_grid_density + 0.5f));
             CheckDlgButton(h, IDC_BGGRIDDOTS, g_work.bg_grid_dots ? BST_CHECKED : BST_UNCHECKED);
+            {
+                static const struct { int hex_id; float *r, *g, *b; } hexes[] = {
+                    { IDC_BGCOLOR1_HEX, &g_work.bg_color1_r, &g_work.bg_color1_g, &g_work.bg_color1_b },
+                    { IDC_BGCOLOR2_HEX, &g_work.bg_color2_r, &g_work.bg_color2_g, &g_work.bg_color2_b },
+                    { IDC_BGNEBCOLOR1_HEX, &g_work.bg_neb_color1_r, &g_work.bg_neb_color1_g, &g_work.bg_neb_color1_b },
+                    { IDC_BGNEBCOLOR2_HEX, &g_work.bg_neb_color2_r, &g_work.bg_neb_color2_g, &g_work.bg_neb_color2_b },
+                    { IDC_BGGRIDCOLOR1_HEX, &g_work.bg_grid_color1_r, &g_work.bg_grid_color1_g, &g_work.bg_grid_color1_b },
+                    { IDC_BGGRIDCOLOR2_HEX, &g_work.bg_grid_color2_r, &g_work.bg_grid_color2_g, &g_work.bg_grid_color2_b },
+                };
+                for (size_t i = 0; i < sizeof hexes / sizeof hexes[0]; ++i) {
+                    SendDlgItemMessageW(h, hexes[i].hex_id, EM_SETLIMITTEXT, 7, 0);
+                    hex_from_rgb(h, hexes[i].hex_id, *hexes[i].r, *hexes[i].g, *hexes[i].b);
+                }
+            }
             bg_apply_i18n(h);
             bg_layout_capture(h);
             bg_layout_apply(h);
@@ -1348,10 +1427,20 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                         g_work.bg_color1_b = GetBValue(cc.rgbResult) / 255.0f;
                         if (g_work.background_type == 0) g_work.bg_solid_customized = 1;
                         else if (g_work.background_type == 1) g_work.bg_gradient_customized = 1;
+                        hex_from_rgb(h, IDC_BGCOLOR1_HEX, g_work.bg_color1_r, g_work.bg_color1_g, g_work.bg_color1_b);
                         preview_dirty(h);
                     }
                     break;
                 }
+                case IDC_BGCOLOR1_HEX:
+                    if (HIWORD(w) == EN_CHANGE) {
+                        if (hex_to_rgb(h, IDC_BGCOLOR1_HEX, &g_work.bg_color1_r, &g_work.bg_color1_g, &g_work.bg_color1_b)) {
+                            if (g_work.background_type == 0) g_work.bg_solid_customized = 1;
+                            else if (g_work.background_type == 1) g_work.bg_gradient_customized = 1;
+                            preview_dirty(h);
+                        }
+                    }
+                    break;
                 case IDC_BGCOLOR2: {
                     static COLORREF custom[16];
                     CHOOSECOLORW cc;
@@ -1367,10 +1456,17 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                         g_work.bg_color2_r = GetRValue(cc.rgbResult) / 255.0f;
                         g_work.bg_color2_g = GetGValue(cc.rgbResult) / 255.0f;
                         g_work.bg_color2_b = GetBValue(cc.rgbResult) / 255.0f;
+                        hex_from_rgb(h, IDC_BGCOLOR2_HEX, g_work.bg_color2_r, g_work.bg_color2_g, g_work.bg_color2_b);
                         preview_dirty(h);
                     }
                     break;
                 }
+                case IDC_BGCOLOR2_HEX:
+                    if (HIWORD(w) == EN_CHANGE) {
+                        if (hex_to_rgb(h, IDC_BGCOLOR2_HEX, &g_work.bg_color2_r, &g_work.bg_color2_g, &g_work.bg_color2_b))
+                            preview_dirty(h);
+                    }
+                    break;
                 case IDC_BGNEBCOLOR1: {
                     static COLORREF custom[16];
                     CHOOSECOLORW cc;
@@ -1386,10 +1482,17 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                         g_work.bg_neb_color1_r = GetRValue(cc.rgbResult) / 255.0f;
                         g_work.bg_neb_color1_g = GetGValue(cc.rgbResult) / 255.0f;
                         g_work.bg_neb_color1_b = GetBValue(cc.rgbResult) / 255.0f;
+                        hex_from_rgb(h, IDC_BGNEBCOLOR1_HEX, g_work.bg_neb_color1_r, g_work.bg_neb_color1_g, g_work.bg_neb_color1_b);
                         preview_dirty(h);
                     }
                     break;
                 }
+                case IDC_BGNEBCOLOR1_HEX:
+                    if (HIWORD(w) == EN_CHANGE) {
+                        if (hex_to_rgb(h, IDC_BGNEBCOLOR1_HEX, &g_work.bg_neb_color1_r, &g_work.bg_neb_color1_g, &g_work.bg_neb_color1_b))
+                            preview_dirty(h);
+                    }
+                    break;
                 case IDC_BGNEBCOLOR2: {
                     static COLORREF custom[16];
                     CHOOSECOLORW cc;
@@ -1405,10 +1508,17 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                         g_work.bg_neb_color2_r = GetRValue(cc.rgbResult) / 255.0f;
                         g_work.bg_neb_color2_g = GetGValue(cc.rgbResult) / 255.0f;
                         g_work.bg_neb_color2_b = GetBValue(cc.rgbResult) / 255.0f;
+                        hex_from_rgb(h, IDC_BGNEBCOLOR2_HEX, g_work.bg_neb_color2_r, g_work.bg_neb_color2_g, g_work.bg_neb_color2_b);
                         preview_dirty(h);
                     }
                     break;
                 }
+                case IDC_BGNEBCOLOR2_HEX:
+                    if (HIWORD(w) == EN_CHANGE) {
+                        if (hex_to_rgb(h, IDC_BGNEBCOLOR2_HEX, &g_work.bg_neb_color2_r, &g_work.bg_neb_color2_g, &g_work.bg_neb_color2_b))
+                            preview_dirty(h);
+                    }
+                    break;
                 case IDC_BGGRIDCOLOR1: {
                     static COLORREF custom[16];
                     CHOOSECOLORW cc;
@@ -1424,10 +1534,17 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                         g_work.bg_grid_color1_r = GetRValue(cc.rgbResult) / 255.0f;
                         g_work.bg_grid_color1_g = GetGValue(cc.rgbResult) / 255.0f;
                         g_work.bg_grid_color1_b = GetBValue(cc.rgbResult) / 255.0f;
+                        hex_from_rgb(h, IDC_BGGRIDCOLOR1_HEX, g_work.bg_grid_color1_r, g_work.bg_grid_color1_g, g_work.bg_grid_color1_b);
                         preview_dirty(h);
                     }
                     break;
                 }
+                case IDC_BGGRIDCOLOR1_HEX:
+                    if (HIWORD(w) == EN_CHANGE) {
+                        if (hex_to_rgb(h, IDC_BGGRIDCOLOR1_HEX, &g_work.bg_grid_color1_r, &g_work.bg_grid_color1_g, &g_work.bg_grid_color1_b))
+                            preview_dirty(h);
+                    }
+                    break;
                 case IDC_BGGRIDCOLOR2: {
                     static COLORREF custom[16];
                     CHOOSECOLORW cc;
@@ -1443,10 +1560,17 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                         g_work.bg_grid_color2_r = GetRValue(cc.rgbResult) / 255.0f;
                         g_work.bg_grid_color2_g = GetGValue(cc.rgbResult) / 255.0f;
                         g_work.bg_grid_color2_b = GetBValue(cc.rgbResult) / 255.0f;
+                        hex_from_rgb(h, IDC_BGGRIDCOLOR2_HEX, g_work.bg_grid_color2_r, g_work.bg_grid_color2_g, g_work.bg_grid_color2_b);
                         preview_dirty(h);
                     }
                     break;
                 }
+                case IDC_BGGRIDCOLOR2_HEX:
+                    if (HIWORD(w) == EN_CHANGE) {
+                        if (hex_to_rgb(h, IDC_BGGRIDCOLOR2_HEX, &g_work.bg_grid_color2_r, &g_work.bg_grid_color2_g, &g_work.bg_grid_color2_b))
+                            preview_dirty(h);
+                    }
+                    break;
                 case IDC_BGGRIDDOTS:
                     g_work.bg_grid_dots = (IsDlgButtonChecked(h, IDC_BGGRIDDOTS) == BST_CHECKED);
                     preview_dirty(h);
