@@ -455,7 +455,7 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     preview_dirty(h);
                     break;
                 case IDC_COLOR_SWATCH: {
-                    if (HIWORD(w) != STN_CLICKED) break;
+                    if (HIWORD(w) != BN_CLICKED) break;
                     static COLORREF custom[16];
                     CHOOSECOLORW cc;
                     memset(&cc, 0, sizeof cc);
@@ -486,12 +486,14 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     break;
             }
             return TRUE;
-        case WM_CTLCOLORSTATIC:
-            if (GetDlgCtrlID((HWND)l) == IDC_COLOR_SWATCH) {
-                SetWindowLongPtrW(h, DWLP_MSGRESULT, (LONG_PTR)g_color_swatch_brush);
+        case WM_DRAWITEM: {
+            LPDRAWITEMSTRUCT dis = (LPDRAWITEMSTRUCT)l;
+            if (dis->CtlID == IDC_COLOR_SWATCH && g_color_swatch_brush) {
+                FillRect(dis->hDC, &dis->rcItem, g_color_swatch_brush);
                 return TRUE;
             }
             break;
+        }
     }
     return FALSE;
 }
@@ -796,7 +798,7 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     }
                     break;
                 case IDC_EMISSIVE_SWATCH: {
-                    if (HIWORD(w) != STN_CLICKED) break;
+                    if (HIWORD(w) != BN_CLICKED) break;
                     static COLORREF custom[16];
                     CHOOSECOLORW cc;
                     memset(&cc, 0, sizeof cc);
@@ -882,7 +884,7 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     preview_dirty(h);
                     break;
                 case IDC_WIRE_FILLCOLOR_SWATCH: {
-                    if (HIWORD(w) != STN_CLICKED) break;
+                    if (HIWORD(w) != BN_CLICKED) break;
                     static COLORREF custom[16];
                     CHOOSECOLORW cc;
                     memset(&cc, 0, sizeof cc);
@@ -913,13 +915,13 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     break;
             }
             return TRUE;
-        case WM_CTLCOLORSTATIC: {
-            int id = GetDlgCtrlID((HWND)l);
+        case WM_DRAWITEM: {
+            LPDRAWITEMSTRUCT dis = (LPDRAWITEMSTRUCT)l;
             HBRUSH br = NULL;
-            if (id == IDC_EMISSIVE_SWATCH) br = g_emissive_swatch_brush;
-            else if (id == IDC_WIRE_FILLCOLOR_SWATCH) br = g_wire_fill_swatch_brush;
+            if (dis->CtlID == IDC_EMISSIVE_SWATCH) br = g_emissive_swatch_brush;
+            else if (dis->CtlID == IDC_WIRE_FILLCOLOR_SWATCH) br = g_wire_fill_swatch_brush;
             if (br) {
-                SetWindowLongPtrW(h, DWLP_MSGRESULT, (LONG_PTR)br);
+                FillRect(dis->hDC, &dis->rcItem, br);
                 return TRUE;
             }
             break;
@@ -1463,7 +1465,7 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     }
                     break;
                 case IDC_BGCOLOR1_SWATCH: {
-                    if (HIWORD(w) != STN_CLICKED) break;
+                    if (HIWORD(w) != BN_CLICKED) break;
                     static COLORREF custom[16];
                     CHOOSECOLORW cc;
                     memset(&cc, 0, sizeof cc);
@@ -1497,7 +1499,7 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     }
                     break;
                 case IDC_BGCOLOR2_SWATCH: {
-                    if (HIWORD(w) != STN_CLICKED) break;
+                    if (HIWORD(w) != BN_CLICKED) break;
                     static COLORREF custom[16];
                     CHOOSECOLORW cc;
                     memset(&cc, 0, sizeof cc);
@@ -1527,7 +1529,7 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     }
                     break;
                 case IDC_BGNEBCOLOR1_SWATCH: {
-                    if (HIWORD(w) != STN_CLICKED) break;
+                    if (HIWORD(w) != BN_CLICKED) break;
                     static COLORREF custom[16];
                     CHOOSECOLORW cc;
                     memset(&cc, 0, sizeof cc);
@@ -1557,7 +1559,7 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     }
                     break;
                 case IDC_BGNEBCOLOR2_SWATCH: {
-                    if (HIWORD(w) != STN_CLICKED) break;
+                    if (HIWORD(w) != BN_CLICKED) break;
                     static COLORREF custom[16];
                     CHOOSECOLORW cc;
                     memset(&cc, 0, sizeof cc);
@@ -1587,7 +1589,7 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     }
                     break;
                 case IDC_BGGRIDCOLOR1_SWATCH: {
-                    if (HIWORD(w) != STN_CLICKED) break;
+                    if (HIWORD(w) != BN_CLICKED) break;
                     static COLORREF custom[16];
                     CHOOSECOLORW cc;
                     memset(&cc, 0, sizeof cc);
@@ -1617,7 +1619,7 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     }
                     break;
                 case IDC_BGGRIDCOLOR2_SWATCH: {
-                    if (HIWORD(w) != STN_CLICKED) break;
+                    if (HIWORD(w) != BN_CLICKED) break;
                     static COLORREF custom[16];
                     CHOOSECOLORW cc;
                     memset(&cc, 0, sizeof cc);
@@ -1681,11 +1683,11 @@ static INT_PTR CALLBACK bg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     break;
             }
             return TRUE;
-        case WM_CTLCOLORSTATIC: {
-            int id = GetDlgCtrlID((HWND)l);
+        case WM_DRAWITEM: {
+            LPDRAWITEMSTRUCT dis = (LPDRAWITEMSTRUCT)l;
             for (size_t i = 0; i < sizeof g_bg_hex_fields / sizeof g_bg_hex_fields[0]; ++i) {
-                if (g_bg_hex_fields[i].swatch_id == id) {
-                    SetWindowLongPtrW(h, DWLP_MSGRESULT, (LONG_PTR)*g_bg_hex_fields[i].brush);
+                if (g_bg_hex_fields[i].swatch_id == (int)dis->CtlID) {
+                    FillRect(dis->hDC, &dis->rcItem, *g_bg_hex_fields[i].brush);
                     return TRUE;
                 }
             }
