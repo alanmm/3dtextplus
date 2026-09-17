@@ -8,6 +8,7 @@
 #include "geometry/contour_mesh.h"
 #include "geometry/svg_shapes.h"
 #include "geometry/mesh_import.h"
+#include "geometry/feature_edges.h"
 #include "i18n.h"
 #include "util/mathx.h"
 #include "util/log.h"
@@ -47,6 +48,18 @@ struct SceneRenderer {
     v3       emissive_color;
     float    emissive_amount;
     float    edge_bias;
+    float    wireframe_thickness;
+    int      wireframe_xray;
+
+    /* Wireframe - lista de arestas (GL_LINES) + FBO de profundidade
+       dedicada de 1 amostra (so' usada no modo Raio-X - ver spec
+       2026-09-17-wireframe-material-design.md secao 5) */
+    unsigned wire_prog;
+    unsigned wire_vao, wire_vbo;
+    int      wire_edge_count;
+    unsigned wire_depth_fbo, wire_depth_tex;
+    int      wire_depth_w, wire_depth_h;
+
     wchar_t  env_path[512];
     unsigned env_tex;
     int      env_mode;
@@ -245,6 +258,48 @@ static int build_error_plaque(SceneRenderer *s, const char *message)
     return 1;
 }
 
+typedef struct { WireEdge *edges; int count, cap; } WireEdgeAccum;
+
+static void wire_accum_append(WireEdgeAccum *acc, const MeshData *md)
+{
+    WireEdge *e = NULL; int n = 0;
+    if (!feature_edges_build(md, 35.0f, &e, &n)) return;
+    if (acc->count + n > acc->cap) {
+        acc->cap = (acc->count + n) * 2 + 16;
+        acc->edges = (WireEdge *)realloc(acc->edges, (size_t)acc->cap * sizeof(WireEdge));
+    }
+    memcpy(acc->edges + acc->count, e, (size_t)n * sizeof(WireEdge));
+    acc->count += n;
+    free(e);
+}
+
+/* faz upload da lista acumulada pro VBO de SceneRenderer (substitui o
+   anterior, se houver) e libera o buffer temporario do acumulador -
+   sempre chamada no final de cada rebuild_*, mesmo em caminhos de
+   erro (acc vazio -> wire_edge_count vira 0, sem desenhar nada de
+   arestas obsoletas de um conteudo anterior). */
+static void wire_accum_finish(SceneRenderer *s, WireEdgeAccum *acc)
+{
+    if (s->wire_vao) {
+        glDeleteVertexArrays(1, &s->wire_vao);
+        glDeleteBuffers(1, &s->wire_vbo);
+        s->wire_vao = s->wire_vbo = 0;
+    }
+    s->wire_edge_count = acc->count;
+    if (acc->count > 0) {
+        glGenVertexArrays(1, &s->wire_vao);
+        glGenBuffers(1, &s->wire_vbo);
+        glBindVertexArray(s->wire_vao);
+        glBindBuffer(GL_ARRAY_BUFFER, s->wire_vbo);
+        glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(acc->count * (int)sizeof(WireEdge)),
+                     acc->edges, GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(v3), (void *)0);
+        glBindVertexArray(0);
+    }
+    free(acc->edges);
+}
+
 static int rebuild_mesh(SceneRenderer *s)
 {
     free_error_plaque(s);
@@ -262,6 +317,11 @@ static int rebuild_mesh(SceneRenderer *s)
 
     if (s->have_mesh) gl_mesh_free(&s->mesh);
     s->mesh = gl_mesh_upload(md.verts, md.nverts, md.idx, md.nidx);
+    {
+        WireEdgeAccum wacc = { 0 };
+        wire_accum_append(&wacc, &md);
+        wire_accum_finish(s, &wacc);
+    }
     s->hx = 0.5f * (md.maxx - md.minx);
     s->hy = 0.5f * (md.maxy - md.miny);
     s->hz = 0.5f * (md.maxz - md.minz);
@@ -314,6 +374,7 @@ static int rebuild_svg_mesh(SceneRenderer *s)
         return 0;
     }
 
+    WireEdgeAccum wacc = { 0 };
     float uhx = 0.0f, uhy = 0.0f, uhz = 0.0f;
     s->wall_cache_count = 0;
     for (int i = 0; i < svgset.count; ++i) {
@@ -323,6 +384,7 @@ static int rebuild_svg_mesh(SceneRenderer *s)
         s->svg_meshes[s->svg_mesh_count] = gl_mesh_upload(md.verts, md.nverts, md.idx, md.nidx);
         s->svg_colors[s->svg_mesh_count] =
             (v3){ svgset.pieces[i].r, svgset.pieces[i].g, svgset.pieces[i].b };
+        wire_accum_append(&wacc, &md);
 
         float phx = 0.5f * (md.maxx - md.minx);
         float phy = 0.5f * (md.maxy - md.miny);
@@ -347,6 +409,7 @@ static int rebuild_svg_mesh(SceneRenderer *s)
     svg_shapes_free(&svgset);
 
     if (s->svg_mesh_count == 0) {
+        wire_accum_finish(s, &wacc);
         free_svg_pieces(s);
         s->have_svg_mesh = 1;
         char msg[256];
@@ -358,6 +421,7 @@ static int rebuild_svg_mesh(SceneRenderer *s)
     if (uhx < 1e-3f) uhx = 1.0f;
     if (uhy < 1e-3f) uhy = 1.0f;
     s->hx = uhx; s->hy = uhy; s->hz = uhz;
+    wire_accum_finish(s, &wacc);
     s->have_svg_mesh = 1;
     log_infof("scene: svg '%ls' -> %d peca(s)", s->svg_path, s->svg_mesh_count);
     return 1;
@@ -377,6 +441,8 @@ static int rebuild_imported_mesh(SceneRenderer *s)
     free_error_plaque(s);
     s->have_mesh_content = 1;
 
+    WireEdgeAccum wacc = { 0 };
+
     if (s->mesh_path[0] != 0 && s->mesh_use_file_materials) {
         MeshPieceSet ps;
         if (mesh_import_load_pieces(s->mesh_path, s->mesh_size_scale, &ps)) {
@@ -388,6 +454,7 @@ static int rebuild_imported_mesh(SceneRenderer *s)
                     MeshData *d = &ps.pieces[i].data;
                     s->mesh_pieces[i] = gl_mesh_upload(d->verts, d->nverts, d->idx, d->nidx);
                     s->mesh_piece_colors[i] = (v3){ ps.pieces[i].r, ps.pieces[i].g, ps.pieces[i].b };
+                    wire_accum_append(&wacc, d);
                     float phx = 0.5f * (d->maxx - d->minx);
                     float phy = 0.5f * (d->maxy - d->miny);
                     float phz = 0.5f * (d->maxz - d->minz);
@@ -400,11 +467,13 @@ static int rebuild_imported_mesh(SceneRenderer *s)
                 if (uhy < 1e-3f) uhy = 1.0f;
                 s->hx = uhx; s->hy = uhy; s->hz = uhz;
                 s->wall_cache_count = 0;
+                wire_accum_finish(s, &wacc);
                 log_infof("scene: malha '%ls' -> %d peca(s) com material do arquivo",
                           s->mesh_path, s->mesh_piece_count);
                 mesh_import_pieces_free(&ps);
                 return 1;
             }
+            wire_accum_finish(s, &wacc);
             free_mesh_pieces(s);
             mesh_import_pieces_free(&ps);
             return 0;
@@ -414,6 +483,7 @@ static int rebuild_imported_mesh(SceneRenderer *s)
     MeshData md;
     int ok = s->mesh_path[0] != 0 && mesh_import_load(s->mesh_path, s->mesh_size_scale, &md);
     if (!ok) {
+        wire_accum_finish(s, &wacc);
         char msg[256];
         WideCharToMultiByte(CP_UTF8, 0, i18n_str(STR_ERROR_MESH_INVALID), -1,
                             msg, (int)sizeof msg, NULL, NULL);
@@ -422,6 +492,7 @@ static int rebuild_imported_mesh(SceneRenderer *s)
 
     if (s->have_mesh) gl_mesh_free(&s->mesh);
     s->mesh = gl_mesh_upload(md.verts, md.nverts, md.idx, md.nidx);
+    wire_accum_append(&wacc, &md);
     s->hx = 0.5f * (md.maxx - md.minx);
     s->hy = 0.5f * (md.maxy - md.miny);
     s->hz = 0.5f * (md.maxz - md.minz);
@@ -430,6 +501,7 @@ static int rebuild_imported_mesh(SceneRenderer *s)
     s->wall_cache_count = 0;   /* malha importada nao tem paredes - faiscas nao emitem nela */
     int nv = md.nverts;
     mesh_data_free(&md);
+    wire_accum_finish(s, &wacc);
     s->have_mesh = 1;
     log_infof("scene: malha '%ls' -> %d verts", s->mesh_path, nv);
     return 1;
@@ -461,6 +533,17 @@ SceneRenderer *scene_create(const Config *cfg)
     glUseProgram(s->wboit_resolve_prog);
     glUniform1i(glGetUniformLocation(s->wboit_resolve_prog, "uAccum"), 0);
     glUniform1i(glGetUniformLocation(s->wboit_resolve_prog, "uRevealLog"), 1);
+
+    s->wire_prog = gl_program_gs((const char *)EMBED_wireframe_vert,
+                                  (const char *)EMBED_wireframe_geom,
+                                  (const char *)EMBED_wireframe_frag);
+    if (!s->wire_prog) {
+        glDeleteProgram(s->wboit_resolve_prog);
+        glDeleteProgram(s->bg_prog);
+        material_destroy(&s->mat);
+        free(s);
+        return NULL;
+    }
 
     s->particles = particles_create();
     if (!s->particles) {
@@ -541,6 +624,8 @@ void scene_set_config(SceneRenderer *s, const Config *cfg)
     s->emissive_color = (v3){ cfg->emissive_r, cfg->emissive_g, cfg->emissive_b };
     s->emissive_amount = cfg->emissive_amount;
     s->edge_bias = cfg->edge_bias;
+    s->wireframe_thickness = cfg->wireframe_thickness;
+    s->wireframe_xray = cfg->wireframe_xray;
     s->bevel_mode = cfg->bevel_mode;
     s->bevel_size = cfg->bevel_size;
     s->bevel_depth = cfg->bevel_depth;
@@ -901,6 +986,12 @@ void scene_destroy(SceneRenderer *s)
     }
     if (s->wboit_vao) glDeleteVertexArrays(1, &s->wboit_vao);
     if (s->wboit_resolve_prog) glDeleteProgram(s->wboit_resolve_prog);
+    if (s->wire_prog) glDeleteProgram(s->wire_prog);
+    if (s->wire_vao) { glDeleteVertexArrays(1, &s->wire_vao); glDeleteBuffers(1, &s->wire_vbo); }
+    if (s->wire_depth_fbo) {
+        glDeleteFramebuffers(1, &s->wire_depth_fbo);
+        glDeleteTextures(1, &s->wire_depth_tex);
+    }
     material_destroy(&s->mat);
     free(s);
 }
