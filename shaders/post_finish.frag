@@ -5,6 +5,7 @@ uniform int   uHasChroma;
 uniform float uChromaStrength;   // 0..1 do usuario
 uniform int   uHasVignette;
 uniform float uVignetteAmount;   // 0..1
+uniform int   uDebugBypass;      // 1 = visualizacao de debug: pula o tonemap ACES
 out vec4 o;
 
 vec3 aces(vec3 x)
@@ -36,7 +37,14 @@ void main()
         c *= clamp(v, 0.0, 1.0);
     }
 
-    c = aces(c);
+    if (uDebugBypass == 1) {
+        // a curva ACES e' bem agressiva em tons medios (um valor linear
+        // de 0.3 sai dela + gama proximo de 0.69) - inutiliza a leitura
+        // de um valor escalar cru. So' gama 2.2, sem tonemap filmico.
+        c = clamp(c, 0.0, 1.0);
+    } else {
+        c = aces(c);
+    }
     c = pow(c, vec3(1.0 / 2.2));
     o = vec4(c, 1.0);
 }

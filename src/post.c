@@ -266,6 +266,7 @@ void post_present(Post *p, int out_w, int out_h, PostParams pr)
     glUniform1f(glGetUniformLocation(p->prog_finish, "uChromaStrength"), pr.chroma_strength);
     glUniform1i(glGetUniformLocation(p->prog_finish, "uHasVignette"), has_vignette);
     glUniform1f(glGetUniformLocation(p->prog_finish, "uVignetteAmount"), pr.vignette_amount);
+    glUniform1i(glGetUniformLocation(p->prog_finish, "uDebugBypass"), pr.debug_bypass ? 1 : 0);
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, p->comp.color);
     gl_fullscreen_draw(&p->fs_vao);
 

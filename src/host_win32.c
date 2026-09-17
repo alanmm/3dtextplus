@@ -102,6 +102,16 @@ int host_run_saver(HINSTANCE hInst)
     }
     if (nwin == 0) { log_errorf("nenhuma janela saver criada"); return 1; }
 
+    {
+        /* diagnostico: forca uma visualizacao de debug sem precisar clicar
+           no dialogo - so' assim da' pra capturar via M3DT_SHOT headless. */
+        char dv[8];
+        if (GetEnvironmentVariableA("M3DT_DEBUG_VIEW", dv, sizeof dv) > 0) {
+            int mode = atoi(dv);
+            for (int i = 0; i < nwin; ++i) gl_window_set_debug_view(win[i], mode);
+        }
+    }
+
     if (!selftest) ShowCursor(FALSE);
     SetForegroundWindow(gl_window_hwnd(win[0]));
 

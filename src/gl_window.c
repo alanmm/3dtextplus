@@ -53,6 +53,7 @@ struct GlWindow {
     AutoQuality  *aq;
     int   vsync;
     int   particles_on;
+    int   debug_view;   /* 0=normal - ver gl_window_set_debug_view */
 };
 
 /* ------------------------------------------------------------------ */
@@ -276,6 +277,23 @@ static void render_into_post(GlWindow *g, double t, int measure)
     pr.chroma_on   = (post_fx_ok && g->post_params.chroma_on)   ? 1 : 0;
     pr.vignette_on = (post_fx_ok && g->post_params.vignette_on) ? 1 : 0;
     pr.fxaa_on     = (post_fx_ok && g->post_params.fxaa_on)     ? 1 : 0;
+    if (g->debug_view != 0) {
+        /* visualizacao de debug escreve um valor escalar cru (0..1) em
+           fragColor, nao radiancia de cena - bloom/CA/vinheta e o tonemap
+           ACES (curva filmica bem agressiva em tons medios: um valor
+           linear de 0.3 sai da curva ACES+gama proximo de 0.69, quase
+           ilegivel como "30%") distorceriam a leitura. Desliga tudo isso
+           e usa so' gama 2.2 (post_finish.frag/uDebugBypass) pra mostrar
+           o valor fielmente. */
+        pr.bloom = 0;
+        pr.streaks_mode = 0;
+        pr.chroma_on = 0;
+        pr.vignette_on = 0;
+        pr.fxaa_on = 0;
+        pr.debug_bypass = 1;
+    } else {
+        pr.debug_bypass = 0;
+    }
     post_present(g->post, g->w, g->h, pr);
 
     if (measure) {
@@ -345,6 +363,7 @@ void gl_window_set_zoom(GlWindow *g, float zoom)
 
 void gl_window_set_debug_view(GlWindow *g, int mode)
 {
+    g->debug_view = mode;
     if (!g->scene) return;
     scene_set_debug_view(g->scene, mode);
 }

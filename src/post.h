@@ -12,6 +12,7 @@ typedef struct {
     int   vignette_on;
     float vignette_amount;       /* 0 .. 1 */
     int   fxaa_on;
+    int   debug_bypass;          /* 1 = pula o tonemap ACES (usa so' gama) - visualizacao de debug */
 } PostParams;
 
 typedef struct Post Post;
