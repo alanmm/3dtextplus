@@ -19,6 +19,7 @@ void config_defaults(Config *c)
     wcscpy(c->font_family, L"Segoe UI");
     c->font_bold = 1;
     c->font_italic = 0;
+    c->content_scale = 1.0f;
     c->depth = 0.10f;
     c->max_angle_y = 42.0f;
     c->tilt_x = 8.0f;
@@ -185,6 +186,7 @@ void config_load_from(Config *c, const wchar_t *subkey)
     reg_get_i(k, L"bloom_on", &c->bloom_on);
 
     float f;
+    if (reg_get_f(k, L"content_scale", &f)) c->content_scale = f;
     if (reg_get_f(k, L"depth", &f))       c->depth = f;
     if (reg_get_f(k, L"max_angle_y", &f)) c->max_angle_y = f;
     if (reg_get_f(k, L"tilt_x", &f))      c->tilt_x = f;
@@ -293,6 +295,7 @@ void config_load_from(Config *c, const wchar_t *subkey)
     /* saneamento */
     c->font_bold = c->font_bold ? 1 : 0;
     c->font_italic = c->font_italic ? 1 : 0;
+    c->content_scale = clampf(c->content_scale, 0.5f, 2.0f);
     c->depth = clampf(c->depth, 0.02f, 2.0f);
     c->max_angle_y = clampf(c->max_angle_y, 5.0f, 170.0f);
     c->tilt_x = clampf(c->tilt_x, 0.0f, 30.0f);
@@ -417,6 +420,7 @@ void config_save_to(const Config *c, const wchar_t *subkey)
     set_f(k, L"font_italic", (float)c->font_italic);
     set_f(k, L"version", (float)CFG_VERSION);
     set_f(k, L"content_mode", (float)c->content_mode);
+    set_f(k, L"content_scale", c->content_scale);
     set_f(k, L"depth", c->depth);
     set_f(k, L"max_angle_y", c->max_angle_y);
     set_f(k, L"tilt_x", c->tilt_x);

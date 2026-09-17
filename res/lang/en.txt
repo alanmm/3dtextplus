@@ -37,6 +37,7 @@ content.italic=Italic
 content.clock_date=Show date
 content.clock_seconds=Show seconds
 content.color_label=Color:
+content.scale_label=On-screen size:
 
 # Motion tab
 motion.angle_label=Max angle (degrees):

@@ -20,6 +20,7 @@ void run_config_tests(void)
     EXPECT(wcscmp(d.font_family, L"Segoe UI") == 0);
     EXPECT(d.font_bold == 1);
     EXPECT(d.font_italic == 0);
+    EXPECT(nearf(d.content_scale, 1.0f));
     EXPECT(nearf(d.depth, 0.10f));
     EXPECT(nearf(d.max_angle_y, 42.0f));
     EXPECT(nearf(d.tilt_x, 8.0f));
@@ -102,6 +103,7 @@ void run_config_tests(void)
     wcscpy(a.font_family, L"Arial");
     a.font_bold = 0;
     a.font_italic = 1;
+    a.content_scale = 1.75f;
     a.depth = 0.55f;
     a.max_angle_y = 30.0f;
     a.tilt_x = 12.0f;
@@ -179,6 +181,7 @@ void run_config_tests(void)
     EXPECT(strcmp(b.text, "Ola Mundo") == 0);
     EXPECT(wcscmp(b.font_family, L"Arial") == 0);
     EXPECT(b.font_bold == 0 && b.font_italic == 1);
+    EXPECT(nearf(b.content_scale, 1.75f));
     EXPECT(nearf(b.depth, 0.55f));
     EXPECT(nearf(b.max_angle_y, 30.0f));
     EXPECT(nearf(b.period, 6.5f));

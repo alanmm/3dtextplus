@@ -44,6 +44,9 @@
 #define IDC_COLOR_LABEL    1125
 #define IDC_COLOR_HEX      1126
 #define IDC_COLOR_SWATCH   1127
+#define IDC_CONTENT_SCALE_LABEL 1128
+#define IDC_CONTENT_SCALE_VAL   1129
+#define IDC_CONTENT_SCALE       1130
 
 /* aba Movimento */
 #define IDC_DEPTH         1200

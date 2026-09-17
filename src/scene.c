@@ -30,6 +30,7 @@ struct SceneRenderer {
     int      have_mesh;
     float    hx, hy, hz;
     float    zoom;
+    float    content_scale;   /* config persistido - tamanho do objeto na tela, independente do zoom de preview acima */
     int      debug_view;   /* 0=normal - ver scene_set_debug_view */
     int      auto_spin;
     int      manual_cam;             /* usuario assumiu o controle (arrastar/pan) - desliga auto_spin e pendulo */
@@ -517,6 +518,7 @@ SceneRenderer *scene_create(const Config *cfg)
     SceneRenderer *s = (SceneRenderer *)calloc(1, sizeof *s);
     if (!s) return NULL;
     s->zoom = 1.0f;
+    s->content_scale = 1.0f;
     if (!material_init(&s->mat)) { free(s); return NULL; }
 
     s->bg_prog = gl_program((const char *)EMBED_fullscreen_vert,
@@ -623,6 +625,7 @@ void scene_set_config(SceneRenderer *s, const Config *cfg)
     s->tilt_x = cfg->tilt_x;
     s->period = cfg->period;
     s->base_color = (v3){ cfg->base_r, cfg->base_g, cfg->base_b };
+    s->content_scale = cfg->content_scale;
     s->material_mode = cfg->material_mode;
     s->metalness = cfg->metalness;
     s->roughness = cfg->roughness;
@@ -953,7 +956,7 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h, int particles_
     float tanY = tanf(fovy * 0.5f);
     float tanX = tanY * aspect;
 
-    const float fill = (s->have_error_plaque ? 0.85f : 0.60f) * s->zoom;
+    const float fill = (s->have_error_plaque ? 0.85f : 0.60f) * s->zoom * s->content_scale;
     float distX = s->hx / (tanX * fill);
     float distY = s->hy / (tanY * fill);
     float dist = fmaxf(distX, distY) + s->hz + 0.5f;

@@ -37,6 +37,7 @@ content.italic=Italico
 content.clock_date=Mostrar data
 content.clock_seconds=Mostrar segundos
 content.color_label=Cor:
+content.scale_label=Tamanho na tela:
 
 # aba Movimento
 motion.angle_label=Ângulo max. (graus):

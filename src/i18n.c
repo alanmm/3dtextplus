@@ -19,7 +19,7 @@ static const char *const KEY_NAMES[STR_COUNT] = {
     "content.svg_color.preserve", "content.svg_color.single",
     "content.mesh_scale_label", "content.mesh_usemat", "content.bold",
     "content.italic", "content.clock_date", "content.clock_seconds",
-    "content.color_label",
+    "content.color_label", "content.scale_label",
 
     "motion.angle_label", "motion.tilt_label", "motion.period_label",
 

@@ -11,6 +11,7 @@ typedef struct {
     wchar_t      font_family[64];
     int          font_bold;            /* 0/1 */
     int          font_italic;          /* 0/1 */
+    float        content_scale;        /* 0.5 .. 2.0 - tamanho do objeto na tela, qualquer modo de conteudo */
     float        depth;                /* 0.02 .. 2.0 */
     float        max_angle_y;          /* 5 .. 170 (graus) */
     float        tilt_x;               /* 0 .. 30 (graus) */

@@ -200,6 +200,13 @@ static void content_mesh_label(HWND h)
     SetDlgItemTextW(h, IDC_MESHSCALE_VAL, b);
 }
 
+static void content_scale_label(HWND h)
+{
+    wchar_t b[32];
+    swprintf(b, 32, L"%.0f%%", (double)(g_work.content_scale * 100.0f));
+    SetDlgItemTextW(h, IDC_CONTENT_SCALE_VAL, b);
+}
+
 static void content_enable(HWND h)
 {
     int is_text  = g_work.content_mode == CONTENT_TEXT;
@@ -259,6 +266,7 @@ static void content_apply_i18n(HWND h)
     SetDlgItemTextW(h, IDC_CLOCKDATE, i18n_str(STR_CONTENT_CLOCK_DATE));
     SetDlgItemTextW(h, IDC_CLOCKSEC, i18n_str(STR_CONTENT_CLOCK_SECONDS));
     SetDlgItemTextW(h, IDC_COLOR_LABEL, i18n_str(STR_CONTENT_COLOR_LABEL));
+    SetDlgItemTextW(h, IDC_CONTENT_SCALE_LABEL, i18n_str(STR_CONTENT_SCALE_LABEL));
 
     HWND cm = GetDlgItem(h, IDC_CONTMODE);
     int cur = (int)SendMessageW(cm, CB_GETCURSEL, 0, 0);
@@ -278,6 +286,7 @@ static void content_apply_i18n(HWND h)
 
     content_svg_label(h);
     content_mesh_label(h);
+    content_scale_label(h);
 }
 
 static HBRUSH g_color_swatch_brush;
@@ -295,6 +304,7 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             CheckDlgButton(h, IDC_CLOCKSEC, g_work.clock_show_seconds ? BST_CHECKED : BST_UNCHECKED);
             CheckDlgButton(h, IDC_MESHUSEMAT, g_work.mesh_use_file_materials ? BST_CHECKED : BST_UNCHECKED);
             set_slider(h, IDC_MESHSCALE, 0, 200, (int)(g_work.mesh_size_scale * 100.0f + 0.5f));
+            set_slider(h, IDC_CONTENT_SCALE, 50, 200, (int)(g_work.content_scale * 100.0f + 0.5f));
             content_apply_i18n(h);
             content_enable(h);
             SendDlgItemMessageW(h, IDC_COLOR_HEX, EM_SETLIMITTEXT, 7, 0);
@@ -315,7 +325,10 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
         case WM_HSCROLL:
             g_work.mesh_size_scale =
                 (float)SendDlgItemMessageW(h, IDC_MESHSCALE, TBM_GETPOS, 0, 0) / 100.0f;
+            g_work.content_scale =
+                (float)SendDlgItemMessageW(h, IDC_CONTENT_SCALE, TBM_GETPOS, 0, 0) / 100.0f;
             content_mesh_label(h);
+            content_scale_label(h);
             preview_dirty(h);
             return TRUE;
         case WM_COMMAND:
