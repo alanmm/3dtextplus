@@ -67,8 +67,95 @@ static int   g_pv_debug_view;   /* 0 normal, 1 fresnel, 2 aresta, 3 normal RGB, 
 #define PV_ZOOM_MIN  0.3f
 #define PV_ZOOM_MAX  15.0f
 
+/* janela redimensionavel (item 6 do roadmap) - so' o preview 3D cresce;
+   abas e linha de presets ficam intocadas; o botao "..." e a linha
+   OK/Cancelar/Aplicar so' deslizam (tamanho fixo) pra acompanhar o canto
+   direito/inferior. Posicoes/tamanho originais capturados uma unica vez
+   no WM_INITDIALOG (antes de qualquer resize), servindo de referencia pro
+   delta aplicado em todo WM_SIZE seguinte. */
+static RECT g_orig_preview, g_orig_menu, g_orig_ok, g_orig_cancel, g_orig_apply;
+static int  g_orig_client_w, g_orig_client_h;
+static int  g_resize_baseline_ready;
+
+static void resize_capture_baseline(HWND h)
+{
+    if (g_resize_baseline_ready) return;
+
+    RECT cr; GetClientRect(h, &cr);
+    g_orig_client_w = cr.right;
+    g_orig_client_h = cr.bottom;
+
+    RECT r;
+    r = (RECT){0}; GetWindowRect(GetDlgItem(h, IDC_PREVIEW), &r);
+    MapWindowPoints(NULL, h, (POINT *)&r, 2); g_orig_preview = r;
+    GetWindowRect(GetDlgItem(h, IDC_MENU_BUTTON), &r);
+    MapWindowPoints(NULL, h, (POINT *)&r, 2); g_orig_menu = r;
+    GetWindowRect(GetDlgItem(h, IDOK), &r);
+    MapWindowPoints(NULL, h, (POINT *)&r, 2); g_orig_ok = r;
+    GetWindowRect(GetDlgItem(h, IDCANCEL), &r);
+    MapWindowPoints(NULL, h, (POINT *)&r, 2); g_orig_cancel = r;
+    GetWindowRect(GetDlgItem(h, IDC_APPLY), &r);
+    MapWindowPoints(NULL, h, (POINT *)&r, 2); g_orig_apply = r;
+
+    g_resize_baseline_ready = 1;
+}
+
+/* aplica o delta (clientW/H vs. o tamanho original) - chamado a cada
+   WM_SIZE e uma vez a mais no WM_INITDIALOG se um tamanho salvo maior
+   que o padrao for restaurado do registro */
+static void resize_apply_layout(HWND h, int clientW, int clientH)
+{
+    if (!g_resize_baseline_ready) return;
+
+    int dw = clientW - g_orig_client_w;
+    int dh = clientH - g_orig_client_h;
+    if (dw < 0) dw = 0;
+    if (dh < 0) dh = 0;
+
+    int pw = (g_orig_preview.right - g_orig_preview.left) + dw;
+    int ph = (g_orig_preview.bottom - g_orig_preview.top) + dh;
+    SetWindowPos(GetDlgItem(h, IDC_PREVIEW), NULL, 0, 0, pw, ph, SWP_NOZORDER | SWP_NOMOVE);
+    if (g_preview) SetWindowPos(gl_window_hwnd(g_preview), NULL, 0, 0, pw, ph, SWP_NOZORDER | SWP_NOMOVE);
+
+    SetWindowPos(GetDlgItem(h, IDC_MENU_BUTTON), NULL,
+                 g_orig_menu.left + dw, g_orig_menu.top, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+    SetWindowPos(GetDlgItem(h, IDOK), NULL,
+                 g_orig_ok.left + dw, g_orig_ok.top + dh, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+    SetWindowPos(GetDlgItem(h, IDCANCEL), NULL,
+                 g_orig_cancel.left + dw, g_orig_cancel.top + dh, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+    SetWindowPos(GetDlgItem(h, IDC_APPLY), NULL,
+                 g_orig_apply.left + dw, g_orig_apply.top + dh, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+}
+
+/* converte o tamanho MINIMO de cliente (o original, capturado no .rc) pro
+   tamanho de JANELA equivalente (com borda/titulo) - usado tanto pro
+   clamp do tamanho salvo no registro quanto pelo WM_GETMINMAXINFO, pra
+   garantir que os dois usem exatamente o mesmo minimo */
+static void resize_min_window_size(HWND h, int *outW, int *outH)
+{
+    RECT r = { 0, 0, g_orig_client_w, g_orig_client_h };
+    AdjustWindowRectEx(&r, (DWORD)GetWindowLongPtrW(h, GWL_STYLE), FALSE,
+                       (DWORD)GetWindowLongPtrW(h, GWL_EXSTYLE));
+    *outW = r.right - r.left;
+    *outH = r.bottom - r.top;
+}
+
+/* tamanho da janela e' estado de UI, nao uma preferencia do screensaver -
+   fica fora do Config/presets de proposito, salvo direto como 2 valores
+   crus na mesma chave do registro */
+static void resize_save_geometry(HWND h)
+{
+    RECT r;
+    if (!GetWindowRect(h, &r)) return;
+    DWORD wv = (DWORD)(r.right - r.left);
+    DWORD hv = (DWORD)(r.bottom - r.top);
+    RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\Modern3DText", L"dialog_w", REG_DWORD, &wv, sizeof wv);
+    RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\Modern3DText", L"dialog_h", REG_DWORD, &hv, sizeof hv);
+}
+
 static void preview_teardown(HWND h)
 {
+    resize_save_geometry(h);   /* chamado em todo caminho de fechamento do dialogo - ver dlg_proc */
     if (g_preview) {
         KillTimer(h, TIMER_PREVIEW);
         gl_window_destroy(g_preview);
@@ -2288,6 +2375,24 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             g_dirty = false;
             if (g_preview) SetTimer(h, TIMER_PREVIEW, 33, NULL);
 
+            resize_capture_baseline(h);
+            {
+                DWORD savedW = 0, savedH = 0, sz = sizeof(DWORD);
+                LONG rw = RegGetValueW(HKEY_CURRENT_USER, L"Software\\Modern3DText", L"dialog_w",
+                                        RRF_RT_REG_DWORD, NULL, &savedW, &sz);
+                sz = sizeof(DWORD);
+                LONG rh = RegGetValueW(HKEY_CURRENT_USER, L"Software\\Modern3DText", L"dialog_h",
+                                        RRF_RT_REG_DWORD, NULL, &savedH, &sz);
+                int minW, minH;
+                resize_min_window_size(h, &minW, &minH);
+                if (rw == ERROR_SUCCESS && rh == ERROR_SUCCESS
+                    && savedW >= (DWORD)minW && savedH >= (DWORD)minH) {
+                    SetWindowPos(h, NULL, 0, 0, (int)savedW, (int)savedH, SWP_NOMOVE | SWP_NOZORDER);
+                    RECT cr; GetClientRect(h, &cr);
+                    resize_apply_layout(h, cr.right, cr.bottom);
+                }
+            }
+
             if (g_selftest) {
                 char tb[8];
                 if (GetEnvironmentVariableA("M3DT_TAB", tb, sizeof tb) > 0) {
@@ -2349,6 +2454,19 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                 return TRUE;
             }
             break;
+        case WM_GETMINMAXINFO:
+            if (g_resize_baseline_ready) {
+                int minW, minH;
+                resize_min_window_size(h, &minW, &minH);
+                MINMAXINFO *mmi = (MINMAXINFO *)l;
+                mmi->ptMinTrackSize.x = minW;
+                mmi->ptMinTrackSize.y = minH;
+                return TRUE;
+            }
+            break;
+        case WM_SIZE:
+            if (w != SIZE_MINIMIZED) resize_apply_layout(h, LOWORD(l), HIWORD(l));
+            return TRUE;
         case WM_PREVIEW_DIRTY:
             g_dirty = true;   /* aplicado no proximo tick do preview (debounce natural) */
             EnableWindow(GetDlgItem(h, IDC_APPLY), TRUE);
