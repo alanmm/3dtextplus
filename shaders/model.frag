@@ -96,8 +96,19 @@ void main()
 {
     vec3 Nl = normalize(vNrmLocal);
     vec3 N = normalize(mat3(uModel) * Nl);
-    if (!gl_FrontFacing) N = -N;
     vec3 V = normalize(uCamPos - vWorld);
+    // vira N pra sempre apontar pro lado da camera - baseado no angulo
+    // real contra V, nao em gl_FrontFacing. Achado ao investigar por que
+    // fres/rimAmt liam sempre "de raspao" (saturado) na tampa da frente:
+    // gl_FrontFacing reflete o winding do triangulo como rasterizado, mas
+    // os triangulos de tampa (vindos de contornos de fonte) vem em
+    // winding CW - o oposto da convencao "frente=CCW" padrao do OpenGL -
+    // entao gl_FrontFacing dava falso justamente na tampa olhando de
+    // frente pra camera, invertendo uma normal ja' autorada corretamente
+    // (confirmado: capturando a visualizacao de debug 3 sem o flip antigo,
+    // a tampa da frente passou a mostrar Z positivo, como esperado). Esse
+    // teste geometrico e' robusto independente de winding.
+    if (dot(N, V) < 0.0) N = -N;
     vec3 R = reflect(-V, N);
     vec3 base = uBaseColor;
     float fres = pow(1.0 - max(dot(N, V), 0.0), 5.0);
