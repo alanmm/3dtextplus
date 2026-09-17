@@ -34,6 +34,7 @@ struct ParticleSystem {
 
     int   kind;      /* -1 = ainda nao inicializado */
     float density, speed, size_scale, opacity_scale;
+    float last_density;  /* densidade usada na ultima semeadura - -1 = nenhuma ainda */
     float box_hx, box_hy, box_hz;
     float fade_dist;   /* distancia de referencia p/ o fade por distancia e o crescimento do bokeh */
 
@@ -129,6 +130,7 @@ ParticleSystem *particles_create(void)
     glBindVertexArray(0);
 
     p->kind = -1;
+    p->last_density = -1.0f;
     /* semente com entropia real - sem isso toda execucao do protetor de
        tela sorteia exatamente a mesma paleta/layout (achado testando esta
        mudanca: duas capturas em execucoes separadas saiam identicas,
@@ -237,15 +239,26 @@ void particles_set_config(ParticleSystem *p, const Config *cfg,
         }
     }
 
+    int density_changed = (p->last_density != cfg->particles_density);
+
     if (kind_changed) {
         p->kind = cfg->particles_kind;
         p->count = 0;
         p->emit_accum = 0.0f;
         p->star_angle = 0.0f;
         if (p->kind != 2) spawn_ambient(p);   /* sparks (kind 2) comecam vazias, emitem aos poucos */
-    } else if (p->kind == 0 || p->kind == 1 || p->kind == 3) {
-        spawn_ambient(p);   /* densidade pode ter mudado sem trocar de tipo - re-semeia */
+    } else if ((p->kind == 0 || p->kind == 1 || p->kind == 3) && density_changed) {
+        /* so' re-semeia se a densidade realmente mudou - antes rodava em
+           TODO sync de config (ou seja, a cada edicao de QUALQUER slider
+           do dialogo, ja' que o preview ao vivo resincroniza a config
+           inteira a cada tick sujo), teleportando as particulas ambiente
+           pra posicoes aleatorias novas o tempo todo e dando uma
+           impressao de "particulas aceleradas/erraticas" ao arrastar
+           qualquer slider - achado ao investigar reclamacao do usuario de
+           que o slider de vies aresta/plano "acelerava particulas". */
+        spawn_ambient(p);
     }
+    p->last_density = cfg->particles_density;
 }
 
 static void update_ambient_drift(ParticleSystem *p, float dt)
