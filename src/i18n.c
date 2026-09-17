@@ -30,6 +30,7 @@ static const char *const KEY_NAMES[STR_COUNT] = {
     "material.emissive_label", "material.emissive_color_btn",
     "material.edgebias_label",
     "material.wire_thickness_label", "material.wire_xray",
+    "material.wire_fill", "material.wire_fill_color_btn",
     "material.env_label", "placeholder.procedural",
     "material.env_mode.embedded", "material.env_mode.custom", "material.env_mode.none",
 

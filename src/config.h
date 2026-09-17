@@ -25,6 +25,8 @@ typedef struct {
                                            transparente, >0.5 mais opaco/aresta */
     float        wireframe_thickness; /* 1..6 (px de tela) - so' wireframe */
     int          wireframe_xray;      /* 0/1 - so' wireframe */
+    int          wireframe_fill;      /* 0/1 - preenche as faces com cor solida, so' wireframe */
+    float        wireframe_fill_r, wireframe_fill_g, wireframe_fill_b;
     int          env_mode;             /* 0 embutida, 1 personalizada, 2 nenhuma */
     wchar_t      env_path[512];        /* vazio = ambiente procedural */
     int          bevel_mode;           /* 0 arredondado, 1 geometrico, 2 desligado */

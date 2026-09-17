@@ -32,6 +32,8 @@ void config_defaults(Config *c)
     c->edge_bias = 0.5f;
     c->wireframe_thickness = 2.0f;
     c->wireframe_xray = 0;
+    c->wireframe_fill = 0;
+    c->wireframe_fill_r = 0.09020f; c->wireframe_fill_g = 0.24706f; c->wireframe_fill_b = 0.54902f;
     c->env_mode = 0;
     c->env_path[0] = 0;
     c->bevel_mode = 1;
@@ -196,6 +198,10 @@ void config_load_from(Config *c, const wchar_t *subkey)
     if (reg_get_f(k, L"edge_bias", &f))       c->edge_bias = f;
     if (reg_get_f(k, L"wireframe_thickness", &f)) c->wireframe_thickness = f;
     reg_get_i(k, L"wireframe_xray", &c->wireframe_xray);
+    reg_get_i(k, L"wireframe_fill", &c->wireframe_fill);
+    if (reg_get_f(k, L"wireframe_fill_r", &f)) c->wireframe_fill_r = f;
+    if (reg_get_f(k, L"wireframe_fill_g", &f)) c->wireframe_fill_g = f;
+    if (reg_get_f(k, L"wireframe_fill_b", &f)) c->wireframe_fill_b = f;
     if (reg_get_f(k, L"bevel_size", &f))     c->bevel_size = f;
     if (reg_get_f(k, L"bevel_depth", &f))    c->bevel_depth = f;
     if (reg_get_f(k, L"wall_thickness", &f)) c->wall_thickness = f;
@@ -304,6 +310,10 @@ void config_load_from(Config *c, const wchar_t *subkey)
     c->edge_bias = clampf(c->edge_bias, 0.0f, 1.0f);
     c->wireframe_thickness = clampf(c->wireframe_thickness, 1.0f, 6.0f);
     if (c->wireframe_xray != 0 && c->wireframe_xray != 1) c->wireframe_xray = 0;
+    if (c->wireframe_fill != 0 && c->wireframe_fill != 1) c->wireframe_fill = 0;
+    c->wireframe_fill_r = clampf(c->wireframe_fill_r, 0.0f, 1.0f);
+    c->wireframe_fill_g = clampf(c->wireframe_fill_g, 0.0f, 1.0f);
+    c->wireframe_fill_b = clampf(c->wireframe_fill_b, 0.0f, 1.0f);
     if (c->env_mode < 0 || c->env_mode > 2) c->env_mode = 0;
     if (c->bevel_mode < 0 || c->bevel_mode > 2) c->bevel_mode = 0;
     if (c->bevel_segments < 2) c->bevel_segments = 2;
@@ -421,6 +431,10 @@ void config_save_to(const Config *c, const wchar_t *subkey)
     set_f(k, L"edge_bias", c->edge_bias);
     set_f(k, L"wireframe_thickness", c->wireframe_thickness);
     set_f(k, L"wireframe_xray", (float)c->wireframe_xray);
+    set_f(k, L"wireframe_fill", (float)c->wireframe_fill);
+    set_f(k, L"wireframe_fill_r", c->wireframe_fill_r);
+    set_f(k, L"wireframe_fill_g", c->wireframe_fill_g);
+    set_f(k, L"wireframe_fill_b", c->wireframe_fill_b);
     set_f(k, L"env_mode", (float)c->env_mode);
     set_w(k, L"env_path", c->env_path);
     set_f(k, L"bevel_mode", (float)c->bevel_mode);

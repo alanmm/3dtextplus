@@ -540,6 +540,8 @@ static void material_apply_i18n(HWND h)
     SetDlgItemTextW(h, IDC_EDGEBIAS_LABEL, i18n_str(STR_MATERIAL_EDGEBIAS_LABEL));
     SetDlgItemTextW(h, IDC_WIRE_THICK_LABEL, i18n_str(STR_MATERIAL_WIRE_THICKNESS_LABEL));
     SetDlgItemTextW(h, IDC_WIRE_XRAY, i18n_str(STR_MATERIAL_WIRE_XRAY));
+    SetDlgItemTextW(h, IDC_WIRE_FILL, i18n_str(STR_MATERIAL_WIRE_FILL));
+    SetDlgItemTextW(h, IDC_WIRE_FILLCOLOR, i18n_str(STR_MATERIAL_WIRE_FILL_COLOR_BTN));
     SetDlgItemTextW(h, IDC_ENV_LABEL, i18n_str(STR_MATERIAL_ENV_LABEL));
     SetDlgItemTextW(h, IDC_ENVMODE_EMBED, i18n_str(STR_MATERIAL_ENV_MODE_EMBEDDED));
     SetDlgItemTextW(h, IDC_ENVMODE_CUSTOM, i18n_str(STR_MATERIAL_ENV_MODE_CUSTOM));
@@ -586,7 +588,7 @@ static void material_apply_i18n(HWND h)
    blocos por economia de espaco.) */
 typedef struct { int id; int x, rel_y; } MatCtrl;
 
-#define MAT_BLOCKS 8
+#define MAT_BLOCKS 9
 static MatCtrl g_mat_blocks[MAT_BLOCKS][4] = {
     { { IDC_METAL_LABEL, 0, 0 }, { IDC_METAL_VAL, 0, 0 }, { IDC_METAL, 0, 0 } },
     { { IDC_ROUGH_LABEL, 0, 0 }, { IDC_ROUGH_VAL, 0, 0 }, { IDC_ROUGH, 0, 0 } },
@@ -594,10 +596,11 @@ static MatCtrl g_mat_blocks[MAT_BLOCKS][4] = {
     { { IDC_EDGEBIAS_LABEL, 0, 0 }, { IDC_EDGEBIAS_VAL, 0, 0 }, { IDC_EDGEBIAS, 0, 0 } },
     { { IDC_WIRE_THICK_LABEL, 0, 0 }, { IDC_WIRE_THICK_VAL, 0, 0 }, { IDC_WIRE_THICK, 0, 0 } },
     { { IDC_WIRE_XRAY, 0, 0 } },
+    { { IDC_WIRE_FILL, 0, 0 }, { IDC_WIRE_FILLCOLOR, 0, 0 } },
     { { IDC_ENV_LABEL, 0, 0 }, { IDC_ENVMODE_EMBED, 0, 0 }, { IDC_ENVMODE_CUSTOM, 0, 0 }, { IDC_ENVMODE_NONE, 0, 0 } },
     { { IDC_ENVPATH, 0, 0 }, { IDC_ENVPICK, 0, 0 }, { IDC_ENVCLEAR, 0, 0 } },
 };
-static const int MAT_BLOCK_N[MAT_BLOCKS] = { 3, 3, 4, 3, 3, 1, 4, 3 };
+static const int MAT_BLOCK_N[MAT_BLOCKS] = { 3, 3, 4, 3, 3, 1, 2, 4, 3 };
 static int g_mat_block_top[MAT_BLOCKS];
 static int g_mat_block_h[MAT_BLOCKS];
 static int g_mat_gap = 0;   /* espacamento uniforme entre blocos - todo o .rc usa o
@@ -650,10 +653,11 @@ static void material_layout_apply(HWND h)
     int vis_edgebias   = (mode == 2);
     int vis_wire_thick = (mode == 3);
     int vis_wire_xray  = (mode == 3);
+    int vis_wire_fill  = (mode == 3);
     int vis_env_hdr    = (mode == 1 || mode == 2);
     int vis_env_pick   = vis_env_hdr && (g_work.env_mode == 1);
     int visible[MAT_BLOCKS] = { vis_metal, vis_rough, vis_emissive, vis_edgebias,
-                                 vis_wire_thick, vis_wire_xray, vis_env_hdr, vis_env_pick };
+                                 vis_wire_thick, vis_wire_xray, vis_wire_fill, vis_env_hdr, vis_env_pick };
 
     int cursor = g_mat_block_top[0];
     for (int b = 0; b < MAT_BLOCKS; ++b) {
@@ -687,6 +691,7 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                               g_work.env_mode == 1 ? IDC_ENVMODE_CUSTOM :
                               g_work.env_mode == 2 ? IDC_ENVMODE_NONE : IDC_ENVMODE_EMBED);
             CheckDlgButton(h, IDC_WIRE_XRAY, g_work.wireframe_xray ? BST_CHECKED : BST_UNCHECKED);
+            CheckDlgButton(h, IDC_WIRE_FILL, g_work.wireframe_fill ? BST_CHECKED : BST_UNCHECKED);
             material_layout_capture(h);
             material_layout_apply(h);
             return TRUE;
@@ -781,6 +786,29 @@ static INT_PTR CALLBACK material_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     g_work.wireframe_xray = (IsDlgButtonChecked(h, IDC_WIRE_XRAY) == BST_CHECKED);
                     preview_dirty(h);
                     break;
+                case IDC_WIRE_FILL:
+                    g_work.wireframe_fill = (IsDlgButtonChecked(h, IDC_WIRE_FILL) == BST_CHECKED);
+                    preview_dirty(h);
+                    break;
+                case IDC_WIRE_FILLCOLOR: {
+                    static COLORREF custom[16];
+                    CHOOSECOLORW cc;
+                    memset(&cc, 0, sizeof cc);
+                    cc.lStructSize = sizeof cc;
+                    cc.hwndOwner = h;
+                    cc.lpCustColors = custom;
+                    cc.rgbResult = RGB((int)(g_work.wireframe_fill_r * 255.0f),
+                                       (int)(g_work.wireframe_fill_g * 255.0f),
+                                       (int)(g_work.wireframe_fill_b * 255.0f));
+                    cc.Flags = CC_FULLOPEN | CC_RGBINIT;
+                    if (ChooseColorW(&cc)) {
+                        g_work.wireframe_fill_r = GetRValue(cc.rgbResult) / 255.0f;
+                        g_work.wireframe_fill_g = GetGValue(cc.rgbResult) / 255.0f;
+                        g_work.wireframe_fill_b = GetBValue(cc.rgbResult) / 255.0f;
+                        preview_dirty(h);
+                    }
+                    break;
+                }
             }
             return TRUE;
     }

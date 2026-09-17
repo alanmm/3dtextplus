@@ -50,6 +50,8 @@ struct SceneRenderer {
     float    edge_bias;
     float    wireframe_thickness;
     int      wireframe_xray;
+    int      wireframe_fill;
+    v3       wireframe_fill_color;
 
     /* Wireframe - lista de arestas (GL_LINES) + FBO de profundidade
        dedicada de 1 amostra (so' usada no modo Raio-X - ver spec
@@ -629,6 +631,8 @@ void scene_set_config(SceneRenderer *s, const Config *cfg)
     s->edge_bias = cfg->edge_bias;
     s->wireframe_thickness = cfg->wireframe_thickness;
     s->wireframe_xray = cfg->wireframe_xray;
+    s->wireframe_fill = cfg->wireframe_fill;
+    s->wireframe_fill_color = (v3){ cfg->wireframe_fill_r, cfg->wireframe_fill_g, cfg->wireframe_fill_b };
     s->bevel_mode = cfg->bevel_mode;
     s->bevel_size = cfg->bevel_size;
     s->bevel_depth = cfg->bevel_depth;
@@ -1045,13 +1049,23 @@ void scene_render(SceneRenderer *s, double t, int fb_w, int fb_h, int particles_
         glDisable(GL_BLEND);
         glEnable(GL_DEPTH_TEST);
     } else if (s->material_mode == 3) {                     /* wireframe */
-        /* passo 1 (sempre): profundidade "invisivel" da malha solida
-           direto no alvo HDR principal ja ligado - nenhuma FBO nova
-           precisa pra oclusao normal, o buffer que ja esta' la
-           (post_begin) basta. */
-        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-        draw_content(s);
-        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        /* passo 1 (sempre): desenha a malha solida direto no alvo HDR
+           principal ja ligado - nenhuma FBO nova precisa pra oclusao
+           normal, o buffer que ja esta' la (post_begin) basta. Sem
+           preenchimento, a cor fica mascarada (so' grava profundidade,
+           "invisivel"); com preenchimento, a cor fica ligada e o
+           model.frag (uMode==3) escreve uFillColor solido - o mesmo
+           passe serve de preenchimento E de profundidade pra oclusao
+           das linhas, sem desenhar a malha 2x. */
+        if (s->wireframe_fill) {
+            glUniform3f(glGetUniformLocation(s->mat.prog, "uFillColor"),
+                        s->wireframe_fill_color.x, s->wireframe_fill_color.y, s->wireframe_fill_color.z);
+            draw_content(s);
+        } else {
+            glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+            draw_content(s);
+            glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        }
 
         if (s->wireframe_xray) {
             /* passo 2 (so' raio-x): repete o mesmo desenho numa FBO

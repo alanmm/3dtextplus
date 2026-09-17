@@ -7,7 +7,8 @@ in float vSurf;
 uniform mat4  uModel;
 uniform vec3  uCamPos;
 uniform vec3  uBaseColor;
-uniform int   uMode;         // 0 classico, 1 metalico, 2 vidro
+uniform int   uMode;         // 0 classico, 1 metalico, 2 vidro, 3 wireframe (preenchimento)
+uniform vec3  uFillColor;    // so' uMode==3 - cor solida das faces, independente de uBaseColor
 uniform float uMetalness;    // 0..1
 uniform float uRoughness;    // 0..1 - classico, metalico e vidro
 uniform vec3  uEmissiveColor;
@@ -94,6 +95,11 @@ vec3 jitter_reflection(vec3 R, vec3 worldPos, float amount)
 
 void main()
 {
+    if (uMode == 3) {          // wireframe: preenchimento solido, sem sombreamento
+        fragColor = vec4(uFillColor, 1.0);
+        return;
+    }
+
     vec3 Nl = normalize(vNrmLocal);
     vec3 N = normalize(mat3(uModel) * Nl);
     vec3 V = normalize(uCamPos - vWorld);

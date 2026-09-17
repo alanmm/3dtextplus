@@ -14,6 +14,8 @@ void preset_scope_copy(Config *dst, const Config *src)
     dst->edge_bias = src->edge_bias;
     dst->wireframe_thickness = src->wireframe_thickness;
     dst->wireframe_xray = src->wireframe_xray;
+    dst->wireframe_fill = src->wireframe_fill;
+    dst->wireframe_fill_r = src->wireframe_fill_r; dst->wireframe_fill_g = src->wireframe_fill_g; dst->wireframe_fill_b = src->wireframe_fill_b;
     dst->env_mode = src->env_mode;
     wcsncpy(dst->env_path, src->env_path, 511);
     dst->env_path[511] = 0;
@@ -261,6 +263,10 @@ static void preset_dump_fields(FILE *f, const Config *from)
     fwprintf(f, L"edge_bias=%.5f\r\n", (double)from->edge_bias);
     fwprintf(f, L"wireframe_thickness=%.5f\r\n", (double)from->wireframe_thickness);
     fwprintf(f, L"wireframe_xray=%d\r\n", from->wireframe_xray);
+    fwprintf(f, L"wireframe_fill=%d\r\n", from->wireframe_fill);
+    fwprintf(f, L"wireframe_fill_r=%.5f\r\n", (double)from->wireframe_fill_r);
+    fwprintf(f, L"wireframe_fill_g=%.5f\r\n", (double)from->wireframe_fill_g);
+    fwprintf(f, L"wireframe_fill_b=%.5f\r\n", (double)from->wireframe_fill_b);
     fwprintf(f, L"env_mode=%d\r\n", from->env_mode);
     fwprintf(f, L"env_path=%ls\r\n", from->env_path);
     fwprintf(f, L"bevel_mode=%d\r\n", from->bevel_mode);

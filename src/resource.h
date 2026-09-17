@@ -84,6 +84,8 @@
 #define IDC_WIRE_THICK_VAL   1323
 #define IDC_WIRE_THICK       1324
 #define IDC_WIRE_XRAY        1325
+#define IDC_WIRE_FILL        1326
+#define IDC_WIRE_FILLCOLOR   1327
 
 /* aba Geometria */
 #define IDC_BEVELMODE     1400
