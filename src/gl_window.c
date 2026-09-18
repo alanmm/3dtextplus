@@ -140,7 +140,7 @@ GlWindow *gl_window_create(HINSTANCE hInst, DWORD style, DWORD exstyle, HWND par
     wc.style         = CS_OWNDC;
     RegisterClassW(&wc);
 
-    g->hwnd = CreateWindowExW(exstyle, cls, L"3D Text+", style,
+    g->hwnd = CreateWindowExW(exstyle, cls, L"3D Text+ Screensaver", style,
                               x, y, w, h, parent, NULL, hInst, NULL);
     if (!g->hwnd) { log_errorf("CreateWindowExW falhou (%lu)", GetLastError()); free(g); return NULL; }
 

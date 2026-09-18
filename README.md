@@ -85,7 +85,7 @@ Since AI-assisted work is essentially collective work, **3D Text+** is completel
 
 I hope you enjoy using it, that it adds a bit of nostalgia to your desktop, and that it helps revive community interest in desktop screensavers!
 
-Licensed under [MIT](LICENSE).
+Licensed under [MIT](LICENSE). Third-party libraries and their licenses are listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 ---
 

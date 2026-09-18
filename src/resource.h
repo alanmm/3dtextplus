@@ -230,6 +230,7 @@
 #define IDC_ABOUT_VERSION  2101
 #define IDC_ABOUT_AUTHOR   2102
 #define IDC_ABOUT_LINK     2103
+#define IDC_ABOUT_TAGLINE  2104
 
 #define IDM_ABOUT           2020
 #define IDM_MENU_RESTORE    2021

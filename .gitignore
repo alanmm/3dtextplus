@@ -4,6 +4,7 @@
 /build/tests/*.exe
 /generated/
 /installer/output/
+/dist/3DTextPlus.exe
 
 # Editor / OS
 .vscode/
