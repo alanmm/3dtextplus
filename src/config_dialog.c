@@ -2316,6 +2316,16 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             g_dlg = h;
             i18n_init(g_work.ui_language);
 
+            {
+                HINSTANCE hInst = GetModuleHandleW(NULL);
+                HICON hIconBig = (HICON)LoadImageW(hInst, MAKEINTRESOURCEW(IDI_APPICON), IMAGE_ICON,
+                                                    GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), 0);
+                HICON hIconSmall = (HICON)LoadImageW(hInst, MAKEINTRESOURCEW(IDI_APPICON), IMAGE_ICON,
+                                                      GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0);
+                if (hIconBig)   SendMessageW(h, WM_SETICON, ICON_BIG, (LPARAM)hIconBig);
+                if (hIconSmall) SendMessageW(h, WM_SETICON, ICON_SMALL, (LPARAM)hIconSmall);
+            }
+
             HWND tabs = GetDlgItem(h, IDC_TABS);
             TCITEMW ti;
             memset(&ti, 0, sizeof ti);

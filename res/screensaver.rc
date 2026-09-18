@@ -1,6 +1,8 @@
 #include <windows.h>
 #include "resource.h"
 
+IDI_APPICON ICON "icon/Icone_3dText.ico"
+
 1 24 "screensaver.manifest"
 
 IDD_CONFIG DIALOGEX 0, 0, 448, 316

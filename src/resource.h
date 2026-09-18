@@ -1,6 +1,8 @@
 #ifndef M3DT_RESOURCE_H
 #define M3DT_RESOURCE_H
 
+#define IDI_APPICON       1
+
 #define IDD_CONFIG        101
 #define IDD_TAB_CONTENT   110
 #define IDD_TAB_MOTION    111

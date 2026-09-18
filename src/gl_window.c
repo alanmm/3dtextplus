@@ -3,6 +3,7 @@
 #include "scene.h"
 #include "post.h"
 #include "render_tiers.h"
+#include "resource.h"
 #include "util/log.h"
 
 #include <glad/gl.h>
@@ -134,6 +135,7 @@ GlWindow *gl_window_create(HINSTANCE hInst, DWORD style, DWORD exstyle, HWND par
     wc.lpfnWndProc   = proc ? proc : DefWindowProcW;
     wc.hInstance     = hInst;
     wc.hCursor       = NULL;
+    wc.hIcon         = LoadIconW(hInst, MAKEINTRESOURCEW(IDI_APPICON));
     wc.lpszClassName = cls;
     wc.style         = CS_OWNDC;
     RegisterClassW(&wc);
