@@ -47,6 +47,16 @@ The mesh is rebuilt on the CPU only when the text or its settings actually chang
 
 ---
 
+## Install
+
+**Easiest — installer:** download [`3DTextPlus-Setup-1.0.0.exe`](https://raw.githubusercontent.com/alanmm/3dtextplus/main/dist/3DTextPlus-Setup-1.0.0.exe) and run it. It copies the screensaver into your Windows system folder, adds Start Menu shortcuts, and can set it as your active screen saver right away.
+
+**Manual — plain `.scr`:** download [`3DTextPlus.scr`](https://raw.githubusercontent.com/alanmm/3dtextplus/main/dist/3DTextPlus.scr), then either double-click it (Windows offers to Install/Test it directly) or copy it into `C:\Windows\System32\` yourself (needs admin).
+
+Both are built from the same source you can see in this repo — see [Build](#-build) below.
+
+---
+
 ## Build
 
 You need [w64devkit](https://github.com/skeeto/w64devkit/releases) (a portable MinGW-w64 toolchain, no installer needed):
@@ -66,16 +76,6 @@ You need [w64devkit](https://github.com/skeeto/w64devkit/releases) (a portable M
 Toolchain version last tested against: see [`toolchain.txt`](toolchain.txt).
 
 Building the installer additionally needs [Inno Setup 6](https://jrsoftware.org/isdl.php), with `ISCC.exe` on `PATH`. The script lives at [`installer/3DTextPlus.iss`](installer/3DTextPlus.iss).
-
----
-
-## Install
-
-**Easiest — installer:** download [`3DTextPlus-Setup-1.0.0.exe`](https://raw.githubusercontent.com/alanmm/3dtextplus/main/dist/3DTextPlus-Setup-1.0.0.exe) and run it. It copies the screensaver into your Windows system folder, adds Start Menu shortcuts, and can set it as your active screen saver right away.
-
-**Manual — plain `.scr`:** download [`3DTextPlus.scr`](https://raw.githubusercontent.com/alanmm/3dtextplus/main/dist/3DTextPlus.scr), then either double-click it (Windows offers to Install/Test it directly) or copy it into `C:\Windows\System32\` yourself (needs admin).
-
-Both are built from the same source you can see in this repo — see [Build](#-build) above.
 
 ---
 
