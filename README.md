@@ -8,7 +8,7 @@ What started as a personal itch is now a fully featured, modernized screensaver 
 
 ---
 
-## 📜 The Story
+## The Story
 
 I've always missed classic screensavers. Back in the early days of Windows, they were an experience of their own—**3D Pipes, 3D Maze, Starfield**, and more. Today, those options have shrunk, but legacy code remains. The reflection map on Windows' default *3D Text* is still a pixelated 256x256 image from decades ago, and it really shows on modern high-resolution displays.
 
@@ -22,7 +22,7 @@ A task like this should be simple for modern hardware, yet default system tools 
 
 ---
 
-## 🛠️ How It Was Built
+## How It Was Built
 
 Since I don't write C++ manually, I teamed up with Claude to bring this project to life. Yes, it's fully **"vibe-coded," but 100% human-directed**.
 
@@ -33,7 +33,7 @@ Performance and resource efficiency were constant priorities throughout developm
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 3D Text+ is native **C** — plus one small, self-contained **C++** dependency for robust bevel geometry — built directly on **Win32 + OpenGL 3.3**. No game engine, no web view, nothing else in between.
 
@@ -47,7 +47,7 @@ The mesh is rebuilt on the CPU only when the text or its settings actually chang
 
 ---
 
-## 🔧 Build
+## Build
 
 You need [w64devkit](https://github.com/skeeto/w64devkit/releases) (a portable MinGW-w64 toolchain, no installer needed):
 
@@ -69,7 +69,7 @@ Building the installer additionally needs [Inno Setup 6](https://jrsoftware.org/
 
 ---
 
-## 📦 Install
+## Install
 
 **Easiest — installer:** download [`3DTextPlus-Setup-1.0.0.exe`](https://raw.githubusercontent.com/alanmm/3dtextplus/main/dist/3DTextPlus-Setup-1.0.0.exe) and run it. It copies the screensaver into your Windows system folder, adds Start Menu shortcuts, and can set it as your active screen saver right away.
 
@@ -79,7 +79,7 @@ Both are built from the same source you can see in this repo — see [Build](#-b
 
 ---
 
-## 🤝 Open & Community-Driven
+## Open & Community-Driven
 
 Since AI-assisted work is essentially collective work, **3D Text+** is completely free for everyone.
 
@@ -89,4 +89,20 @@ Licensed under [MIT](LICENSE).
 
 ---
 
-*Feel free to contribute, open issues, or suggest new features!*
+## Bugs, Ideas & Contributions
+
+Found something broken? Have an idea for a feature? Want to send a pull request? [Open an issue](https://github.com/alanmm/3dtextplus/issues) or a PR — all of it is welcome, big or small.
+
+If 3D Text+ made your desktop a little more fun and you'd like to say thanks, a small tip is always appreciated:
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/N4A4278DVB)
+
+🇧🇷 Pra quem for BR, faz um Pix:
+
+<img src="docs/img/pix_qr.png" alt="Pix QR code" width="200">
+
+```
+00020126640014br.gov.bcb.pix0122alan.maziero@gmail.com0216Pague-me_um_cafe5204000053039865802BR5921ALAN_MEDEIROS_MAZIERO6009SAO_PAULO62130509Doacaoscr6304D0A7
+```
+
+No pressure either way — enjoy the screensaver!
