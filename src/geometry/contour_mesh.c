@@ -1,4 +1,5 @@
 #include "geometry/contour_mesh.h"
+#include "geometry/robust_offset.h"
 #include "util/log.h"
 
 #include <stdlib.h>
@@ -133,37 +134,14 @@ static void rounded_normal(v2 n, float theta, float run, float bd, float *nx, fl
 }
 
 /* offset de `c` para o interior por `d`. `inward_left` = 1 se o interior fica a
-   esquerda das arestas (contorno CCW). Fallback ao ponto original quando o miter
-   estoura. Escreve `c->count` pontos em `out`. */
+   esquerda das arestas (contorno CCW). Escreve `c->count` pontos em `out`.
+   Implementacao em robust_offset.cpp (Clipper2) - ver o comentario la' pra
+   detalhes do porque (piso fixo de cosseno colapsava geometria em cantos
+   agudos/junções estreitas; ver memoria do projeto, saga revertida em
+   fa03dd5). */
 static void inset_contour(const Contour *c, float d, int inward_left, v2 *out)
 {
-    for (int i = 0; i < c->count; ++i) {
-        v2 pm = c->pts[(i - 1 + c->count) % c->count];
-        v2 p  = c->pts[i];
-        v2 pp = c->pts[(i + 1) % c->count];
-
-        v2 e0 = { p.x - pm.x, p.y - pm.y };
-        v2 e1 = { pp.x - p.x, pp.y - p.y };
-        float l0 = sqrtf(e0.x * e0.x + e0.y * e0.y);
-        float l1 = sqrtf(e1.x * e1.x + e1.y * e1.y);
-        if (l0 < 1e-9f || l1 < 1e-9f) { out[i] = p; continue; }
-        e0.x /= l0; e0.y /= l0;
-        e1.x /= l1; e1.y /= l1;
-
-        /* normal interior de cada aresta */
-        v2 n0, n1;
-        if (inward_left) { n0 = (v2){ -e0.y, e0.x }; n1 = (v2){ -e1.y, e1.x }; }
-        else             { n0 = (v2){ e0.y, -e0.x }; n1 = (v2){ e1.y, -e1.x }; }
-
-        v2 bis = { n0.x + n1.x, n0.y + n1.y };
-        float bl = sqrtf(bis.x * bis.x + bis.y * bis.y);
-        if (bl < 1e-4f) { out[i] = p; continue; }   /* reversao de 180 graus */
-        bis.x /= bl; bis.y /= bl;
-
-        float cosang = bis.x * n0.x + bis.y * n0.y;    /* = cos(theta/2) */
-        float step = d / (cosang > 0.3f ? cosang : 0.3f);
-        out[i] = (v2){ p.x + bis.x * step, p.y + bis.y * step };
-    }
+    robust_offset_contour(c, d, inward_left, out);
 }
 
 int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
@@ -285,6 +263,15 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
                 int j = (i + 1) % co->count;
                 v2 o0 = os[i], o1 = os[j];
                 v2 c0 = co->pts[i], c1 = co->pts[j];
+                /* aresta original pode ser degenerada (ponto de fechamento
+                   duplicado no wraparound de todo contorno de fonte: co[i]==
+                   co[j]) mesmo quando os[i]!=os[j] - offset robusto desloca
+                   cada lado independentemente pela normal do seu unico
+                   vizinho valido (ver robust_offset.cpp). NAO pular esse caso:
+                   a faixa resultante degenera numa cunha (largura zero na
+                   tampa, largura real na parede) que fecha a costura entre os
+                   dois deslocamentos - pular deixaria um buraco (malha nao-
+                   manifold) exatamente onde antes havia um pinçamento. */
                 v2 on = wn.edgeN[i];
                 if (on.x == 0.0f && on.y == 0.0f) continue;
                 v2 n0 = wall_normal_at(&wn, i, i);
@@ -324,13 +311,30 @@ int contour_mesh_build(const ContourSet *cs, MeshParams p, MeshData *out)
                     if (rounded) {
                         float th0 = u0 * HALF_PI, th1 = u1 * HALF_PI;
                         z0 = hz - bd * (1.0f - cosf(th0));
-                        z1 = hz - bd * (1.0f - cosf(th1));
                         A0 = rounded_pos(c0, o0, th0); B0 = rounded_pos(c1, o1, th0);
-                        A1 = rounded_pos(c0, o0, th1); B1 = rounded_pos(c1, o1, th1);
                         rounded_normal(n0, th0, run, bd, &nxA0, &nyA0, &nzA0);
                         rounded_normal(n1, th0, run, bd, &nxB0, &nyB0, &nzB0);
-                        rounded_normal(n0, th1, run, bd, &nxA1, &nyA1, &nzA1);
-                        rounded_normal(n1, th1, run, bd, &nxB1, &nyB1, &nzB1);
+                        if (k == segs - 1) {
+                            /* ultimo anel: usa os pontos/normais EXATOS da parede
+                               reta (o0/o1/wall_z) em vez de sinf/cosf(HALF_PI) -
+                               HALF_PI e' so' uma aproximacao de pi/2 (e sinf/cosf
+                               tem seu proprio arredondamento), entao o resultado
+                               "quase" o0/wall_z ficava uma fracao de unidade fora
+                               - o bastante pra falhar a soldagem por posicao que
+                               o wireframe (feature_edges.c) depende, fragmentando
+                               a costura entre chanfro e parede especificamente no
+                               modo Arredondado (a tolerancia de solda e' apertada
+                               de proposito, ver comentario em quantize_key()). */
+                            z1 = wall_z;
+                            A1 = o0; B1 = o1;
+                            nxA1 = n0.x; nyA1 = n0.y; nzA1 = 0.0f;
+                            nxB1 = n1.x; nyB1 = n1.y; nzB1 = 0.0f;
+                        } else {
+                            z1 = hz - bd * (1.0f - cosf(th1));
+                            A1 = rounded_pos(c0, o0, th1); B1 = rounded_pos(c1, o1, th1);
+                            rounded_normal(n0, th1, run, bd, &nxA1, &nyA1, &nzA1);
+                            rounded_normal(n1, th1, run, bd, &nxB1, &nyB1, &nzB1);
+                        }
                     } else {
                         z0 = hz - bd * u0; z1 = hz - bd * u1;
                         A0 = (v2){ c0.x + (o0.x - c0.x) * u0, c0.y + (o0.y - c0.y) * u0 };

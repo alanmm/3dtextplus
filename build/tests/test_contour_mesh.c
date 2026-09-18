@@ -1,5 +1,6 @@
 #include "test.h"
 #include "geometry/contour_mesh.h"
+#include "geometry/robust_offset.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -283,6 +284,33 @@ void run_contour_mesh_tests(void)
         EXPECT(dot_sharp < 0.8f);
         mesh_data_free(&md);
         cs_free(&cs);
+    }
+
+    /* "H" com ponte estreita: as 2 reentrancias concavas da ponte (vertices
+       2 e 9) nao podem convergir pro MESMO ponto no offset robusto do
+       chanfro - bug de colapso corrigido trocando o piso fixo de cosseno
+       por offset robusto via Clipper2 (robust_offset.cpp); ver historico
+       na memoria do projeto. */
+    {
+        float H[] = { 0,0, 1,0, 1,1.4f, 2,1.4f, 2,0, 3,0, 3,3, 2,3, 2,1.6f, 1,1.6f, 1,3, 0,3 };
+        Contour c;
+        c.count = 12;
+        c.pts = (v2 *)malloc(12 * sizeof(v2));
+        float area = 0.0f;
+        for (int k = 0; k < 12; ++k) {
+            c.pts[k] = (v2){ H[k * 2], H[k * 2 + 1] };
+            v2 p0 = (v2){ H[k * 2], H[k * 2 + 1] };
+            v2 p1 = (v2){ H[((k + 1) % 12) * 2], H[((k + 1) % 12) * 2 + 1] };
+            area += p0.x * p1.y - p1.x * p0.y;
+        }
+        int ccw = area > 0.0f;
+
+        v2 out[12];
+        robust_offset_contour(&c, -0.5f, ccw, out);   /* d<0: outset do bevel */
+
+        float dx = out[2].x - out[9].x, dy = out[2].y - out[9].y;
+        EXPECT(sqrtf(dx * dx + dy * dy) > 0.05f);   /* nao colapsaram no mesmo ponto */
+        free(c.pts);
     }
 
     /* degenerado: 2 pontos => vazio, sem crash */
