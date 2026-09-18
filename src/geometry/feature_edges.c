@@ -23,28 +23,32 @@ static unsigned hash_pair(unsigned lo, unsigned hi)
 }
 
 /* quantiza uma posicao pra uma chave inteira de 63 bits (21 por eixo) -
-   tolera diferencas entre triangulos gerados independentemente que
-   deveriam compartilhar o mesmo vertice geometrico. Necessario porque
-   a malha deste projeto NAO garante indices compartilhados entre
-   triangulos vizinhos - o gerador de tampa/parede emite vertices
-   proprios por triangulo mesmo quando 2 triangulos tocam na mesma
-   posicao (confirmado por instrumentacao: 90%+ das arestas apareciam
-   como "borda aberta" mesmo no meio de uma tampa plana, sem nenhum
-   vinco real ali).
-   1/2000 de unidade (nao 1/100000 - tentativa inicial): nao e' so'
-   ruido de ponto flutuante - `inset_contour()` (contour_mesh.c) trava
-   a distancia de chanfro em cantos bem agudos (`cosang` minimo 0.3)
-   pra nao deixar o contorno "disparar", entao o mesmo canto fisico
-   pode sair com posicoes MEDIVELMENTE diferentes (nao so' ruido de
-   ultimo digito) dependendo de qual chamada de inset o calculou - uma
-   tolerancia mais generosa fecha essas costuras sem, na pratica,
-   fundir vertices que deveriam ficar separados (confirmado
-   visualmente: nenhuma aresta real nova sumiu). */
+   tolera ruido de ponto flutuante entre triangulos gerados
+   independentemente que deveriam compartilhar o mesmo vertice
+   geometrico. Necessario porque a malha deste projeto NAO garante
+   indices compartilhados entre triangulos vizinhos - o gerador de
+   tampa/parede emite vertices proprios por triangulo mesmo quando 2
+   triangulos tocam na mesma posicao (confirmado por instrumentacao:
+   90%+ das arestas apareciam como "borda aberta" mesmo no meio de uma
+   tampa plana, sem nenhum vinco real ali).
+   Ja' se tentou alargar essa tolerancia pra 1/2000 de unidade (pra
+   fechar pequenas costuras que sobravam em cantos bem agudos, onde
+   `inset_contour()` em contour_mesh.c trava a distancia de chanfro e
+   o mesmo canto fisico pode sair com posicoes mensuravelmente
+   diferentes dependendo de qual chamada de inset o calculou) - mas
+   1/2000 revelou-se generoso demais: passou a fundir vertices
+   DISTINTOS que ficam proximos (bevel/chanfro com segmentos finos),
+   colapsando a geometria visivelmente num unico ponto no wireframe.
+   Revertido pra 1/100000 - a costura original e' rara/pequena
+   perto do risco de colapsar geometria de verdade. Se a costura
+   voltar a incomodar, a correcao certa e' folgar o clamp de
+   `inset_contour()` (ou fazer o quantize ciente de escala local),
+   nao alargar esta tolerancia de novo. */
 static long long quantize_key(v3 p)
 {
-    long long qx = (long long)lroundf(p.x * 2000.0f);
-    long long qy = (long long)lroundf(p.y * 2000.0f);
-    long long qz = (long long)lroundf(p.z * 2000.0f);
+    long long qx = (long long)lroundf(p.x * 100000.0f);
+    long long qy = (long long)lroundf(p.y * 100000.0f);
+    long long qz = (long long)lroundf(p.z * 100000.0f);
     long long mask = (1LL << 21) - 1;
     return ((qx & mask) << 42) | ((qy & mask) << 21) | (qz & mask);
 }
