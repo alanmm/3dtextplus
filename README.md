@@ -1,62 +1,92 @@
 # 3D Text+
 
-Reescrita moderna do screensaver clássico "Texto 3D" do Windows. Nativo,
-leve, OpenGL 3.3.
+![3D Text+ showcase](docs/img/showcase.jpg)
 
-**Status:** Fase 4d — **aberração cromática**, **vinheta** e **FXAA**, os 3
-com toggle individual numa **7ª aba "Pós"** no diálogo. Fecha o §8.1 do
-spec: a cadeia de pós-processamento agora tem os 10 passos completos (cena →
-bloom → streaks → combinar → aberração cromática → vinheta → tonemap ACES →
-FXAA). CA e vinheta agem antes do tonemap (deslocamento de UV radial em R/G/B
-e escurecimento multiplicativo nas bordas, respectivamente); FXAA é o último
-passe, pós-tonemap. Nenhum dos 3 entra no ladder de qualidade automática (são
-baratos) — mas, como bloom e streaks, ficam desligados no modo preview (`/p`)
-e no nível de GPU reduzido. Antes: Fase 4c — **streaks de difração** na aba
-Efeitos: *starburst* (estrela de 6 pontas) e *anamórfico* (faixa horizontal
-azulada), selecionáveis e desligados por padrão, com o degrau "streaks off" no
-topo da escada de qualidade automática. Fase 4b — **níveis de qualidade**
-(cheio / reduzido, com detecção de GPU de software / WARP / RDP e override
-`M3DT_FORCE_TIER`), **escala de render** (renderiza numa fração da resolução e
-faz upscale no passe final), **VSync** e **limite de FPS** configuráveis, e
-**qualidade automática**: mede o tempo de GPU por frame (`GL_TIME_ELAPSED`) e
-degrada em degraus com histerese quando a GPU não sustenta ~45 fps. Fase 4a —
-render **HDR** + **bloom** + **tonemap ACES** filmic; **bevel** (sombreado por
-SDF / geométrico / desligado) + micro-bevel + **casca oca** (aba Geometria); 4
-materiais com ambiente refletido (procedural + imagem equiretangular
-opcional); configuração pelo registro (`HKCU\Software\Modern3DText`) +
-diálogo Win32 com abas **Conteúdo / Movimento / Material / Geometria /
-Efeitos / Desempenho / Pós** e mini-preview 3D ao vivo; texto 3D extrudado
-(fonte → contornos → tampa + paredes) e pêndulo limitado das fases 2a/2b.
+> **I don't have any life left to waste waiting for Microsoft to update the "3D Text" screensaver—and neither do you.**
 
-![aberração cromática + vinheta](docs/img/phase4d-all.png)
+What started as a personal itch is now a fully featured, modernized screensaver built for today's hardware.
 
-- Design completo: [`docs/superpowers/specs/2026-09-10-modern-3d-text-screensaver-design.md`](docs/superpowers/specs/2026-09-10-modern-3d-text-screensaver-design.md)
-- Planos de implementação: [`docs/superpowers/plans/`](docs/superpowers/plans/)
+---
 
-## Build
+## 📜 The Story
 
-Precisa do **w64devkit** (MinGW-w64 portátil, sem instalador):
+I've always missed classic screensavers. Back in the early days of Windows, they were an experience of their own—**3D Pipes, 3D Maze, Starfield**, and more. Today, those options have shrunk, but legacy code remains. The reflection map on Windows' default *3D Text* is still a pixelated 256x256 image from decades ago, and it really shows on modern high-resolution displays.
 
-1. Baixe de <https://github.com/skeeto/w64devkit/releases> e extraia em qualquer
-   pasta (ex.: `C:\w64devkit` ou `C:\Users\<você>\w64devkit`).
-2. Rode `w64devkit.exe` (abre um shell com `gcc`/`make`/`windres`/`gdb` no PATH),
-   ou adicione `<pasta>\bin` ao seu PATH — o `gcc` precisa achar `as` e `ld`.
-3. Na raiz do projeto:
+I needed something better: a screensaver where I could:
+- Control the rotation angle (without text rendering backward/flipped).
+- Tweak material types, colors, and textures.
+- Adjust scale, add new visual effects, and set custom backgrounds.
+- **Most importantly:** Upload custom logos or 3D meshes.
+
+A task like this should be simple for modern hardware, yet default system tools haven't caught up. So, **3D Text+** was born.
+
+---
+
+## 🛠️ How It Was Built
+
+Since I don't write C++ manually, I teamed up with Claude to bring this project to life. Yes, it's fully **"vibe-coded," but 100% human-directed**.
+
+Performance and resource efficiency were constant priorities throughout development. Instead of taking the easy route with a web UI wrapper, I chose native **C** code to ensure:
+- Native Windows performance and lightweight execution.
+- Maximum flexibility and customization options.
+- A clean, intuitive user experience (UX) and efficient controls.
+
+---
+
+## 🏗️ Architecture
+
+3D Text+ is native **C** — plus one small, self-contained **C++** dependency for robust bevel geometry — built directly on **Win32 + OpenGL 3.3**. No game engine, no web view, nothing else in between.
+
+**Pipeline, start to finish:**
+
+1. **Vectorization.** The input text becomes 2D vector outlines: [stb_truetype](https://github.com/nothings/stb) reads the chosen TrueType/OpenType font straight from GDI and extracts each glyph's curves; SVG input goes through the same path. Curves are flattened into line-segment polygons at a tolerance set by the Quality slider.
+2. **Mesh generation.** Those 2D contours are extruded into a 3D mesh: [libtess2](https://github.com/memononen/libtess2) triangulates the flat front/back caps (handling holes — the counter of an "O" or "D" — via the nonzero/even-odd fill rule), and hand-written code builds the side walls and the bevel/chamfer band. The bevel's outset uses [Clipper2](https://github.com/AngusJohnson/Clipper2) for a self-intersection-free polygon offset, which is what keeps sharp corners and narrow strokes (like the crossbar of a "t") from collapsing the geometry. There's no subdivision surface anywhere — resolution comes purely from the curve-flattening tolerance and the bevel segment count.
+3. **Rendering.** Straight OpenGL 3.3 rasterization — **no ray tracing**. A fullscreen background pass, then the 3D pass with one of four hand-tuned (not physically-based) material models — Classic, Metallic, Glass (via weighted OIT — order-independent transparency), Wireframe — then particles, then an HDR post-processing chain (bloom, diffraction streaks, chromatic aberration, vignette, FXAA, ACES tonemap). MSAA and render scale adapt automatically to keep frame time in budget.
+
+The mesh is rebuilt on the CPU only when the text or its settings actually change — never per frame.
+
+---
+
+## 🔧 Build
+
+You need [w64devkit](https://github.com/skeeto/w64devkit/releases) (a portable MinGW-w64 toolchain, no installer needed):
+
+1. Download and extract it anywhere (e.g. `C:\w64devkit`).
+2. Run `w64devkit.exe` (opens a shell with `gcc`/`g++`/`make`/`windres` on `PATH`), or add `<folder>\bin` to your own `PATH`.
+3. From the project root:
    ```sh
-   mingw32-make -f build/Makefile          # release -> dist/Modern3DText.scr
+   mingw32-make -f build/Makefile           # release -> dist/3DTextPlus.scr
    mingw32-make -f build/Makefile debug
-   mingw32-make -f build/Makefile test      # testes unitários
-   mingw32-make -f build/Makefile run        # roda /s
-   mingw32-make -f build/Makefile config     # roda /c
+   mingw32-make -f build/Makefile test       # unit tests
+   mingw32-make -f build/Makefile run        # build debug + run /s
+   mingw32-make -f build/Makefile config     # build debug + run /c
+   mingw32-make -f build/Makefile installer  # release + build the installer (needs Inno Setup 6, see below)
    ```
 
-Versão do toolchain testada: ver [`toolchain.txt`](toolchain.txt).
+Toolchain version last tested against: see [`toolchain.txt`](toolchain.txt).
 
-## Instalar para testar
+Building the installer additionally needs [Inno Setup 6](https://jrsoftware.org/isdl.php), with `ISCC.exe` on `PATH`. The script lives at [`installer/3DTextPlus.iss`](installer/3DTextPlus.iss).
 
-Copie `dist/Modern3DText.scr` para `C:\Windows\System32\` (precisa de admin), ou
-clique com o botão direito no arquivo e escolha **Instalar** / **Testar**.
+---
 
-## Licença
+## 📦 Install
 
-MIT — ver [`LICENSE`](LICENSE).
+**Easiest — installer:** download [`3DTextPlus-Setup-1.0.0.exe`](https://raw.githubusercontent.com/alanmm/3dtextplus/main/dist/3DTextPlus-Setup-1.0.0.exe) and run it. It copies the screensaver into your Windows system folder, adds Start Menu shortcuts, and can set it as your active screen saver right away.
+
+**Manual — plain `.scr`:** download [`3DTextPlus.scr`](https://raw.githubusercontent.com/alanmm/3dtextplus/main/dist/3DTextPlus.scr), then either double-click it (Windows offers to Install/Test it directly) or copy it into `C:\Windows\System32\` yourself (needs admin).
+
+Both are built from the same source you can see in this repo — see [Build](#-build) above.
+
+---
+
+## 🤝 Open & Community-Driven
+
+Since AI-assisted work is essentially collective work, **3D Text+** is completely free for everyone.
+
+I hope you enjoy using it, that it adds a bit of nostalgia to your desktop, and that it helps revive community interest in desktop screensavers!
+
+Licensed under [MIT](LICENSE).
+
+---
+
+*Feel free to contribute, open issues, or suggest new features!*
