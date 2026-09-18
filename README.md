@@ -1,4 +1,4 @@
-# 3D Text+
+# 3D Text+ Screensaver
 
 ![3D Text+ showcase](docs/img/showcase.jpg)
 
