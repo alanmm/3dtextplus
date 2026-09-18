@@ -3,6 +3,7 @@
 /build/embed.exe
 /build/tests/*.exe
 /generated/
+/installer/output/
 
 # Editor / OS
 .vscode/

@@ -8,6 +8,7 @@
 #   mingw32-make -f build/Makefile run        # builda debug e roda /s
 #   mingw32-make -f build/Makefile config     # builda debug e roda /c
 #   mingw32-make -f build/Makefile test       # testes unitarios
+#   mingw32-make -f build/Makefile installer  # builda release + compila o instalador (Inno Setup)
 #   mingw32-make -f build/Makefile clean
 
 THIS := $(lastword $(MAKEFILE_LIST))
@@ -66,7 +67,7 @@ EMBEDDED_H   := generated/embedded.h
 
 MAX_BYTES := 3145728
 
-.PHONY: all release debug run config test clean
+.PHONY: all release debug run config test clean installer
 
 all: $(OUT)
 
@@ -117,6 +118,11 @@ run: debug
 
 config: debug
 	./$(OUT) /c
+
+# instalador (Inno Setup 6 - https://jrsoftware.org/isdl.php precisa
+# estar instalado e ISCC.exe no PATH). Builda o release primeiro.
+installer: release
+	ISCC.exe installer/3DTextPlus.iss
 
 TEST_SRC   := build/tests/test_main.c build/tests/test_cmdline.c build/tests/test_log.c \
               build/tests/test_mathx.c build/tests/test_font_outline.c \
