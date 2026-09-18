@@ -6,7 +6,7 @@
 #include <string.h>
 #include <wchar.h>
 
-#define KEY_MAIN    L"Software\\Modern3DText"
+#define KEY_MAIN    L"Software\\3DTextPlus"
 #define CFG_VERSION 2   /* v2: + campos perf (fps_cap/vsync/msaa/render_scale/auto_quality);
                            v1 migra via defaults, sem bloco dedicado */
 

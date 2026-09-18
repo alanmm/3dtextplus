@@ -132,7 +132,7 @@ void run_presets_tests(void)
     EXPECT(dst.bg_solid_customized == 1 && dst.bg_gradient_customized == 1);   /* aplicar preset = escolha deliberada */
 
     /* CRUD de presets salvos - base de teste separada */
-    const wchar_t *TBASE = L"Software\\Modern3DText_test_presets";
+    const wchar_t *TBASE = L"Software\\3DTextPlus_test_presets";
     wchar_t names[8][PRESET_NAME_MAX];
     int n;
 

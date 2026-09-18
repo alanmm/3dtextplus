@@ -1,9 +1,9 @@
-# Modern 3D Text - build (w64devkit)
+# 3D Text+ - build (w64devkit)
 #
 # Rode a partir da RAIZ do projeto (D:/Downloads/Screensaver), num shell com o
 # w64devkit no PATH (o w64devkit.exe abre um; ou adicione <w64devkit>\bin ao PATH):
 #
-#   mingw32-make -f build/Makefile           # release  -> dist/Modern3DText.scr
+#   mingw32-make -f build/Makefile           # release  -> dist/3DTextPlus.scr
 #   mingw32-make -f build/Makefile debug
 #   mingw32-make -f build/Makefile run        # builda debug e roda /s
 #   mingw32-make -f build/Makefile config     # builda debug e roda /c
@@ -15,7 +15,7 @@ THIS := $(lastword $(MAKEFILE_LIST))
 CC      := gcc
 CXX     := g++
 WINDRES := windres
-NAME    := Modern3DText
+NAME    := 3DTextPlus
 OUT     := dist/$(NAME).scr
 
 INCLUDES := -Isrc -Ithird_party -Ithird_party/glad/include \

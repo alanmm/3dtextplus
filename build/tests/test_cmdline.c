@@ -4,7 +4,7 @@
 
 static M3dtCmdLine P(const wchar_t *a1, const wchar_t *a2)
 {
-    const wchar_t *argv[3] = { L"Modern3DText.scr", a1, a2 };
+    const wchar_t *argv[3] = { L"3DTextPlus.scr", a1, a2 };
     int argc = 1 + (a1 ? 1 : 0) + (a1 && a2 ? 1 : 0);
     M3dtCmdLine c;
     m3dt_cmd_parse(argc, argv, &c);

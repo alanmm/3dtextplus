@@ -90,7 +90,7 @@ typedef struct {
 } Config;
 
 void config_defaults(Config *c);
-void config_load(Config *c);                              /* HKCU\Software\Modern3DText */
+void config_load(Config *c);                              /* HKCU\Software\3DTextPlus */
 void config_save(const Config *c);
 void config_load_from(Config *c, const wchar_t *subkey);  /* p/ testes */
 void config_save_to(const Config *c, const wchar_t *subkey);

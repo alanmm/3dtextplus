@@ -21,7 +21,7 @@ static void log_dir_path(char *out, size_t n)
         snprintf(out, n, ".");
         return;
     }
-    snprintf(out, n, "%s\\Modern3DText", base);
+    snprintf(out, n, "%s\\3DTextPlus", base);
 }
 
 void log_init(void)

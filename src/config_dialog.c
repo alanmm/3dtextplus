@@ -154,8 +154,8 @@ static void resize_save_geometry(HWND h)
     if (!GetWindowRect(h, &r)) return;
     DWORD wv = (DWORD)(r.right - r.left);
     DWORD hv = (DWORD)(r.bottom - r.top);
-    RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\Modern3DText", L"dialog_w", REG_DWORD, &wv, sizeof wv);
-    RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\Modern3DText", L"dialog_h", REG_DWORD, &hv, sizeof hv);
+    RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\3DTextPlus", L"dialog_w", REG_DWORD, &wv, sizeof wv);
+    RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\3DTextPlus", L"dialog_h", REG_DWORD, &hv, sizeof hv);
 }
 
 static void preview_teardown(HWND h)
@@ -2029,7 +2029,7 @@ static INT_PTR CALLBACK about_proc(HWND h, UINT m, WPARAM w, LPARAM l)
         case WM_NOTIFY: {
             NMHDR *nm = (NMHDR *)l;
             if (nm->idFrom == IDC_ABOUT_LINK && (nm->code == NM_CLICK || nm->code == NM_RETURN)) {
-                ShellExecuteW(h, L"open", L"https://github.com/alanmm/modern3dtext",
+                ShellExecuteW(h, L"open", L"https://github.com/alanmm/3dtextplus",
                               NULL, NULL, SW_SHOWNORMAL);
                 return TRUE;
             }
@@ -2419,10 +2419,10 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             resize_capture_baseline(h);
             {
                 DWORD savedW = 0, savedH = 0, sz = sizeof(DWORD);
-                LONG rw = RegGetValueW(HKEY_CURRENT_USER, L"Software\\Modern3DText", L"dialog_w",
+                LONG rw = RegGetValueW(HKEY_CURRENT_USER, L"Software\\3DTextPlus", L"dialog_w",
                                         RRF_RT_REG_DWORD, NULL, &savedW, &sz);
                 sz = sizeof(DWORD);
-                LONG rh = RegGetValueW(HKEY_CURRENT_USER, L"Software\\Modern3DText", L"dialog_h",
+                LONG rh = RegGetValueW(HKEY_CURRENT_USER, L"Software\\3DTextPlus", L"dialog_h",
                                         RRF_RT_REG_DWORD, NULL, &savedH, &sz);
                 int minW, minH;
                 resize_min_window_size(h, &minW, &minH);
@@ -2764,7 +2764,7 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                         break;
                     }
 
-                    wchar_t file[512] = L"modern3dtext_presets.ini";
+                    wchar_t file[512] = L"3dtextplus_presets.ini";
                     OPENFILENAMEW ofn;
                     memset(&ofn, 0, sizeof ofn);
                     ofn.lStructSize = sizeof ofn;

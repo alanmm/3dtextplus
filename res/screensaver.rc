@@ -42,7 +42,7 @@ BEGIN
     LTEXT      "3D Text+", IDC_ABOUT_NAME, 10, 10, 200, 12
     LTEXT      "", IDC_ABOUT_VERSION, 10, 28, 200, 9
     LTEXT      "Alan Maziero", IDC_ABOUT_AUTHOR, 10, 42, 200, 9
-    CONTROL    "<a>github.com/alanmm/modern3dtext</a>", IDC_ABOUT_LINK, "SysLink", WS_TABSTOP, 10, 58, 200, 12
+    CONTROL    "<a>github.com/alanmm/3dtextplus</a>", IDC_ABOUT_LINK, "SysLink", WS_TABSTOP, 10, 58, 200, 12
     DEFPUSHBUTTON "OK", IDOK, 82, 86, 56, 14
 END
 
@@ -315,8 +315,8 @@ BEGIN
       VALUE "CompanyName",      "Alan Maziero"
       VALUE "FileDescription",  "3D Text+ Screensaver"
       VALUE "FileVersion",      "1.0.0.0"
-      VALUE "InternalName",     "Modern3DText"
-      VALUE "OriginalFilename", "Modern3DText.scr"
+      VALUE "InternalName",     "3DTextPlus"
+      VALUE "OriginalFilename", "3DTextPlus.scr"
       VALUE "ProductName",      "3D Text+"
       VALUE "ProductVersion",   "1.0.0.0"
     END

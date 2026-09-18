@@ -280,7 +280,7 @@ const BuiltinPreset g_builtin_presets[BUILTIN_PRESET_COUNT] = {
     { STR_PRESET_NAME_BLUEPRINT, preset_blueprint },
 };
 
-static const wchar_t *PRESETS_BASE = L"Software\\Modern3DText\\Presets";
+static const wchar_t *PRESETS_BASE = L"Software\\3DTextPlus\\Presets";
 
 static int wcscmp_qsort(const void *a, const void *b)
 {
@@ -469,7 +469,7 @@ int preset_backup_parse_file(const wchar_t *path, PresetBackupEntry *out, int ma
     FILE *f = _wfopen(path, L"r, ccs=UTF-8");
     if (!f) return -1;
 
-    const wchar_t *tmpkey = L"Software\\Modern3DText\\Presets\\_import_tmp";
+    const wchar_t *tmpkey = L"Software\\3DTextPlus\\Presets\\_import_tmp";
     wchar_t cur_name[PRESET_NAME_MAX] = L"";
     HKEY k = NULL;
     int n = 0;

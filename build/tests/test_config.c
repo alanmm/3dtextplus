@@ -5,7 +5,7 @@
 #include <string.h>
 #include <math.h>
 
-#define TESTKEY L"Software\\Modern3DText_test"
+#define TESTKEY L"Software\\3DTextPlus_test"
 
 static int nearf(float a, float b) { return fabsf(a - b) < 1e-3f; }
 
