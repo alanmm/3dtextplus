@@ -33,6 +33,26 @@ Performance and resource efficiency were constant priorities throughout developm
 
 ---
 
+## Features
+
+Nine tabs, a live preview, and a preset system — everything's tweakable, nothing's hidden behind a config file.
+
+![Configuration dialog](docs/img/dialog.jpg)
+
+- **Content** — render custom text, a live clock, an imported SVG, or your own 3D mesh (OBJ/glTF). Pick any installed font, bold/italic, color, on-screen size.
+- **Motion** — the pendulum swing: max angle, tilt, period.
+- **Material** — Classic, Metallic, Glass (order-independent transparency) or Wireframe, with metalness/roughness/emissive, and an environment reflection (procedural sky or your own equirectangular image).
+- **Geometry** — extrusion depth, bevel (rounded, geometric, or off) with size/depth/segment controls, optional hollow shell, and a quality slider for tessellation.
+- **Effects** — bloom and diffraction streaks (starburst or anamorphic).
+- **Post** — chromatic aberration, vignette, FXAA.
+- **Background** — solid, gradient, procedural nebula/grid, or your own image, with pan speed.
+- **Particles** — dust, bokeh, sparks, or stars, with density/speed/size/opacity.
+- **Performance** — FPS cap, VSync, MSAA, render scale, and an auto-quality mode that backs off automatically if your GPU can't keep up.
+- **Presets** — six built-in looks plus save/load/import/export for your own.
+- UI available in **English and Portuguese**.
+
+---
+
 ## Architecture
 
 3D Text+ is native **C** — plus one small, self-contained **C++** dependency for robust bevel geometry — built directly on **Win32 + OpenGL 3.3**. No game engine, no web view, nothing else in between.
