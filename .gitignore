@@ -1,10 +1,10 @@
-# Build output
+# Build output - distributed via GitHub Releases, not versioned here
 /build/obj/
 /build/embed.exe
 /build/tests/*.exe
 /generated/
 /installer/output/
-/dist/3DTextPlus.exe
+/dist/
 
 # Editor / OS
 .vscode/

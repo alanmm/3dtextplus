@@ -69,11 +69,13 @@ The mesh is rebuilt on the CPU only when the text or its settings actually chang
 
 ## Install
 
-**Easiest — installer:** download [`3DTextPlus-Setup-1.0.0.exe`](https://raw.githubusercontent.com/alanmm/3dtextplus/main/dist/3DTextPlus-Setup-1.0.0.exe) and run it. It copies the screensaver into your Windows system folder, adds Start Menu shortcuts, and can set it as your active screen saver right away.
+[![Downloads](https://img.shields.io/github/downloads/alanmm/3dtextplus/total?label=downloads)](https://github.com/alanmm/3dtextplus/releases/latest)
 
-**Manual — plain `.scr`:** download [`3DTextPlus.scr`](https://raw.githubusercontent.com/alanmm/3dtextplus/main/dist/3DTextPlus.scr), then either double-click it (Windows offers to Install/Test it directly) or copy it into `C:\Windows\System32\` yourself (needs admin).
+**Easiest — installer:** download [`3DTextPlus-Setup-1.0.0.exe`](https://github.com/alanmm/3dtextplus/releases/download/1.0.0/3DTextPlus-Setup-1.0.0.exe) and run it. It copies the screensaver into your Windows system folder, adds Start Menu shortcuts, and can set it as your active screen saver right away.
 
-Both are built from the same source you can see in this repo — see [Build](#-build) below.
+**Manual — plain `.scr`:** download [`3DTextPlus.scr`](https://github.com/alanmm/3dtextplus/releases/download/1.0.0/3DTextPlus.scr), then either double-click it (Windows offers to Install/Test it directly) or copy it into `C:\Windows\System32\` yourself (needs admin).
+
+Both are built from the same source you can see in this repo — see [Build](#-build) below. Every release lives on the [Releases page](https://github.com/alanmm/3dtextplus/releases).
 
 ---
 
