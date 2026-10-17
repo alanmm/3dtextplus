@@ -10,7 +10,7 @@
 ; no Inno Setup, ou `ISCC.exe installer\3DTextPlus.iss` a partir da raiz).
 
 #define MyAppName "3D Text+"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.1.0"
 #define MyAppPublisher "Alan Maziero"
 #define MyAppURL "https://github.com/alanmm/3dtextplus"
 #define MyAppExeName "3DTextPlus.scr"
