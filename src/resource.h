@@ -49,6 +49,7 @@
 #define IDC_CONTENT_SCALE_LABEL 1128
 #define IDC_CONTENT_SCALE_VAL   1129
 #define IDC_CONTENT_SCALE       1130
+#define IDC_SVG_HINT            1131
 
 /* aba Movimento */
 #define IDC_DEPTH         1200

@@ -320,6 +320,7 @@ static void content_enable(HWND h)
     ShowWindow(GetDlgItem(h, IDC_SVGCOLORMODE),  is_svg ? SW_SHOW : SW_HIDE);
 
     ShowWindow(GetDlgItem(h, IDC_MESHPATHLABEL),  is_mesh ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(h, IDC_SVG_HINT),      is_svg ? SW_SHOW : SW_HIDE);
     ShowWindow(GetDlgItem(h, IDC_MESHPATH),       is_mesh ? SW_SHOW : SW_HIDE);
     ShowWindow(GetDlgItem(h, IDC_MESHPICK),       is_mesh ? SW_SHOW : SW_HIDE);
     ShowWindow(GetDlgItem(h, IDC_MESHCLEAR),      is_mesh ? SW_SHOW : SW_HIDE);
@@ -362,6 +363,7 @@ static void content_apply_i18n(HWND h)
     SetDlgItemTextW(h, IDC_CONTENT_SCALE_LABEL, i18n_str(STR_CONTENT_SCALE_LABEL));
 
     HWND cm = GetDlgItem(h, IDC_CONTMODE);
+    SetDlgItemTextW(h, IDC_SVG_HINT, i18n_str(STR_CONTENT_SVG_HINT));
     int cur = (int)SendMessageW(cm, CB_GETCURSEL, 0, 0);
     SendMessageW(cm, CB_RESETCONTENT, 0, 0);
     SendMessageW(cm, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_CONTENT_MODE_TEXT));

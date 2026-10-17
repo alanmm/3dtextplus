@@ -89,6 +89,7 @@ BEGIN
     LTEXT           "Tamanho na tela:", IDC_CONTENT_SCALE_LABEL, 8, 184, 110, 9
     LTEXT           "", IDC_CONTENT_SCALE_VAL, 182, 184, 50, 9
     CONTROL         "", IDC_CONTENT_SCALE, "msctls_trackbar32", WS_TABSTOP | TBS_HORZ, 8, 194, 224, 16
+    LTEXT           "", IDC_SVG_HINT, 8, 213, 224, 26
 END
 
 IDD_TAB_MOTION DIALOGEX 0, 0, 240, 240

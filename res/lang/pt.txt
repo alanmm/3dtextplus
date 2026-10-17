@@ -213,3 +213,4 @@ menu.backup_presets=Fazer backup dos presets...
 menu.language=Idioma
 about.title=Sobre
 about.version_fmt=Versão %ls
+content.svg_hint=Dica (SVG): evite áreas sobrepostas. Onde duas formas se cruzam, as paredes ficam coladas no mesmo plano e geram cores conflitantes. Una as formas no editor antes de importar.

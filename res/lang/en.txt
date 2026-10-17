@@ -213,3 +213,4 @@ menu.backup_presets=Back up presets...
 menu.language=Language
 about.title=About
 about.version_fmt=Version %ls
+content.svg_hint=SVG tip: avoid overlapping areas. Where shapes overlap, their walls end up on the same plane and produce conflicting colors. Merge the shapes in your editor before importing.
