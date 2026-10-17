@@ -21,8 +21,8 @@ struct Post {
     GlFbo ldr;                    /* pos-tonemap pre-FXAA, out_w x out_h */
     unsigned prog_bright, prog_down, prog_up, prog_combine;
     unsigned prog_streak;
-    unsigned prog_finish, prog_fxaa;
-    unsigned fs_vao;               /* VAO do quad fullscreen - por-contexto, ver gl_fullscreen_draw */
+    unsigned prog_finish, prog_fxaa, prog_overlay;
+    unsigned fs_vao;              /* VAO do quad fullscreen - por-contexto, ver gl_fullscreen_draw */
     int in_w, in_h, samples, ms_on;
     int out_w, out_h;
 };
@@ -43,8 +43,9 @@ Post *post_create(void)
     p->prog_streak  = prog(EMBED_post_streak_frag);
     p->prog_finish  = prog(EMBED_post_finish_frag);
     p->prog_fxaa    = prog(EMBED_post_fxaa_frag);
+    p->prog_overlay = prog(EMBED_post_overlay_frag);
     if (!p->prog_bright || !p->prog_down || !p->prog_up || !p->prog_combine ||
-        !p->prog_streak || !p->prog_finish || !p->prog_fxaa) {
+        !p->prog_streak || !p->prog_finish || !p->prog_fxaa || !p->prog_overlay) {
         post_destroy(p);
         return NULL;
     }
@@ -60,6 +61,8 @@ Post *post_create(void)
     glUniform1i(glGetUniformLocation(p->prog_finish, "uTex"), 0);
     glUseProgram(p->prog_fxaa);
     glUniform1i(glGetUniformLocation(p->prog_fxaa, "uTex"), 0);
+    glUseProgram(p->prog_overlay);
+    glUniform1i(glGetUniformLocation(p->prog_overlay, "uTex"), 0);
 
     return p;
 }
@@ -280,6 +283,28 @@ void post_present(Post *p, int out_w, int out_h, PostParams pr)
         gl_fullscreen_draw(&p->fs_vao);
     }
 
+    /* fade-in sobre o framebuffer padrao ja desenhado. Com captura da tela
+       (backdrop_tex): crossfade ocultando a cena com a captura em opacidade
+       fade_black. Sem captura: escurece por (1 - fade_black); GL_ZERO descarta
+       a cor do fragmento, entao so' o fator constante importa. */
+    if (pr.fade_black > 1e-4f) {
+        float fb = pr.fade_black > 1.0f ? 1.0f : pr.fade_black;
+        glEnable(GL_BLEND);
+        if (pr.backdrop_tex) {
+            glUseProgram(p->prog_overlay);
+            glUniform1f(glGetUniformLocation(p->prog_overlay, "uAlpha"), fb);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, pr.backdrop_tex);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        } else {
+            glUseProgram(p->prog_finish);
+            glBlendColor(1.0f - fb, 1.0f - fb, 1.0f - fb, 1.0f);
+            glBlendFunc(GL_ZERO, GL_CONSTANT_COLOR);
+        }
+        gl_fullscreen_draw(&p->fs_vao);
+        glDisable(GL_BLEND);
+    }
+
     glActiveTexture(GL_TEXTURE0);
     glEnable(GL_DEPTH_TEST);
 }
@@ -303,5 +328,6 @@ void post_destroy(Post *p)
     if (p->prog_streak)  glDeleteProgram(p->prog_streak);
     if (p->prog_finish)  glDeleteProgram(p->prog_finish);
     if (p->prog_fxaa)    glDeleteProgram(p->prog_fxaa);
+    if (p->prog_overlay) glDeleteProgram(p->prog_overlay);
     free(p);
 }

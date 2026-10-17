@@ -55,7 +55,13 @@ struct GlWindow {
     int   vsync;
     int   particles_on;
     int   debug_view;   /* 0=normal - ver gl_window_set_debug_view */
+    long   frame_count;  /* frames desenhados via gl_window_frame - base do fade-in */
+    double fade_t0;      /* t do segundo frame: o 1o frame pode ser lento (shaders/malha) e nao conta */
+    unsigned backdrop_tex;  /* captura da tela revelada pelo fade-in; 0 = fade a partir do preto */
+    int    fade_in_on;      /* so' as janelas do saver real; o preview do dialogo tambem usa preview=0 */
 };
+
+#define FADE_IN_SECONDS 1.5
 
 /* ------------------------------------------------------------------ */
 
@@ -256,7 +262,7 @@ static int frame_particles(const GlWindow *g)
     return (g->quality.particles && g->particles_on) ? 1 : 0;
 }
 
-static void render_into_post(GlWindow *g, double t, int measure)
+static void render_into_post(GlWindow *g, double t, int measure, float fade_black)
 {
     RECT cr; GetClientRect(g->hwnd, &cr);
     g->w = cr.right; g->h = cr.bottom;
@@ -296,6 +302,8 @@ static void render_into_post(GlWindow *g, double t, int measure)
     } else {
         pr.debug_bypass = 0;
     }
+    pr.fade_black = fade_black;
+    pr.backdrop_tex = g->backdrop_tex;
     post_present(g->post, g->w, g->h, pr);
 
     if (measure) {
@@ -312,14 +320,56 @@ static void render_into_post(GlWindow *g, double t, int measure)
 void gl_window_frame(GlWindow *g, double t)
 {
     wglMakeCurrent(g->dc, g->rc);
-    render_into_post(g, t, 1);
+
+    float fade_black = 0.0f;
+    if (g->fade_in_on) {
+        if (g->frame_count == 0) {
+            fade_black = 1.0f;
+        } else {
+            if (g->frame_count == 1) g->fade_t0 = t;
+            double u = (t - g->fade_t0) / FADE_IN_SECONDS;
+            if (u < 1.0) {
+                if (u < 0.0) u = 0.0;
+                fade_black = (float)(1.0 - u * u * (3.0 - 2.0 * u));
+            }
+        }
+    }
+    ++g->frame_count;
+
+    render_into_post(g, t, 1, fade_black);
     SwapBuffers(g->dc);
+
+    if (g->backdrop_tex && fade_black <= 0.0f) {
+        glDeleteTextures(1, &g->backdrop_tex);
+        g->backdrop_tex = 0;
+    }
+}
+
+void gl_window_set_fade_in(GlWindow *g, int on)
+{
+    if (g) g->fade_in_on = on ? 1 : 0;
+}
+
+void gl_window_set_backdrop(GlWindow *g, const unsigned char *bgra, int w, int h)
+{
+    if (!g || !bgra || w < 1 || h < 1) return;
+    wglMakeCurrent(g->dc, g->rc);
+    if (g->backdrop_tex) glDeleteTextures(1, &g->backdrop_tex);
+    glGenTextures(1, &g->backdrop_tex);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, g->backdrop_tex);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_BGRA, GL_UNSIGNED_BYTE, bgra);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 }
 
 void gl_window_render_scene_at(GlWindow *g, double t)
 {
     wglMakeCurrent(g->dc, g->rc);
-    render_into_post(g, t, 0);   /* frame de captura: fora do orcamento do aq */
+    render_into_post(g, t, 0, 0.0f);   /* frame de captura: fora do orcamento do aq, sem fade */
 }
 
 void gl_window_set_config(GlWindow *g, const Config *cfg)

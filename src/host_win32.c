@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "stb_image_write.h"
 
@@ -53,6 +54,66 @@ static LRESULT CALLBACK saver_wndproc(HWND h, UINT m, WPARAM w, LPARAM l)
     return DefWindowProcW(h, m, w, l);
 }
 
+static LRESULT CALLBACK cover_wndproc(HWND h, UINT m, WPARAM w, LPARAM l)
+{
+    switch (m) {
+        case WM_ERASEBKGND:
+            return 1;
+        case WM_CLOSE: case WM_DESTROY:
+            return DefWindowProcW(h, m, w, l);   /* destruir a capa nao pode encerrar o saver */
+    }
+    return saver_wndproc(h, m, w, l);
+}
+
+/* Capa: janela em camadas (layered), topmost, que ja nasce com a captura da tela
+   (UpdateLayeredWindow antes do show => sem quadro preto no primeiro desenho). */
+static HWND create_cover(HINSTANCE hInst, RECT r, const unsigned char *bgra)
+{
+    int w = r.right - r.left, h = r.bottom - r.top;
+    HWND hw = CreateWindowExW(WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_LAYERED,
+                              L"M3DTCover", L"", WS_POPUP, r.left, r.top, w, h, NULL, NULL, hInst, NULL);
+    if (!hw) return NULL;
+
+    HDC sdc = GetDC(NULL);
+    HDC mdc = CreateCompatibleDC(sdc);
+    BITMAPINFO bi; memset(&bi, 0, sizeof bi);
+    bi.bmiHeader.biSize        = sizeof bi.bmiHeader;
+    bi.bmiHeader.biWidth       = w;
+    bi.bmiHeader.biHeight      = h;   /* bottom-up, igual ao formato da captura */
+    bi.bmiHeader.biPlanes      = 1;
+    bi.bmiHeader.biBitCount    = 32;
+    bi.bmiHeader.biCompression = BI_RGB;
+    void *bits = NULL;
+    HBITMAP bmp = CreateDIBSection(sdc, &bi, DIB_RGB_COLORS, &bits, NULL, 0);
+    BOOL ok = FALSE;
+    if (bmp && bits) {
+        memcpy(bits, bgra, (size_t)w * (size_t)h * 4u);
+        HGDIOBJ old = SelectObject(mdc, bmp);
+        POINT pd = { r.left, r.top }, ps = { 0, 0 };
+        SIZE sz = { w, h };
+        BLENDFUNCTION bf = { AC_SRC_OVER, 0, 255, 0 };
+        ok = UpdateLayeredWindow(hw, sdc, &pd, &sz, mdc, &ps, 0, &bf, ULW_ALPHA);
+        SelectObject(mdc, old);
+    }
+    if (bmp) DeleteObject(bmp);
+    DeleteDC(mdc);
+    ReleaseDC(NULL, sdc);
+    if (!ok) { DestroyWindow(hw); return NULL; }
+
+    SetWindowPos(hw, HWND_TOPMOST, r.left, r.top, w, h, SWP_SHOWWINDOW | SWP_NOACTIVATE);
+    return hw;
+}
+
+/* Capa quase invisivel (1/255 de opacidade) em vez de destruida: uma janela GL
+   topmost que cobre o monitor inteiro sozinha e' promovida pelo Windows a "flip
+   independente", e essa troca de modo de apresentacao pisca preto. Com a capa por
+   cima o DWM segue compondo e a troca nunca acontece. */
+static void cover_go_ghost(HWND hw)
+{
+    BLENDFUNCTION bf = { AC_SRC_OVER, 0, 1, 0 };
+    UpdateLayeredWindow(hw, NULL, NULL, NULL, NULL, NULL, 0, &bf, ULW_ALPHA);
+}
+
 typedef struct { RECT r[16]; int n; } MonitorList;
 
 static BOOL CALLBACK monitor_cb(HMONITOR mon, HDC dc, LPRECT rc, LPARAM lp)
@@ -61,6 +122,53 @@ static BOOL CALLBACK monitor_cb(HMONITOR mon, HDC dc, LPRECT rc, LPARAM lp)
     MonitorList *ml = (MonitorList *)lp;
     if (ml->n < 16) ml->r[ml->n++] = *rc;
     return TRUE;
+}
+
+/* Captura o retangulo `r` da tela (coordenadas virtuais, processo DPI-aware)
+   como BGRA bottom-up, pronto pra textura GL. NULL em falha. */
+static unsigned char *capture_screen_rect(RECT r)
+{
+    int w = r.right - r.left, h = r.bottom - r.top;
+    if (w < 1 || h < 1) return NULL;
+
+    HDC sdc = GetDC(NULL);
+    HDC mdc = sdc ? CreateCompatibleDC(sdc) : NULL;
+    unsigned char *out = NULL;
+    if (mdc) {
+        BITMAPINFO bi; memset(&bi, 0, sizeof bi);
+        bi.bmiHeader.biSize        = sizeof bi.bmiHeader;
+        bi.bmiHeader.biWidth       = w;
+        bi.bmiHeader.biHeight      = h;   /* positivo = bottom-up, igual a origem da textura GL */
+        bi.bmiHeader.biPlanes      = 1;
+        bi.bmiHeader.biBitCount    = 32;
+        bi.bmiHeader.biCompression = BI_RGB;
+        void *bits = NULL;
+        HBITMAP bmp = CreateDIBSection(sdc, &bi, DIB_RGB_COLORS, &bits, NULL, 0);
+        if (bmp && bits) {
+            HGDIOBJ old = SelectObject(mdc, bmp);
+            if (BitBlt(mdc, 0, 0, w, h, sdc, r.left, r.top, SRCCOPY | CAPTUREBLT)) {
+                out = (unsigned char *)malloc((size_t)w * (size_t)h * 4u);
+                if (out) memcpy(out, bits, (size_t)w * (size_t)h * 4u);
+            }
+            SelectObject(mdc, old);
+        }
+        if (bmp) DeleteObject(bmp);
+        DeleteDC(mdc);
+    }
+    if (sdc) ReleaseDC(NULL, sdc);
+    if (!out) log_errorf("captura de tela falhou (%d,%d %dx%d) - fade-in parte do preto", (int)r.left, (int)r.top, w, h);
+    return out;
+}
+
+/* Luminancia media (0..1) por amostragem esparsa de uma captura BGRA - so' pra log */
+static double capture_mean_lum(const unsigned char *p, int w, int h)
+{
+    double sum = 0.0; long n = 0;
+    for (long i = 0; i < (long)w * h; i += 97) {
+        sum += (p[i * 4] + p[i * 4 + 1] + p[i * 4 + 2]) / 765.0;
+        ++n;
+    }
+    return n ? sum / (double)n : 0.0;
 }
 
 int host_run_saver(HINSTANCE hInst)
@@ -83,7 +191,52 @@ int host_run_saver(HINSTANCE hInst)
         ml.n = 1;
     }
 
-    const DWORD style   = selftest ? (WS_OVERLAPPEDWINDOW | WS_VISIBLE) : (WS_POPUP | WS_VISIBLE);
+    LARGE_INTEGER t_freq, t_begin;
+    QueryPerformanceFrequency(&t_freq);
+    QueryPerformanceCounter(&t_begin);
+
+    /* Captura cada monitor ANTES de qualquer janela do saver existir; o fade-in
+       revela a cena por cima dessa imagem em vez de partir do preto.
+       Limite: quando o proprio Windows inicia o saver (inatividade, SC_SCREENSAVE) ele
+       roda na area de trabalho "Screen-saver", vazia e escura, e o BitBlt do desktop
+       "Default" e' negado dali - o fade parte dessa cor. Rodando "/s" direto (area
+       "Default") a captura e' do desktop real. */
+    unsigned char *shots[16] = { NULL };
+    wchar_t dn[64] = L"?";
+    {
+        DWORD need = 0;
+        HDESK hd = GetThreadDesktop(GetCurrentThreadId());
+        if (hd) GetUserObjectInformationW(hd, UOI_NAME, dn, sizeof dn, &need);
+        log_infof("saver: desktop='%ls' monitores=%d selftest=%d", dn, ml.n, (int)selftest);
+    }
+    for (int i = 0; i < ml.n; ++i) {
+        shots[i] = capture_screen_rect(ml.r[i]);
+        if (shots[i])
+            log_infof("saver: captura mon%d %dx%d lum=%.3f", i, (int)(ml.r[i].right - ml.r[i].left),
+                      (int)(ml.r[i].bottom - ml.r[i].top),
+                      capture_mean_lum(shots[i], ml.r[i].right - ml.r[i].left, ml.r[i].bottom - ml.r[i].top));
+    }
+
+    /* "Capas": janelas em camadas que mostram a propria captura, em cima de
+       tudo. Uma janela GL recem-mostrada fica preta ate o 1o SwapBuffers
+       depois do show; as janelas GL entram escondidas atras das capas e so'
+       ficam descobertas, ja com a captura apresentada, quando a capa fica
+       quase transparente (ver cover_go_ghost). */
+    HWND cover[16] = { NULL };
+    {
+        WNDCLASSW cc; memset(&cc, 0, sizeof cc);
+        cc.lpfnWndProc   = cover_wndproc;
+        cc.hInstance     = hInst;
+        cc.lpszClassName = L"M3DTCover";
+        RegisterClassW(&cc);
+        for (int i = 0; i < ml.n; ++i) {
+            if (!shots[i]) continue;
+            cover[i] = create_cover(hInst, ml.r[i], shots[i]);
+        }
+    }
+    LARGE_INTEGER t_covers; QueryPerformanceCounter(&t_covers);
+
+    const DWORD style   = selftest ? (WS_OVERLAPPEDWINDOW | WS_VISIBLE) : WS_POPUP;
     const DWORD exstyle = selftest ? 0u : WS_EX_TOPMOST;
 
     GlWindow *win[16]; int nwin = 0;
@@ -93,14 +246,33 @@ int host_run_saver(HINSTANCE hInst)
         GlWindow *g = gl_window_create(hInst, style, exstyle, NULL,
                                        r.left, r.top, r.right - r.left, r.bottom - r.top,
                                        cls, saver_wndproc, &cfg, 0);
-        if (g) {
-            if (!selftest)
-                SetWindowPos(gl_window_hwnd(g), HWND_TOPMOST, r.left, r.top,
-                             r.right - r.left, r.bottom - r.top, SWP_SHOWWINDOW);
-            win[nwin++] = g;
-        }
+        if (!g) continue;
+        gl_window_set_fade_in(g, 1);
+        if (shots[i]) gl_window_set_backdrop(g, shots[i], r.right - r.left, r.bottom - r.top);
+        win[nwin++] = g;
+        gl_window_frame(g, 0.0);   /* frame 0, ainda oculto: absorve o custo da 1a renderizacao */
+        if (!selftest)
+            SetWindowPos(gl_window_hwnd(g), cover[i] ? cover[i] : HWND_TOPMOST,
+                         r.left, r.top, r.right - r.left, r.bottom - r.top,
+                         SWP_SHOWWINDOW | SWP_NOACTIVATE);   /* logo abaixo da capa */
+        gl_window_frame(g, 0.0);   /* mostrada atras da capa: so' a captura; ancora o fade em t=0 */
+        gl_window_frame(g, 0.0);   /* um swap a mais garante a captura ja apresentada pelo DWM */
     }
-    if (nwin == 0) { log_errorf("nenhuma janela saver criada"); return 1; }
+    for (int i = 0; i < ml.n; ++i) {
+        if (cover[i]) cover_go_ghost(cover[i]);
+        free(shots[i]);
+    }
+    if (nwin == 0) {
+        log_errorf("nenhuma janela saver criada");
+        for (int i = 0; i < ml.n; ++i) if (cover[i]) DestroyWindow(cover[i]);
+        return 1;
+    }
+    {
+        LARGE_INTEGER t_ready; QueryPerformanceCounter(&t_ready);
+        log_infof("saver: init capas=%.0f ms, janelas GL prontas=%.0f ms",
+                  (double)(t_covers.QuadPart - t_begin.QuadPart) * 1000.0 / (double)t_freq.QuadPart,
+                  (double)(t_ready.QuadPart - t_begin.QuadPart) * 1000.0 / (double)t_freq.QuadPart);
+    }
 
     {
         /* diagnostico: forca uma visualizacao de debug sem precisar clicar
@@ -113,7 +285,14 @@ int host_run_saver(HINSTANCE hInst)
     }
 
     if (!selftest) ShowCursor(FALSE);
-    SetForegroundWindow(gl_window_hwnd(win[0]));
+    {
+        /* foco no que esta no topo (a capa), pra ativar nao subir a janela GL
+           por cima dela */
+        HWND fg = cover[0] ? cover[0] : gl_window_hwnd(win[0]);
+        BOOL ok = SetForegroundWindow(fg);
+        log_infof("saver: SetForegroundWindow(%s)=%d, em primeiro plano agora=%d", cover[0] ? "capa" : "GL",
+                  (int)ok, (int)(GetForegroundWindow() == fg));
+    }
 
     log_infof("saver: fps_cap=%d vsync=%d msaa=%d render_scale=%.2f auto_quality=%d",
               cfg.fps_cap, cfg.vsync, cfg.msaa, (double)cfg.render_scale, cfg.auto_quality);
@@ -191,6 +370,7 @@ int host_run_saver(HINSTANCE hInst)
 
     timeEndPeriod(1);
     if (!selftest) ShowCursor(TRUE);
+    for (int i = 0; i < ml.n; ++i) if (cover[i]) DestroyWindow(cover[i]);
     for (int i = 0; i < nwin; ++i) gl_window_destroy(win[i]);
     log_infof("saver encerrou (frames=%ld)", frame);
     return 0;

@@ -13,6 +13,8 @@ typedef struct {
     float vignette_amount;       /* 0 .. 1 */
     int   fxaa_on;
     int   debug_bypass;          /* 1 = pula o tonemap ACES (usa so' gama) - visualizacao de debug */
+    float fade_black;            /* 0 = sem fade (default de zero-init) .. 1 = cobertura total pelo fundo do fade; ver backdrop_tex */
+    unsigned backdrop_tex;       /* textura GL (captura da tela) que o fade-in revela; 0 = fade a partir do preto */
 } PostParams;
 
 typedef struct Post Post;

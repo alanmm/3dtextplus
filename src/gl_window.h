@@ -16,6 +16,11 @@ GlWindow *gl_window_create(HINSTANCE hInst, DWORD style, DWORD exstyle, HWND par
                            const Config *cfg, int preview);
 
 void  gl_window_frame(GlWindow *g, double t);          /* render 1 frame + SwapBuffers */
+/* Liga o fade-in de abertura (so' o saver real; desligado por padrao). */
+void  gl_window_set_fade_in(GlWindow *g, int on);
+/* Captura da tela (BGRA, linhas de baixo pra cima, w*h*4 bytes) que o fade-in do
+   inicio revela por crossfade. Sem isso, o fade parte do preto. */
+void  gl_window_set_backdrop(GlWindow *g, const unsigned char *bgra, int w, int h);
 void  gl_window_set_config(GlWindow *g, const Config *cfg);
 void  gl_window_set_zoom(GlWindow *g, float zoom);     /* 1.0 = enquadramento padrao; >1 aproxima a camera */
 void  gl_window_set_debug_view(GlWindow *g, int mode); /* ferramenta de debug visual - ver scene_set_debug_view */
