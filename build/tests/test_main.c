@@ -15,6 +15,7 @@ void run_svg_shapes_tests(void);
 void run_mesh_import_tests(void);
 void run_i18n_tests(void);
 void run_presets_tests(void);
+void run_particles_tests(void);
 
 int main(void)
 {
@@ -31,6 +32,7 @@ int main(void)
     run_mesh_import_tests();
     run_i18n_tests();
     run_presets_tests();
+    run_particles_tests();
 
     if (g_test_failures) {
         printf("\n%d assertion(s) FAILED\n", g_test_failures);

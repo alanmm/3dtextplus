@@ -21,6 +21,7 @@ typedef struct {
     float alpha_rand;  /* opacidade base aleatoria por particula (dust/bokeh), 1%..80% */
     float rot;         /* angulo do hexagono (bokeh), aleatorio por particula */
     float blur_seed;   /* 0..1, aleatorio por particula - ver BLUR_RAND_SPREAD em particle.vert */
+    float jitter;      /* dust/bokeh: fator individual da agitacao (0.5..1.5) - ver update_ambient_drift */
 } Particle;
 
 typedef struct { float x, y, z, size, r, g, b, a, rot, blur_seed; } ParticleVertex;
@@ -48,8 +49,7 @@ struct ParticleSystem {
     int wall_count;
 };
 
-/* ---------------- ruido em CPU (mesmo estilo do fBm de shaders/background.frag,
-   reimplementado aqui porque a simulacao roda em C, nao em GLSL) ---------------- */
+/* ---------------- aleatoriedade em CPU ---------------- */
 
 static float hashf(unsigned *seed)
 {
@@ -57,30 +57,45 @@ static float hashf(unsigned *seed)
     return (float)(*seed >> 8) / (float)(1u << 24);
 }
 
-static float hash21(float x, float y)
+/* normal padrao (Box-Muller) */
+static float gaussf(unsigned *seed)
 {
-    float h = sinf(x * 127.1f + y * 311.7f) * 43758.5453f;
-    return h - floorf(h);
+    float u1 = hashf(seed), u2 = hashf(seed);
+    if (u1 < 1e-7f) u1 = 1e-7f;
+    return sqrtf(-2.0f * logf(u1)) * cosf(6.2831853f * u2);
 }
 
-static float value_noise2(float x, float y)
+/* Poeira/bokeh: cada particula tem agitacao browniana PROPRIA e independente (velocidade
+   = processo de Ornstein-Uhlenbeck: perde memoria em ~DRIFT_TAU s e recebe empurroes
+   aleatorios). Nao ha campo de fluxo compartilhado: com ele as vizinhas se moviam juntas
+   (a nuvem parecia um globo girando, com "vento") e, por nao ser perfeitamente
+   conservativo, acabava amontoando as particulas numa faixa vertical depois de minutos.
+   Particulas independentes numa caixa que da' a volta ficam uniformes por construcao. */
+#define DRIFT_SIGMA_DUST   0.10f   /* agitacao tipica, unidades de mundo / s */
+#define DRIFT_SIGMA_BOKEH  0.05f
+#define DRIFT_TAU          2.5f    /* tempo de correlacao da velocidade, s */
+#define DRIFT_SETTLE      -0.02f   /* assentamento lento: velocidade media em y */
+#define EDGE_FADE_FRAC     0.30f   /* faixa (fracao da meia-extensao) em que a particula some perto das faces da caixa */
+
+/* A caixa da' a volta nas bordas; sem isso a particula que sai por um lado reaparece do
+   outro de repente. Perto das faces ela vai ficando transparente, entao nasce e morre
+   suavemente, fora da vista. 1 no miolo da caixa, 0 na face. */
+static float edge_weight(float pos, float half)
 {
-    float ix = floorf(x), iy = floorf(y);
-    float fx = x - ix, fy = y - iy;
-    float a = hash21(ix, iy),          b = hash21(ix + 1.0f, iy);
-    float c = hash21(ix, iy + 1.0f),   d = hash21(ix + 1.0f, iy + 1.0f);
-    float ux = fx * fx * (3.0f - 2.0f * fx);
-    float uy = fy * fy * (3.0f - 2.0f * fy);
-    return a + (b - a) * ux + (c - a) * uy + (a - b - c + d) * ux * uy;
+    float d = (half - fabsf(pos)) / (EDGE_FADE_FRAC * half);
+    if (d <= 0.0f) return 0.0f;
+    if (d >= 1.0f) return 1.0f;
+    return d * d * (3.0f - 2.0f * d);
 }
 
-static void curl2d(float x, float y, float *ox, float *oy)
+static float ambient_edge_fade(const ParticleSystem *p, const Particle *pt)
 {
-    const float e = 0.06f;
-    float n1 = value_noise2(x, y + e), n2 = value_noise2(x, y - e);
-    float n3 = value_noise2(x + e, y), n4 = value_noise2(x - e, y);
-    *ox =  (n1 - n2) / (2.0f * e);
-    *oy = -(n3 - n4) / (2.0f * e);
+    return edge_weight(pt->x, p->box_hx) * edge_weight(pt->y, p->box_hy) * edge_weight(pt->z, p->box_hz);
+}
+
+static float drift_sigma(const ParticleSystem *p, const Particle *pt)
+{
+    return (p->kind == 1 ? DRIFT_SIGMA_BOKEH : DRIFT_SIGMA_DUST) * pt->jitter;
 }
 
 /* h em radianos [0, 2pi); s, l em [0,1]. Conversao HSL->RGB padrao. */
@@ -171,7 +186,13 @@ static void spawn_ambient(ParticleSystem *p)
         pt->x = (hashf(&p->seed) * 2.0f - 1.0f) * p->box_hx;
         pt->y = (hashf(&p->seed) * 2.0f - 1.0f) * p->box_hy;
         pt->z = (hashf(&p->seed) * 2.0f - 1.0f) * p->box_hz;
-        pt->vx = pt->vy = pt->vz = 0.0f;
+        pt->jitter = 0.5f + hashf(&p->seed);   /* algumas mais agitadas, outras mais calmas */
+        {   /* ja' nasce com velocidade do regime estacionario, sem fase de "arranque" */
+            float s = drift_sigma(p, pt);
+            pt->vx = s * gaussf(&p->seed);
+            pt->vy = DRIFT_SETTLE + s * gaussf(&p->seed);
+            pt->vz = s * gaussf(&p->seed);
+        }
         pt->age = hashf(&p->seed) * 6.2831853f;   /* fase de cintilacao - so' stars usam */
         pt->life = 0.0f;
         pt->alpha_rand = 0.01f + hashf(&p->seed) * 0.79f;   /* 1%..80%, aleatoria por particula */
@@ -263,16 +284,20 @@ void particles_set_config(ParticleSystem *p, const Config *cfg,
 
 static void update_ambient_drift(ParticleSystem *p, float dt)
 {
+    /* o slider de velocidade acelera/freia o processo inteiro (speed 0 = tudo parado) */
+    const float de = dt * p->speed;
+    if (de <= 0.0f) return;
+    const float a = expf(-de / DRIFT_TAU);
+    const float b = sqrtf(1.0f - a * a);
     for (int i = 0; i < p->count; ++i) {
         Particle *pt = &p->buf[i];
-        float cx, cy;
-        curl2d(pt->x * 0.25f + p->time * 0.05f, pt->z * 0.25f, &cx, &cy);
-        pt->vx = cx * 0.5f;
-        pt->vz = cy * 0.5f;
-        pt->vy = -0.03f;
-        pt->x += pt->vx * dt * p->speed;
-        pt->y += pt->vy * dt * p->speed;
-        pt->z += pt->vz * dt * p->speed;
+        const float s = drift_sigma(p, pt);
+        pt->vx = a * pt->vx + b * s * gaussf(&p->seed);
+        pt->vy = DRIFT_SETTLE + a * (pt->vy - DRIFT_SETTLE) + b * s * gaussf(&p->seed);
+        pt->vz = a * pt->vz + b * s * gaussf(&p->seed);
+        pt->x += pt->vx * de;
+        pt->y += pt->vy * de;
+        pt->z += pt->vz * de;
         if (pt->x >  p->box_hx) pt->x -= 2.0f * p->box_hx; else if (pt->x < -p->box_hx) pt->x += 2.0f * p->box_hx;
         if (pt->y >  p->box_hy) pt->y -= 2.0f * p->box_hy; else if (pt->y < -p->box_hy) pt->y += 2.0f * p->box_hy;
         if (pt->z >  p->box_hz) pt->z -= 2.0f * p->box_hz; else if (pt->z < -p->box_hz) pt->z += 2.0f * p->box_hz;
@@ -378,6 +403,7 @@ void particles_render(ParticleSystem *p, m4 view, m4 proj, int fb_h)
            slider geral de opacidade - aplicado aqui (nao no spawn) pra
            reagir na hora ao mexer no slider, sem esperar re-semear. */
         float alpha = pt->alpha_rand * p->opacity_scale;
+        if (p->kind == 0 || p->kind == 1) alpha *= ambient_edge_fade(p, pt);
         v3 col = { pt->r, pt->g, pt->b };
         if (p->kind == 2) {
             float u = pt->life > 0.0f ? pt->age / pt->life : 1.0f;

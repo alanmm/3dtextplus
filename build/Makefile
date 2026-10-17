@@ -129,12 +129,13 @@ TEST_SRC   := build/tests/test_main.c build/tests/test_cmdline.c build/tests/tes
               build/tests/test_feature_edges.c \
               build/tests/test_contour_mesh.c build/tests/test_config.c \
               build/tests/test_render_tiers.c build/tests/test_clockfmt.c build/tests/test_svg_shapes.c \
-              build/tests/test_mesh_import.c build/tests/test_i18n.c build/tests/test_presets.c
+              build/tests/test_mesh_import.c build/tests/test_i18n.c build/tests/test_presets.c \
+              build/tests/test_particles.c
 TEST_UNITS := src/cmdline.c src/util/log.c src/util/mathx.c src/util/clockfmt.c \
               src/geometry/font_outline.c src/geometry/feature_edges.c src/geometry/contour_mesh.c src/config.c \
               src/render_tiers.c src/geometry/svg_shapes.c src/geometry/mesh_import.c \
               src/i18n.c src/presets.c
-TEST_INC   := -Isrc -Ithird_party -Ithird_party/libtess2/Include -Ithird_party/clipper2/Include \
+TEST_INC   := -Isrc -Ithird_party -Ithird_party/glad/include -Ithird_party/libtess2/Include -Ithird_party/clipper2/Include \
               -Ibuild/tests -Igenerated
 LIBTESS_C  := $(wildcard third_party/libtess2/Source/*.c)
 CLIPPER_CPP := third_party/clipper2/Source/clipper.engine.cpp third_party/clipper2/Source/clipper.offset.cpp
@@ -158,12 +159,17 @@ build/obj/test/stb_impl.o: src/geometry/stb_impl.c
 	@mkdir -p build/obj/test
 	$(CC) -std=c11 -w -Isrc -Ithird_party -c $< -o $@
 
+# gl.c do glad: particles.c e' incluido no teste (simulacao de CPU) e referencia os ponteiros gl*
+build/obj/test/glad_gl.o: third_party/glad/src/gl.c
+	@mkdir -p build/obj/test
+	$(CC) -std=c11 -w -Ithird_party/glad/include -c $< -o $@
+
 # link com $(CC) (gcc, nao g++): os fontes .c do teste sao compilados e
 # linkados numa unica chamada aqui, e g++ trataria esses .c como C++ - so'
 # a robust_offset.o/clipper_*.o (ja compiladas em C++ acima) precisam de
 # libstdc++, adicionada manualmente via -lstdc++ (link dinamico aqui basta,
 # run_tests.exe e' so' uma ferramenta de dev, nao o artefato distribuido).
-test: build/obj/test/stb_impl.o $(LIBTESS_TEST_OBJ) $(CLIPPER_TEST_OBJ) build/obj/test/robust_offset.o $(EMBEDDED_H)
+test: build/obj/test/stb_impl.o build/obj/test/glad_gl.o $(LIBTESS_TEST_OBJ) $(CLIPPER_TEST_OBJ) build/obj/test/robust_offset.o $(EMBEDDED_H)
 	$(CC) -std=c11 -Wall -Wextra $(TEST_INC) \
 	  $(TEST_SRC) $(TEST_UNITS) $^ \
 	  -o build/obj/run_tests.exe -lm -lgdi32 -luser32 -ladvapi32 -lkernel32 -lstdc++
