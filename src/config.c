@@ -295,7 +295,7 @@ void config_load_from(Config *c, const wchar_t *subkey)
     /* saneamento */
     c->font_bold = c->font_bold ? 1 : 0;
     c->font_italic = c->font_italic ? 1 : 0;
-    c->content_scale = clampf(c->content_scale, 0.5f, 2.0f);
+    c->content_scale = clampf(c->content_scale, 0.1f, 2.0f);
     c->depth = clampf(c->depth, 0.02f, 2.0f);
     c->max_angle_y = clampf(c->max_angle_y, 5.0f, 170.0f);
     c->tilt_x = clampf(c->tilt_x, 0.0f, 30.0f);

@@ -397,7 +397,7 @@ static INT_PTR CALLBACK content_proc(HWND h, UINT m, WPARAM w, LPARAM l)
             CheckDlgButton(h, IDC_CLOCKSEC, g_work.clock_show_seconds ? BST_CHECKED : BST_UNCHECKED);
             CheckDlgButton(h, IDC_MESHUSEMAT, g_work.mesh_use_file_materials ? BST_CHECKED : BST_UNCHECKED);
             set_slider(h, IDC_MESHSCALE, 0, 200, (int)(g_work.mesh_size_scale * 100.0f + 0.5f));
-            set_slider(h, IDC_CONTENT_SCALE, 50, 200, (int)(g_work.content_scale * 100.0f + 0.5f));
+            set_slider(h, IDC_CONTENT_SCALE, 10, 200,(int)(g_work.content_scale * 100.0f + 0.5f));
             content_apply_i18n(h);
             content_enable(h);
             SendDlgItemMessageW(h, IDC_COLOR_HEX, EM_SETLIMITTEXT, 7, 0);
