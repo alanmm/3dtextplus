@@ -89,6 +89,7 @@ void config_defaults(Config *c)
     c->mesh_use_file_materials = 0;
     c->ui_language = 0;
     c->random_preset = 0;
+    c->update_auto_check = 1;
     c->bg_solid_customized = 0;
     c->bg_gradient_customized = 0;
     c->particles_dust_density = 0.43f;   c->particles_dust_size = 0.80f;   c->particles_dust_opacity = 0.50f;
@@ -270,6 +271,7 @@ void config_load_from(Config *c, const wchar_t *subkey)
     reg_get_i(k, L"mesh_use_file_materials", &c->mesh_use_file_materials);
     reg_get_i(k, L"ui_language", &c->ui_language);
     reg_get_i(k, L"random_preset", &c->random_preset);
+    reg_get_i(k, L"update_auto_check", &c->update_auto_check);
     reg_get_i(k, L"bg_solid_customized", &c->bg_solid_customized);
     reg_get_i(k, L"bg_gradient_customized", &c->bg_gradient_customized);
     if (reg_get_f(k, L"particles_dust_density", &f))   c->particles_dust_density = f;
@@ -387,6 +389,7 @@ void config_load_from(Config *c, const wchar_t *subkey)
     c->mesh_use_file_materials = c->mesh_use_file_materials ? 1 : 0;
     if (c->ui_language < 0 || c->ui_language > 2) c->ui_language = 0;
     c->random_preset = c->random_preset ? 1 : 0;
+    c->update_auto_check = c->update_auto_check ? 1 : 0;
     c->bg_solid_customized = c->bg_solid_customized ? 1 : 0;
     c->bg_gradient_customized = c->bg_gradient_customized ? 1 : 0;
     c->particles_dust_density   = clampf(c->particles_dust_density, 0.0f, 1.0f);
@@ -513,6 +516,7 @@ void config_save_to(const Config *c, const wchar_t *subkey)
     set_f(k, L"mesh_use_file_materials", (float)c->mesh_use_file_materials);
     set_f(k, L"ui_language", (float)c->ui_language);
     set_f(k, L"random_preset", (float)c->random_preset);
+    set_f(k, L"update_auto_check", (float)c->update_auto_check);
     set_f(k, L"bg_solid_customized", (float)c->bg_solid_customized);
     set_f(k, L"bg_gradient_customized", (float)c->bg_gradient_customized);
     set_f(k, L"particles_dust_density", c->particles_dust_density);

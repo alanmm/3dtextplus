@@ -7,6 +7,7 @@
 #include "geometry/font_outline.h"
 #include "i18n.h"
 #include "presets.h"
+#include "update_check.h"
 
 #include <windows.h>
 #include <commctrl.h>
@@ -18,6 +19,7 @@
 #include <string.h>
 #include <math.h>
 #include <wctype.h>
+#include <time.h>
 
 #include "stb_image_write.h"
 
@@ -318,9 +320,9 @@ static void content_enable(HWND h)
     ShowWindow(GetDlgItem(h, IDC_SVGCLEAR),      is_svg ? SW_SHOW : SW_HIDE);
     ShowWindow(GetDlgItem(h, IDC_SVGCOLORLABEL), is_svg ? SW_SHOW : SW_HIDE);
     ShowWindow(GetDlgItem(h, IDC_SVGCOLORMODE),  is_svg ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(h, IDC_SVG_HINT),      is_svg ? SW_SHOW : SW_HIDE);
 
     ShowWindow(GetDlgItem(h, IDC_MESHPATHLABEL),  is_mesh ? SW_SHOW : SW_HIDE);
-    ShowWindow(GetDlgItem(h, IDC_SVG_HINT),      is_svg ? SW_SHOW : SW_HIDE);
     ShowWindow(GetDlgItem(h, IDC_MESHPATH),       is_mesh ? SW_SHOW : SW_HIDE);
     ShowWindow(GetDlgItem(h, IDC_MESHPICK),       is_mesh ? SW_SHOW : SW_HIDE);
     ShowWindow(GetDlgItem(h, IDC_MESHCLEAR),      is_mesh ? SW_SHOW : SW_HIDE);
@@ -361,9 +363,9 @@ static void content_apply_i18n(HWND h)
     SetDlgItemTextW(h, IDC_CLOCKSEC, i18n_str(STR_CONTENT_CLOCK_SECONDS));
     SetDlgItemTextW(h, IDC_COLOR_LABEL, i18n_str(STR_CONTENT_COLOR_LABEL));
     SetDlgItemTextW(h, IDC_CONTENT_SCALE_LABEL, i18n_str(STR_CONTENT_SCALE_LABEL));
+    SetDlgItemTextW(h, IDC_SVG_HINT, i18n_str(STR_CONTENT_SVG_HINT));
 
     HWND cm = GetDlgItem(h, IDC_CONTMODE);
-    SetDlgItemTextW(h, IDC_SVG_HINT, i18n_str(STR_CONTENT_SVG_HINT));
     int cur = (int)SendMessageW(cm, CB_GETCURSEL, 0, 0);
     SendMessageW(cm, CB_RESETCONTENT, 0, 0);
     SendMessageW(cm, CB_ADDSTRING, 0, (LPARAM)i18n_str(STR_CONTENT_MODE_TEXT));
@@ -2055,6 +2057,79 @@ static void show_about_dialog(HWND owner)
     DialogBoxParamW(GetModuleHandleW(NULL), MAKEINTRESOURCEW(IDD_ABOUT), owner, about_proc, 0);
 }
 
+/* ---- verificacao de atualizacoes (GitHub Releases) ---- */
+
+#define WM_UPDATE_RESULT (WM_APP + 2)
+
+typedef struct { int ok; char tag[UPDATE_TAG_MAX]; } UpdateResult;
+
+static volatile LONG g_update_busy;       /* 1 enquanto a thread de rede roda */
+static volatile LONG g_update_feedback;   /* 1 = o usuario pediu pelo menu: mostrar tambem "em dia"/falha */
+
+static DWORD WINAPI update_thread(LPVOID p)
+{
+    HWND dlg = (HWND)p;
+    UpdateResult *r = (UpdateResult *)calloc(1, sizeof *r);
+    if (r) {
+        r->ok = update_fetch_latest_tag(r->tag, (int)sizeof r->tag);
+        if (!PostMessageW(dlg, WM_UPDATE_RESULT, 0, (LPARAM)r)) free(r);   /* dialogo ja fechou */
+    }
+    InterlockedExchange(&g_update_busy, 0);
+    return 0;
+}
+
+static void update_start(HWND dlg)
+{
+    if (InterlockedCompareExchange(&g_update_busy, 1, 0) != 0) return;   /* ja em andamento */
+    HANDLE th = CreateThread(NULL, 0, update_thread, dlg, 0, NULL);
+    if (th) CloseHandle(th);
+    else InterlockedExchange(&g_update_busy, 0);
+}
+
+static void update_check_now(HWND dlg)   /* pedido manual (menu) */
+{
+    InterlockedExchange(&g_update_feedback, 1);
+    update_start(dlg);
+}
+
+static void update_show_result(HWND dlg, const UpdateResult *r, int feedback)
+{
+    const wchar_t *title = i18n_str(STR_UPDATE_TITLE);
+
+    wchar_t curw[32];
+    about_get_version(curw, 32);
+    char cur[32];
+    for (int i = 0; i < 32; ++i) cur[i] = (curw[i] > 0 && curw[i] < 128) ? (char)curw[i] : 0;
+    cur[31] = 0;
+
+    log_infof("update: consulta ok=%d tag='%s' atual='%s' manual=%d", r->ok, r->tag, cur, feedback);
+
+    int cv[3], lv[3];
+    if (!r->ok || !update_parse_version(cur, cv) || !update_parse_version(r->tag, lv)) {
+        if (feedback) MessageBoxW(dlg, i18n_str(STR_UPDATE_FAILED), title, MB_OK | MB_ICONWARNING);
+        return;
+    }
+    update_last_check_save((long long)time(NULL));   /* so' conta checagem que deu certo */
+
+    wchar_t curs[32], lats[32];
+    swprintf(curs, 32, L"%d.%d.%d", cv[0], cv[1], cv[2]);
+    swprintf(lats, 32, L"%d.%d.%d", lv[0], lv[1], lv[2]);
+    wchar_t msg[320];
+
+    if (update_is_newer(lv, cv)) {
+        swprintf(msg, 320, i18n_str(STR_UPDATE_AVAILABLE_FMT), lats, curs);
+        if (MessageBoxW(dlg, msg, title, MB_YESNO | MB_ICONINFORMATION) == IDYES) {
+            wchar_t url[160], tagw[UPDATE_TAG_MAX];
+            for (int i = 0; i < UPDATE_TAG_MAX; ++i) tagw[i] = (wchar_t)(unsigned char)r->tag[i];
+            swprintf(url, 160, L"https://github.com/alanmm/3dtextplus/releases/tag/%ls", tagw);
+            ShellExecuteW(dlg, L"open", url, NULL, NULL, SW_SHOWNORMAL);
+        }
+    } else if (feedback) {
+        swprintf(msg, 320, i18n_str(STR_UPDATE_UPTODATE_FMT), curs);
+        MessageBoxW(dlg, msg, title, MB_OK | MB_ICONINFORMATION);
+    }
+}
+
 /* monta e exibe o menu popup do botao "..." (Sobre / Importar / Exportar /
    Idioma>) - as selecoes chegam de volta como WM_COMMAND normal pro
    dialogo principal (comportamento padrao do TrackPopupMenu sem
@@ -2067,6 +2142,9 @@ static void show_main_menu(HWND dlg, HWND button)
 
     HMENU menu = CreatePopupMenu();
     AppendMenuW(menu, MF_STRING, IDM_ABOUT, i18n_str(STR_MENU_ABOUT));
+    AppendMenuW(menu, MF_STRING, IDM_CHECK_UPDATES, i18n_str(STR_MENU_CHECK_UPDATES));
+    AppendMenuW(menu, MF_STRING | (g_work.update_auto_check ? MF_CHECKED : 0), IDM_UPDATE_AUTO,
+                i18n_str(STR_MENU_UPDATE_AUTO));
     AppendMenuW(menu, MF_SEPARATOR, 0, NULL);
     AppendMenuW(menu, MF_STRING, IDM_MENU_RESTORE, i18n_str(STR_MENU_RESTORE_PRESETS));
     AppendMenuW(menu, MF_STRING, IDM_MENU_BACKUP, i18n_str(STR_MENU_BACKUP_PRESETS));
@@ -2455,6 +2533,15 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                 }
                 SetTimer(h, TIMER_SELFTEST, ms, NULL);
             }
+
+            {
+                /* M3DT_UPDATE_FORCE=1: dispara a consulta mesmo em selftest e fora do prazo (teste headless) */
+                char uf[8];
+                int force = GetEnvironmentVariableA("M3DT_UPDATE_FORCE", uf, sizeof uf) > 0 && uf[0] != '0';
+                if (force || (!g_selftest && g_work.update_auto_check &&
+                              update_due(update_last_check_load(), (long long)time(NULL), UPDATE_INTERVAL_DAYS)))
+                    update_start(h);
+            }
             return TRUE;
         }
         case WM_TIMER:
@@ -2561,6 +2648,12 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
         case WM_SIZE:
             if (w != SIZE_MINIMIZED) resize_apply_layout(h, LOWORD(l), HIWORD(l));
             return TRUE;
+        case WM_UPDATE_RESULT: {
+            UpdateResult *r = (UpdateResult *)l;
+            int feedback = (int)InterlockedExchange(&g_update_feedback, 0);
+            if (r) { update_show_result(h, r, feedback); free(r); }
+            return TRUE;
+        }
         case WM_PREVIEW_DIRTY:
             g_dirty = true;   /* aplicado no proximo tick do preview (debounce natural) */
             EnableWindow(GetDlgItem(h, IDC_APPLY), TRUE);
@@ -2602,6 +2695,13 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     break;
                 case IDM_ABOUT:
                     show_about_dialog(h);
+                    break;
+                case IDM_CHECK_UPDATES:
+                    update_check_now(h);
+                    break;
+                case IDM_UPDATE_AUTO:
+                    g_work.update_auto_check = !g_work.update_auto_check;
+                    EnableWindow(GetDlgItem(h, IDC_APPLY), TRUE);
                     break;
                 case IDM_LANG_AUTO:
                 case IDM_LANG_PT:

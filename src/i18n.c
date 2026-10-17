@@ -103,7 +103,9 @@ static const char *const KEY_NAMES[STR_COUNT] = {
     "preset.restore_conflict_overwrite_all",
 
     "menu.about", "menu.restore_presets", "menu.backup_presets",
-    "menu.language", "about.title", "about.version_fmt"
+    "menu.language", "about.title", "about.version_fmt",
+    "menu.check_updates", "update.title", "update.available_fmt",
+    "update.uptodate_fmt", "update.failed", "menu.update_auto"
 };
 
 static wchar_t *g_pt[STR_COUNT];

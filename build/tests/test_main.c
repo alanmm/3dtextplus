@@ -15,6 +15,7 @@ void run_svg_shapes_tests(void);
 void run_mesh_import_tests(void);
 void run_i18n_tests(void);
 void run_presets_tests(void);
+void run_update_tests(void);
 void run_particles_tests(void);
 
 int main(void)
@@ -32,6 +33,7 @@ int main(void)
     run_mesh_import_tests();
     run_i18n_tests();
     run_presets_tests();
+    run_update_tests();
     run_particles_tests();
 
     if (g_test_failures) {

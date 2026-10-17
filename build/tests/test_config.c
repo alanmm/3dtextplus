@@ -95,6 +95,7 @@ void run_config_tests(void)
     EXPECT(d.mesh_use_file_materials == 0);
     EXPECT(d.ui_language == 0);
     EXPECT(d.random_preset == 0);
+    EXPECT(d.update_auto_check == 1);               /* ligado por padrao */
     EXPECT(d.env_mode == 0);
 
     /* round-trip */
@@ -170,6 +171,7 @@ void run_config_tests(void)
     a.clock_show_seconds = 1;
     a.ui_language = 2;
     a.random_preset = 1;
+    a.update_auto_check = 0;
     a.bg_solid_customized = 1;
     a.bg_gradient_customized = 1;
     a.particles_dust_density = 0.11f;   a.particles_dust_size = 0.22f;   a.particles_dust_opacity = 0.33f;
@@ -250,6 +252,7 @@ void run_config_tests(void)
     EXPECT(b.clock_show_seconds == 1);
     EXPECT(b.ui_language == 2);
     EXPECT(b.random_preset == 1);
+    EXPECT(b.update_auto_check == 0);
     EXPECT(b.bg_solid_customized == 1);
     EXPECT(b.bg_gradient_customized == 1);
     EXPECT(nearf(b.particles_dust_density, 0.11f));
@@ -354,6 +357,7 @@ void run_config_tests(void)
             { L"mesh_use_file_materials", L"5" },
             { L"ui_language", L"9" },
             { L"random_preset", L"5" },
+            { L"update_auto_check", L"5" },
             { L"bg_solid_customized", L"5" },
             { L"bg_gradient_customized", L"7" },
             { L"particles_dust_density", L"-1" }, { L"particles_dust_size", L"9" },
@@ -402,6 +406,7 @@ void run_config_tests(void)
     EXPECT(e.mesh_use_file_materials == 1);         /* 5 -> !=0 -> 1 */
     EXPECT(e.ui_language == 0);                     /* 9 -> fora da faixa -> default (auto) */
     EXPECT(e.random_preset == 1);                   /* 5 -> !=0 -> 1 */
+    EXPECT(e.update_auto_check == 1);               /* 5 -> !=0 -> 1 */
     EXPECT(e.bg_solid_customized == 1);              /* 5 -> !=0 -> 1 */
     EXPECT(e.bg_gradient_customized == 1);           /* 7 -> !=0 -> 1 */
     EXPECT(e.particles_dust_density >= 0.0f);       /* -1 -> clamp */

@@ -48,8 +48,9 @@ Nine tabs, a live preview, and a preset system — everything's tweakable, nothi
 - **Background** — solid, gradient, procedural nebula/grid, or your own image, with pan speed.
 - **Particles** — dust, bokeh, sparks, or stars, with density/speed/size/opacity.
 - **Performance** — FPS cap, VSync, MSAA, render scale, and an auto-quality mode that backs off automatically if your GPU can't keep up.
-- **Presets** — six built-in looks plus save/load/import/export for your own.
+- **Presets** — six built-in looks plus save/load/import/export for your own, with an option to pick a random one on each start.
 - UI available in **English and Portuguese**.
+- **Updates** — opening the settings checks GitHub Releases for a newer version at most once every 30 days (or on demand from the `...` menu, where the automatic check can also be turned off). That request is the only network access the app makes.
 
 ---
 

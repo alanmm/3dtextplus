@@ -240,5 +240,7 @@
 #define IDM_LANG_AUTO       2023
 #define IDM_LANG_PT         2024
 #define IDM_LANG_EN         2025
+#define IDM_CHECK_UPDATES   2026
+#define IDM_UPDATE_AUTO     2027
 
 #endif
