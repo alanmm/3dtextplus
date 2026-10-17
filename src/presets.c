@@ -348,6 +348,41 @@ int  preset_user_load(const wchar_t *name, Config *out) { return preset_user_loa
 void preset_user_delete(const wchar_t *name) { preset_user_delete_from(PRESETS_BASE, name); }
 int  preset_user_list(wchar_t names[][PRESET_NAME_MAX], int max) { return preset_user_list_from(PRESETS_BASE, names, max); }
 
+int preset_apply_random_from(const wchar_t *base, unsigned seed, Config *cfg,
+                             wchar_t *name_out, int name_cap)
+{
+    wchar_t names[64][PRESET_NAME_MAX];
+    int nu = preset_user_list_from(base, names, 64);
+    int total = BUILTIN_PRESET_COUNT + nu;
+
+    /* xorshift32: a seed crua do relogio varia pouco entre execucoes proximas */
+    unsigned x = seed ? seed : 0x9E3779B9u;
+    x ^= x << 13; x ^= x >> 17; x ^= x << 5;
+    x ^= x << 13; x ^= x >> 17; x ^= x << 5;
+    int pick = (int)(x % (unsigned)total);
+
+    Config tmp;
+    const wchar_t *shown;
+    if (pick < BUILTIN_PRESET_COUNT) {
+        g_builtin_presets[pick].build(&tmp);
+        shown = i18n_str(g_builtin_presets[pick].name);
+    } else {
+        if (!preset_user_load_from(base, names[pick - BUILTIN_PRESET_COUNT], &tmp)) return 0;
+        shown = names[pick - BUILTIN_PRESET_COUNT];
+    }
+    preset_scope_copy(cfg, &tmp);
+    if (name_out && name_cap > 0) {
+        wcsncpy(name_out, shown, (size_t)name_cap - 1);
+        name_out[name_cap - 1] = 0;
+    }
+    return 1;
+}
+
+int preset_apply_random(unsigned seed, Config *cfg, wchar_t *name_out, int name_cap)
+{
+    return preset_apply_random_from(PRESETS_BASE, seed, cfg, name_out, name_cap);
+}
+
 static void preset_dump_fields(FILE *f, const Config *from)
 {
     unsigned r = (unsigned)(from->base_r * 255.0f + 0.5f);

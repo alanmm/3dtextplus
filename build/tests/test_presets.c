@@ -281,4 +281,47 @@ void run_presets_tests(void)
 
     DeleteFileW(tmpfile);
     EXPECT(preset_backup_parse_file(tmpfile, entries, 8) == -1);   /* arquivo nao existe mais */
+
+    /* sorteio de preset: so' o escopo visual muda; a pool e' embutidos + salvos */
+    {
+        i18n_init(1);
+        const wchar_t *RBASE = L"Software\3DTextPlus_test_presets_rand";
+        wchar_t rn[8][PRESET_NAME_MAX];
+        int rc = preset_user_list_from(RBASE, rn, 8);
+        for (int i = 0; i < rc; ++i) preset_user_delete_from(RBASE, rn[i]);
+
+        Config saved;
+        config_defaults(&saved);
+        saved.material_mode = 2; saved.bloom_on = 0;
+        preset_user_save_to(RBASE, L"Meu", &saved);
+
+        int seen[BUILTIN_PRESET_COUNT + 1] = { 0 };
+        int ok = 1;
+        for (unsigned s = 1; s <= 400; ++s) {
+            Config cfg;
+            config_defaults(&cfg);
+            strcpy(cfg.text, "MEU TEXTO");
+            wchar_t chosen[PRESET_NAME_MAX];
+            if (!preset_apply_random_from(RBASE, s, &cfg, chosen, PRESET_NAME_MAX)) { ok = 0; break; }
+            if (strcmp(cfg.text, "MEU TEXTO") != 0) ok = 0;   /* conteudo do usuario nao muda */
+            if (wcscmp(chosen, L"Meu") == 0) { seen[BUILTIN_PRESET_COUNT]++; EXPECT(cfg.material_mode == 2); }
+            else {
+                int found = 0;
+                for (int i = 0; i < BUILTIN_PRESET_COUNT; ++i)
+                    if (wcscmp(chosen, i18n_str(g_builtin_presets[i].name)) == 0) { seen[i]++; found = 1; }
+                if (!found) ok = 0;
+            }
+        }
+        EXPECT(ok);
+        for (int i = 0; i <= BUILTIN_PRESET_COUNT; ++i) EXPECT(seen[i] > 0);   /* todos aparecem */
+
+        Config c1, c2;
+        config_defaults(&c1); config_defaults(&c2);
+        wchar_t n1[PRESET_NAME_MAX], n2[PRESET_NAME_MAX];
+        preset_apply_random_from(RBASE, 123u, &c1, n1, PRESET_NAME_MAX);
+        preset_apply_random_from(RBASE, 123u, &c2, n2, PRESET_NAME_MAX);
+        EXPECT(wcscmp(n1, n2) == 0);   /* mesma seed, mesmo preset */
+
+        preset_user_delete_from(RBASE, L"Meu");
+    }
 }

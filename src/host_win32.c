@@ -3,6 +3,7 @@
 #include "gl_core.h"
 #include "scene.h"
 #include "config.h"
+#include "presets.h"
 #include "i18n.h"
 #include "util/log.h"
 
@@ -180,6 +181,15 @@ int host_run_saver(HINSTANCE hInst)
     Config cfg;
     config_load(&cfg);
     i18n_init(cfg.ui_language);
+
+    if (cfg.random_preset) {
+        LARGE_INTEGER q; QueryPerformanceCounter(&q);
+        wchar_t chosen[PRESET_NAME_MAX];
+        if (preset_apply_random((unsigned)(q.QuadPart ^ (q.QuadPart >> 32)), &cfg, chosen, PRESET_NAME_MAX))
+            log_infof("saver: preset aleatorio: '%ls'", chosen);
+        else
+            log_errorf("saver: preset aleatorio falhou ao carregar - usando a configuracao atual");
+    }
 
     MonitorList ml; ml.n = 0;
     if (!selftest)

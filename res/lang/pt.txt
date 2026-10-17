@@ -172,6 +172,7 @@ error.svg_empty=SVG sem\ngeometria\nválida
 preset.label=Preset:
 preset.save_btn=+
 preset.delete_btn=−
+preset.random_label=Preset aleatório a cada início
 preset.placeholder=(Escolher...)
 preset.save_as_new=(Salvar como novo preset)
 preset.name_title=Nome do preset

@@ -172,6 +172,7 @@ error.svg_empty=SVG has no\nvalid geometry
 preset.label=Preset:
 preset.save_btn=+
 preset.delete_btn=−
+preset.random_label=Random preset on each start
 preset.placeholder=(Choose...)
 preset.save_as_new=(Save as new preset)
 preset.name_title=Preset name

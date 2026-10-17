@@ -81,6 +81,7 @@ typedef struct {
     float        mesh_size_scale;      /* 0..2, ajuste fino sobre o tamanho normalizado */
     int          mesh_use_file_materials; /* 0/1, so' tem efeito com .obj com material real */
     int          ui_language;          /* 0 automatico, 1 portugues, 2 ingles */
+    int          random_preset;        /* 0/1 - o saver sorteia um preset (embutido ou salvo) a cada inicio; so' o visual muda, texto/SVG ficam */
     int          bg_solid_customized;   /* 0/1 - Cor 1 do fundo Solido ja foi ajustada manualmente */
     int          bg_gradient_customized; /* 0/1 - Cor 1 do fundo Gradiente ja foi ajustada manualmente */
     float        particles_dust_density, particles_dust_size, particles_dust_opacity;     /* memoria por tipo - Poeira */

@@ -2218,6 +2218,8 @@ static void preset_apply_i18n(HWND dlg)
     SetDlgItemTextW(dlg, IDC_PRESET_LABEL, i18n_str(STR_PRESET_LABEL));
     SetDlgItemTextW(dlg, IDC_PRESET_SAVE, i18n_str(STR_PRESET_SAVE_BTN));
     SetDlgItemTextW(dlg, IDC_PRESET_DELETE, i18n_str(STR_PRESET_DELETE_BTN));
+    SetDlgItemTextW(dlg, IDC_PRESET_RANDOM, i18n_str(STR_PRESET_RANDOM_LABEL));
+    CheckDlgButton(dlg, IDC_PRESET_RANDOM, g_work.random_preset ? BST_CHECKED : BST_UNCHECKED);
     preset_refresh_combo(dlg);
 }
 
@@ -2654,6 +2656,11 @@ static INT_PTR CALLBACK dlg_proc(HWND h, UINT m, WPARAM w, LPARAM l)
                     EnableWindow(GetDlgItem(h, IDC_APPLY), TRUE);
                     break;
                 }
+                case IDC_PRESET_RANDOM:
+                    if (HIWORD(w) != BN_CLICKED) break;
+                    g_work.random_preset = (IsDlgButtonChecked(h, IDC_PRESET_RANDOM) == BST_CHECKED) ? 1 : 0;
+                    EnableWindow(GetDlgItem(h, IDC_APPLY), TRUE);
+                    break;
                 case IDC_PRESET_SAVE: {
                     wchar_t name[PRESET_NAME_MAX];
                     if (!prompt_preset_name(h, name, PRESET_NAME_MAX)) break;

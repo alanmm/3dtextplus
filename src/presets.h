@@ -30,6 +30,14 @@ int  preset_user_load(const wchar_t *name, Config *out);
 void preset_user_delete(const wchar_t *name);
 int  preset_user_list(wchar_t names[][PRESET_NAME_MAX], int max);
 
+/* sorteia um preset entre os embutidos e os salvos pelo usuario e aplica so' o
+   escopo visual em `cfg` (texto/SVG/malha do usuario ficam). `seed` decide o
+   sorteio (o chamador passa algo variavel; fixa nos testes). Devolve 1 se
+   aplicou, 0 se o preset sorteado nao pode ser lido; `name_out` recebe o nome. */
+int preset_apply_random(unsigned seed, Config *cfg, wchar_t *name_out, int name_cap);
+int preset_apply_random_from(const wchar_t *base, unsigned seed, Config *cfg,
+                             wchar_t *name_out, int name_cap);
+
 void preset_user_save_to(const wchar_t *base, const wchar_t *name, const Config *from);
 int  preset_user_load_from(const wchar_t *base, const wchar_t *name, Config *out);
 void preset_user_delete_from(const wchar_t *base, const wchar_t *name);
